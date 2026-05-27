@@ -1,0 +1,43 @@
+[package]
+name = "sundaystage"
+version = "0.1.0"
+description = "Live presentation app for churches — companion to SundayRec"
+authors = ["Richard Fossland"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "sundaystage_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Data layer
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
+tokio = { version = "1", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+thiserror = "2"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Type generation for the frontend (run with `cargo test export_bindings`)
+ts-rs = { version = "11", features = ["serde-compat", "chrono-impl", "uuid-impl"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = []
