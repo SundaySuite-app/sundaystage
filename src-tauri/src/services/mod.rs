@@ -19,3 +19,4 @@ pub mod stage_display;
 pub mod sundayrec_bridge;
 pub mod sync;
 pub mod theme;
+pub mod tono;

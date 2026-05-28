@@ -14,7 +14,8 @@
 use serde::{Deserialize, Serialize};
 
 /// Bumped only by *adding* verbs. Both apps send this in `ping`.
-pub const PROTOCOL_VERSION: &str = "1.0.0";
+/// 1.1.0 added `streaming_started` / `streaming_stopped` (TONO flag).
+pub const PROTOCOL_VERSION: &str = "1.1.0";
 
 /// A request sent across the bridge. `verb` discriminates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +33,11 @@ pub enum BridgeRequest {
         recording_id: String,
         stopped_at: i64,
     },
+    /// SundayRec → Stage: streaming (not just recording) started. Drives the
+    /// TONO streaming-licence flag (Phase 10.2). Added in 1.1.0.
+    StreamingStarted { at: i64 },
+    /// SundayRec → Stage: streaming stopped. Added in 1.1.0.
+    StreamingStopped { at: i64 },
     /// Stage → SundayRec: a cue advanced; carries a timeline marker.
     CueAdvanced {
         offset_ms: i64,
