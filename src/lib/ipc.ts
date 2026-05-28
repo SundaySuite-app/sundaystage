@@ -29,6 +29,8 @@ import type {
   LiveSessionView,
   MediaAsset,
   MediaStatus,
+  MonitorInfo,
+  OutputConfig,
   SearchResult,
   StageDisplayConfig,
   Service,
@@ -271,6 +273,18 @@ export const sync = {
   status: () => call<SyncStatus>("sync_status"),
 };
 
+// ── Output displays (Phase 5.2) ─────────────────────────────────────────────────
+
+export const output = {
+  monitors: () => call<MonitorInfo[]>("output_monitors"),
+  config: () => call<OutputConfig>("output_config"),
+  setConfig: (config: OutputConfig) =>
+    call<void>("output_set_config", { config }),
+  open: () => call<void>("output_open"),
+  close: () => call<void>("output_close"),
+  isOpen: () => call<boolean>("output_is_open"),
+};
+
 /** Bundled namespace for ergonomic imports. */
 export const ipc = {
   library,
@@ -284,4 +298,5 @@ export const ipc = {
   media,
   onboarding,
   sync,
+  output,
 };

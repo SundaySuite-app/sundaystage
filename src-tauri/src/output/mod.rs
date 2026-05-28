@@ -23,6 +23,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::services::live_session::LiveFrame;
 
+pub mod window;
+
 /// Main app → output process. `seq` lets the output ACK the exact render and
 /// lets us measure keypress→pixels latency (the < 50 ms promise).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -36,7 +36,12 @@ Phase 13.1 onward.
 ## Remaining before 1.0 (deferred / needs infra this environment can't provide)
 
 - [ ] Interactive 5-step tutorial overlay (library → editor → live).
-- [ ] Real multi-display output process + per-screen assignment (Phase 5.2).
+- [~] Multi-display output + per-screen role assignment (Phase 5.2): shipped as
+  borderless full-screen Tauri output windows (one per monitor) driven by an
+  event-bus render/heartbeat from the operator UI, with a JS watchdog that
+  holds the last frame. **Needs native verification** (does a window land on
+  monitor 2, fullscreen?) and a true separate-process output binary for full
+  crash isolation remains a follow-up.
 - [ ] Code signing + notarization + installers + auto-update (Phase 13.2):
       Apple Developer ID, Windows cert, Tauri updater, GitHub Releases CI.
 - [ ] Native file dialog / drag-drop import + ffmpeg thumbnails (Phase 7.2).

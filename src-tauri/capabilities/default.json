@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
+  "description": "Capability for the operator window and the Phase 5.2 output windows (output-*).",
+  "windows": ["main", "output-*"],
   "permissions": ["core:default", "opener:default"]
 }

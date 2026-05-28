@@ -106,6 +106,13 @@ pub fn run() {
             commands::onboarding::onboarding_seed_demo,
             // Cloud sync (Phase 9)
             commands::sync::sync_status,
+            // Output displays (Phase 5.2)
+            commands::output::output_monitors,
+            commands::output::output_config,
+            commands::output::output_set_config,
+            commands::output::output_open,
+            commands::output::output_close,
+            commands::output::output_is_open,
             // Service
             commands::services::service_create,
             commands::services::service_get,

@@ -7,8 +7,9 @@
  * `LiveSession` (single dispatcher, persisted for crash recovery); this UI
  * dispatches operator actions and mirrors the returned frame.
  *
- * Output health is a placeholder until the Phase 5.2 output process exists —
- * there are no real displays to report on yet.
+ * Output displays (Phase 5.2) are driven from here: `useOutputBridge` broadcasts
+ * each frame + a heartbeat to the borderless full-screen output windows, and
+ * `OutputControls` assigns monitors and opens/closes them.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,8 +32,10 @@ import type {
   Service,
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { useOutputBridge } from "@/lib/outputBridge";
 import { StageDisplay } from "./StageDisplay";
 import { ExportModal } from "./ExportModal";
+import { OutputControls } from "./OutputControls";
 
 interface Props {
   service: Service;
@@ -98,6 +101,9 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
       .then(setSession)
       .catch((e) => setError(String(e)));
   }, []);
+
+  // Drive the live output windows (Phase 5.2): broadcast each frame + heartbeat.
+  useOutputBridge(session?.frame ?? null, !!session);
 
   // Hotkeys
   useEffect(() => {
@@ -356,14 +362,8 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
 
         <span className="flex-1" />
 
-        {/* Output health (placeholder until Phase 5.2 output process exists). */}
-        <span
-          className="flex items-center gap-1.5"
-          title="Ingen separat utgangsprosess enda (Phase 5.2)"
-        >
-          <span className="h-2 w-2 rounded-full bg-[var(--color-warning)]" />
-          Ingen utgang tilkoblet
-        </span>
+        {/* Output displays (Phase 5.2): monitor assignment + open/close. */}
+        <OutputControls />
         <span>
           Cue <span className="font-mono">{index + 1}</span> /{" "}
           <span className="font-mono">{cues.length}</span>

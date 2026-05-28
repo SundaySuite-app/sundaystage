@@ -16,6 +16,17 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Two HTML entry points: the operator app (index.html) and the borderless
+  // full-screen output renderer (output.html), opened per display in Phase 5.2.
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        output: path.resolve(__dirname, "output.html"),
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
