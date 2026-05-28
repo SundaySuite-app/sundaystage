@@ -7,11 +7,12 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Sparkles } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
 import type { Library, SearchResult, Song } from "@/lib/bindings";
 import { SongEditor } from "./SongEditor";
+import { PlanModal } from "./PlanModal";
 
 interface Props {
   library: Library;
@@ -21,6 +22,8 @@ export function LibraryPage({ library }: Props) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [openSong, setOpenSong] = useState<{ id: string; title: string } | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const songsQuery = useQuery({
     queryKey: ["songs", library.id],
@@ -87,6 +90,14 @@ export function LibraryPage({ library }: Props) {
         </div>
         <button
           type="button"
+          onClick={() => setPlanOpen(true)}
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <Sparkles size={14} aria-hidden />
+          <span>Planlegg med AI</span>
+        </button>
+        <button
+          type="button"
           onClick={() => createSong.mutate()}
           disabled={createSong.isPending}
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
@@ -95,6 +106,20 @@ export function LibraryPage({ library }: Props) {
           <span>Ny sang</span>
         </button>
       </header>
+
+      {planOpen && (
+        <PlanModal
+          library={library}
+          onClose={() => setPlanOpen(false)}
+          onCreated={(name) => setToast(`Tjeneste opprettet: ${name}`)}
+        />
+      )}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] px-4 py-2 text-sm shadow-[var(--shadow-elevated)]">
+          {toast}
+          <button onClick={() => setToast(null)} className="ml-3 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">✕</button>
+        </div>
+      )}
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-6">

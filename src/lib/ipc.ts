@@ -31,6 +31,7 @@ import type {
   StageDisplayConfig,
   Service,
   ServiceItem,
+  ServicePlan,
   Slide,
   SlideDoc,
   Song,
@@ -217,6 +218,10 @@ export const ai = {
     call<FormattedSong>("ai_format_lyrics", { raw, apiKey, model }),
   applyFormat: (songId: string, formatted: FormattedSong) =>
     call<SongArrangement>("ai_apply_format", { songId, formatted }),
+  planService: (libraryId: string, prompt: string, apiKey: string | null, model: string | null) =>
+    call<ServicePlan>("ai_plan_service", { libraryId, prompt, apiKey, model }),
+  applyPlan: (libraryId: string, plan: ServicePlan) =>
+    call<Service>("ai_apply_plan", { libraryId, plan }),
 };
 
 // ── Media (Phase 7.2) ──────────────────────────────────────────────────────────

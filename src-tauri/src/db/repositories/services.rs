@@ -82,6 +82,49 @@ impl<'a> ServiceRepo<'a> {
         .await?;
         Ok(rows)
     }
+
+    /// Append an item to a service. `kind` must be one of the schema's allowed
+    /// values; the matching id column should be set for `song`/`scripture`/etc.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn add_item(
+        &self,
+        service_id: &str,
+        position: i64,
+        kind: &str,
+        song_id: Option<&str>,
+        arrangement_id: Option<&str>,
+        key_override: Option<&str>,
+        bible_reference_id: Option<&str>,
+        notes: Option<&str>,
+    ) -> AppResult<ServiceItem> {
+        let id = new_id();
+        let now = now_ms();
+        sqlx::query(
+            r#"
+            INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, NULL, ?9, ?10, ?10)
+            "#,
+        )
+        .bind(&id)
+        .bind(service_id)
+        .bind(position)
+        .bind(kind)
+        .bind(song_id)
+        .bind(arrangement_id)
+        .bind(key_override)
+        .bind(bible_reference_id)
+        .bind(notes)
+        .bind(now)
+        .execute(self.pool)
+        .await?;
+        sqlx::query_as::<_, ServiceItem>("SELECT * FROM service_item WHERE id = ?1")
+            .bind(&id)
+            .fetch_one(self.pool)
+            .await
+            .map_err(Into::into)
+    }
 }
 
 #[cfg(test)]

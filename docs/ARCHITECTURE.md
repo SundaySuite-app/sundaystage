@@ -477,6 +477,8 @@ Detailed in Phase 5.2 of the build plan. Summary:
 - [~] Phase 10 — SundayRec integration (protocol design + marquee transforms done; loopback transport/discovery/pairing + TONO audit deferred — need a live network + peer app)
   - 10.1: `services::sundayrec_bridge::protocol` versioned `BridgeRequest`/`BridgeResponse` (ping/recording_started/stopped/cue_advanced/get_recordings/get_transcript/get_song_history, v1.0.0), `docs/SUNDAY_BRIDGE_PROTOCOL.md`
   - 10.2: `services::sundayrec_bridge::export` — pure `chapter_markers` (cue→chapter, item-grouped, blackout-safe) + `session_to_srt` (lyrics→SRT, timeline-anchored, gap/coalesce-aware) over the live session log; `bridge_chapter_markers`/`bridge_export_srt` commands + `ExportModal` (chapters + SRT preview, copy)
-- [ ] Phase 11 — Power AI features
+- [~] Phase 11 — Power AI features (11.2 service-planning assistant done; 11.2 translation overlay + 11.1 semantic search deferred)
+  - 11.2: `services::ai::plan` — `ServicePlan`/`PlanItem`, library-aware prompt + tool schema, `parse_plan_response` (validates song picks against the library, downgrades unknowns to notes), `apply_plan` → real `Service` + `ServiceItem`s (`ServiceRepo::add_item`); `ai_plan_service`/`ai_apply_plan` commands; `PlanModal` from the library header
+  - Deferred: translation overlay (needs a translation-storage model + live-display changes; overlaps the Verbatim translate work) and 11.1 semantic search (needs embeddings/pgvector)
 - [ ] Phase 12 — Companion PWA
 - [ ] Phase 13 — Polish + launch

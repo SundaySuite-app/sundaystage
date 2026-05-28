@@ -15,6 +15,7 @@
 //! the `ANTHROPIC_API_KEY` env var.
 
 pub mod lyric_format;
+pub mod plan;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

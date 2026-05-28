@@ -97,6 +97,8 @@ pub fn run() {
             commands::ai::ai_models,
             commands::ai::ai_format_lyrics,
             commands::ai::ai_apply_format,
+            commands::ai::ai_plan_service,
+            commands::ai::ai_apply_plan,
             // Media (Phase 7.2)
             commands::media::media_import,
             commands::media::media_list,
