@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Sidebar, type Route } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { LibraryPage } from "@/features/library/LibraryPage";
+import { LivePreview } from "@/features/live/LivePreview";
 import { ipc } from "@/lib/ipc";
-import type { Library } from "@/lib/bindings";
+import type { Library, Service } from "@/lib/bindings";
 
 function App() {
   const [route, setRoute] = useState<Route>("library");
+  const [liveService, setLiveService] = useState<Service | null>(null);
+  const qc = useQueryClient();
 
   // Auto-create a "Personal" library on first run so the UI has something
   // to point at. Phase 13 replaces this with the proper onboarding wizard.
@@ -27,12 +30,43 @@ function App() {
 
   const activeLibrary: Library | undefined = librariesQuery.data?.[0];
 
+  // "Go Live" creates a tiny demo service so users can see the live engine
+  // without building a service first. Real implementation in Phase 3 lets
+  // you go live from any Service.
+  const goLive = useMutation({
+    mutationFn: async () => {
+      if (!activeLibrary) throw new Error("No library");
+      const upcoming = await ipc.service.upcoming(activeLibrary.id, 0, 1);
+      if (upcoming.length > 0) return upcoming[0];
+      // Create a demo service so the live preview has something to compile
+      return ipc.service.create(
+        activeLibrary.id,
+        "Demo Service",
+        Date.now(),
+      );
+    },
+    onSuccess: (svc) => {
+      setLiveService(svc);
+      void qc.invalidateQueries({ queryKey: ["services"] });
+    },
+  });
+
+  // Live preview takes over the full window
+  if (liveService) {
+    return (
+      <LivePreview
+        service={liveService}
+        onExit={() => setLiveService(null)}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
       <Sidebar
         current={route}
         onNavigate={setRoute}
-        onGoLive={() => alert("Live mode not yet implemented — Phase 5")}
+        onGoLive={() => goLive.mutate()}
       />
 
       <main className="flex-1 overflow-hidden">
