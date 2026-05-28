@@ -66,6 +66,7 @@ export type { TemplateSlot }      from "./TemplateSlot";
 export type { TextStyle }         from "./TextStyle";
 export type { Theme }             from "./Theme";
 export type { ThemeTokens }       from "./ThemeTokens";
+export type { UniversalHit }      from "./UniversalHit";
 export type { VAlign }            from "./VAlign";
 
 /** Error shape returned by every Tauri command (see error.rs). */

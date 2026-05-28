@@ -52,6 +52,7 @@ import type {
   Template,
   Theme,
   ThemeTokens,
+  UniversalHit,
 } from "./bindings";
 
 const DEV = import.meta.env.DEV;
@@ -297,6 +298,13 @@ export const output = {
   isOpen: () => call<boolean>("output_is_open"),
 };
 
+// ── Universal search (Phase 2.3) ─────────────────────────────────────────────
+
+export const search = {
+  all: (libraryId: string, query: string) =>
+    call<UniversalHit[]>("search_all", { libraryId, query }),
+};
+
 // ── Bible (Phase 7.1) ────────────────────────────────────────────────────────
 
 export const bible = {
@@ -366,4 +374,5 @@ export const ipc = {
   output,
   crash,
   bible,
+  search,
 };

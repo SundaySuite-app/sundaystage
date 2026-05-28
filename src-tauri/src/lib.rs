@@ -137,6 +137,8 @@ pub fn run() {
             commands::crash::crash_reporting_set,
             commands::crash::crash_reports_count,
             commands::crash::crash_reports_clear,
+            // Universal search (Phase 2.3)
+            commands::search::search_all,
             // Bible (Phase 7.1)
             commands::bible::bible_translations,
             commands::bible::bible_books,

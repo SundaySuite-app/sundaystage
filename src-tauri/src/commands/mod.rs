@@ -14,6 +14,7 @@ pub mod live;
 pub mod media;
 pub mod onboarding;
 pub mod output;
+pub mod search;
 pub mod services;
 pub mod songs;
 pub mod sync;

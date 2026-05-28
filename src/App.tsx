@@ -150,7 +150,10 @@ function App() {
         )}
       </main>
 
-      <CommandPalette onNavigate={setRoute} />
+      <CommandPalette
+        onNavigate={setRoute}
+        libraryId={activeLibrary?.id ?? null}
+      />
       <UpdateBanner />
 
       {recoverable && (
