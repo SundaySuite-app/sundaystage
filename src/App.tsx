@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sidebar, type Route } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { hasSeenTutorial, markTutorialSeen } from "@/lib/tutorial";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { DecksPage } from "@/features/decks/DecksPage";
 import { MediaPage } from "@/features/media/MediaPage";
@@ -23,6 +25,7 @@ function App() {
   const [liveService, setLiveService] = useState<Service | null>(null);
   const [resuming, setResuming] = useState(false);
   const [recoverable, setRecoverable] = useState<LiveSessionView | null>(null);
+  const [tutorialDone, setTutorialDone] = useState(() => hasSeenTutorial());
   const [onboarded, setOnboarded] = useState(() => {
     try {
       return localStorage.getItem(ONBOARDED_KEY) === "1";
@@ -155,6 +158,14 @@ function App() {
         libraryId={activeLibrary?.id ?? null}
       />
       <UpdateBanner />
+      {!tutorialDone && (
+        <TutorialOverlay
+          onDone={() => {
+            markTutorialSeen();
+            setTutorialDone(true);
+          }}
+        />
+      )}
 
       {recoverable && (
         <RecoveryBanner
