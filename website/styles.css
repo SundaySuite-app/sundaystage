@@ -1,0 +1,363 @@
+/* SundayStage landing site — gold-on-navy, matching the app's brand tokens. */
+:root {
+  --navy-950: oklch(0.08 0.04 252);
+  --navy-900: oklch(0.13 0.07 252);
+  --navy-800: oklch(0.2 0.1 252);
+  --navy-700: oklch(0.28 0.13 252);
+  --gold: oklch(0.84 0.16 85);
+  --gold-dim: oklch(0.68 0.15 75);
+  --fg: oklch(0.96 0 0);
+  --fg-muted: oklch(0.72 0.02 252);
+  --border: oklch(0.28 0.04 252);
+  --radius: 14px;
+  --max: 1080px;
+  --font:
+    "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--fg);
+  background:
+    radial-gradient(1200px 600px at 70% -10%, var(--navy-800), transparent 60%),
+    var(--navy-950);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+section {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 80px 24px;
+}
+
+/* Nav */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 16px 24px;
+  backdrop-filter: blur(8px);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--navy-700);
+  color: var(--gold);
+  font-weight: 800;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  color: var(--fg-muted);
+  font-size: 14px;
+}
+.nav-links a:hover {
+  color: var(--fg);
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: filter 0.15s ease;
+}
+.btn-primary {
+  background: var(--gold);
+  color: var(--navy-950);
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+.btn-ghost {
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.btn-ghost:hover {
+  background: var(--navy-800);
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  padding-top: 64px;
+}
+.eyebrow {
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  font-weight: 800;
+  max-width: 16ch;
+  margin: 0 auto;
+}
+.hero h1 em {
+  color: var(--gold);
+  font-style: normal;
+}
+.lede {
+  color: var(--fg-muted);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  max-width: 60ch;
+  margin: 22px auto 0;
+}
+.cta-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.stage-mock {
+  margin: 64px auto 0;
+  max-width: 760px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: linear-gradient(160deg, var(--navy-900), var(--navy-950));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  position: relative;
+}
+.stage-mock-label {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.stage-mock-lyric {
+  font-size: clamp(1.4rem, 4vw, 2.6rem);
+  font-weight: 700;
+}
+.stage-mock-sub {
+  font-size: clamp(1rem, 2.5vw, 1.6rem);
+  color: var(--fg-muted);
+}
+
+/* Values */
+.values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.value {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--navy-900);
+}
+.value h3 {
+  font-size: 1.15rem;
+  margin-bottom: 8px;
+}
+.value p {
+  color: var(--fg-muted);
+  font-size: 15px;
+}
+
+/* Section headings */
+.features h2,
+.suite h2,
+.pricing h2,
+.download h2 {
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+/* Features */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.feature-grid article {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.feature-grid h3 {
+  font-size: 1.05rem;
+  margin-bottom: 8px;
+  color: var(--gold);
+}
+.feature-grid p {
+  color: var(--fg-muted);
+  font-size: 14px;
+}
+
+/* Suite */
+.suite {
+  text-align: center;
+}
+.suite p {
+  color: var(--fg-muted);
+  font-size: 1.1rem;
+  max-width: 64ch;
+  margin: 0 auto;
+}
+.suite strong {
+  color: var(--fg);
+}
+
+/* Pricing */
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.price {
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--navy-900);
+  position: relative;
+}
+.price-featured {
+  border-color: var(--gold);
+}
+.price-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: var(--navy-950);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+.price h3 {
+  font-size: 1.2rem;
+}
+.price-tag {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 8px 0 16px;
+}
+.price-tag span {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+.price ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.price li {
+  color: var(--fg-muted);
+  font-size: 14px;
+  padding-left: 22px;
+  position: relative;
+}
+.price li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--gold);
+  font-weight: 700;
+}
+.price-note {
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 13px;
+  margin-top: 24px;
+}
+
+/* Download */
+.download {
+  text-align: center;
+}
+.download p {
+  color: var(--fg-muted);
+}
+
+/* Footer */
+.footer {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 32px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+.footer-links a:hover {
+  color: var(--fg);
+}
+
+@media (max-width: 720px) {
+  .values,
+  .feature-grid,
+  .price-grid {
+    grid-template-columns: 1fr;
+  }
+  .nav-links a:not(.btn) {
+    display: none;
+  }
+}
