@@ -41,8 +41,18 @@ pub fn run() {
         .with_target(false)
         .init();
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+
+    // Auto-update + relaunch (Phase 13.2) are desktop-only.
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
+    }
+
+    builder
         .setup(|app| {
             // Resolve the app-local data directory and open the database.
             let data_dir = app

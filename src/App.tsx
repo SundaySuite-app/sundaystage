@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Sidebar, type Route } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { DecksPage } from "@/features/decks/DecksPage";
 import { MediaPage } from "@/features/media/MediaPage";
@@ -144,6 +145,7 @@ function App() {
       </main>
 
       <CommandPalette onNavigate={setRoute} />
+      <UpdateBanner />
 
       {recoverable && (
         <RecoveryBanner

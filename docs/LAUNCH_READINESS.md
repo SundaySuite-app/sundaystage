@@ -42,8 +42,13 @@ Phase 13.1 onward.
   holds the last frame. **Needs native verification** (does a window land on
   monitor 2, fullscreen?) and a true separate-process output binary for full
   crash isolation remains a follow-up.
-- [ ] Code signing + notarization + installers + auto-update (Phase 13.2):
-      Apple Developer ID, Windows cert, Tauri updater, GitHub Releases CI.
+- [~] Code signing + notarization + installers + auto-update (Phase 13.2):
+  pipeline wired — tauri.conf updater config (embedded pubkey), updater +
+  process plugins, UpdateBanner, and `release.yml` (tag `v*` → signed/
+  notarized mac+win draft release + `latest.json`). **Runs once the repo
+  secrets in docs/DISTRIBUTION.md are set.** Pending: GitHub secrets, a
+  Windows signing cert, and one native end-to-end update test. Private
+  updater key lives at `~/.tauri/sundaystage_updater.key` (outside the repo).
 - [ ] Native file dialog / drag-drop import + ffmpeg thumbnails (Phase 7.2).
 - [ ] SundayRec bridge transport (loopback HTTP + mDNS + pairing) (Phase 10.1).
 - [ ] TONO streaming-licence audit (Phase 10.2 feature 3).

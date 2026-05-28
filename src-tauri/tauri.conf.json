@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "sundaystage",
+  "productName": "SundayStage",
   "version": "0.1.0",
   "identifier": "no.sundaystage.app",
   "build": {
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "sundaystage",
-        "width": 800,
-        "height": 600
+        "title": "SundayStage",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 600
       }
     ],
     "security": {
@@ -23,13 +25,45 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app", "dmg", "nsis"],
+    "createUpdaterArtifacts": true,
+    "category": "Productivity",
+    "shortDescription": "Live presentation software for churches",
+    "longDescription": "SundayStage is the visual stage companion to SundayRec: a fast, reliable, AI-native live presentation app for worship — song library with AI lyric formatting, a Figma-like slide editor, a QLab-style cue engine, multi-display output, and deep SundayRec integration.",
+    "copyright": "© 2026 Richard Fossland",
+    "publisher": "Richard Fossland",
+    "homepage": "https://sundaystage.com",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "hardenedRuntime": true,
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNGMERCQTk5NjJFQTgyMDYKUldRR2d1cGltYm9OUDR5NWhXVm1BS3k5UXl0Y3RVZXM3cXVYMWM2TUhra3c2V09QZ1k2Z3BqRWEK",
+      "endpoints": [
+        "https://github.com/richardfossland/sundaystage/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

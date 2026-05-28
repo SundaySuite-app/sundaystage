@@ -1,0 +1,80 @@
+# Build, sign, notarize, and publish SundayStage for macOS + Windows on a
+# version tag. Mirrors SundayRec's / Verbatim's release flow.
+#
+# Cut a release:   npm version <patch|minor|major>   (bumps package.json)
+#                  # bump src-tauri/tauri.conf.json "version" to match
+#                  git tag vX.Y.Z && git push origin vX.Y.Z
+#
+# The tag push triggers this workflow, which produces a DRAFT GitHub Release
+# with the signed installers + the updater `latest.json`. Review the draft,
+# then publish it — installed apps pick up the update from the `latest`
+# release endpoint configured in tauri.conf.json.
+#
+# Required repository secrets are documented in docs/DISTRIBUTION.md.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macos-latest is Apple Silicon (arm64). Universal/Intel is a
+          # follow-up (needs a universal target + matching deps).
+          - platform: macos-latest
+            args: ""
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo (src-tauri)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build, sign, and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ── Updater signing (required) ──────────────────────────────────
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # ── macOS code signing + notarization ───────────────────────────
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "SundayStage ${{ github.ref_name }}"
+          releaseBody: "See the assets below to download and install. Auto-update is enabled for existing installs."
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
