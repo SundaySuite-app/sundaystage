@@ -11,6 +11,7 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod services;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -71,6 +72,8 @@ pub fn run() {
             commands::services::service_get,
             commands::services::service_upcoming,
             commands::services::service_items,
+            // Live engine
+            commands::live::live_compile_cue_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

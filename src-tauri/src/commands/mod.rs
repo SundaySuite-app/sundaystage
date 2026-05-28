@@ -7,3 +7,4 @@
 pub mod libraries;
 pub mod songs;
 pub mod services;
+pub mod live;

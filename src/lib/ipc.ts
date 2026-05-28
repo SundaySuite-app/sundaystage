@@ -15,6 +15,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   AppError,
+  CueList,
   Library,
   LibraryInput,
   SearchResult,
@@ -99,5 +100,12 @@ export const service = {
     call<ServiceItem[]>("service_items", { serviceId }),
 };
 
+// ── Live engine ──────────────────────────────────────────────────────────────
+
+export const live = {
+  compileCueList: (serviceId: string) =>
+    call<CueList>("live_compile_cue_list", { serviceId }),
+};
+
 /** Bundled namespace for ergonomic imports. */
-export const ipc = { library, song, service };
+export const ipc = { library, song, service, live };

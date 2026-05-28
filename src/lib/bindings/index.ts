@@ -8,6 +8,9 @@
  */
 
 export type { BibleReference }    from "./BibleReference";
+export type { Cue }               from "./Cue";
+export type { CueList }           from "./CueList";
+export type { CueSource }         from "./CueSource";
 export type { CustomDeck }        from "./CustomDeck";
 export type { Library }           from "./Library";
 export type { LibraryInput }      from "./LibraryInput";
@@ -17,6 +20,7 @@ export type { SearchResult }      from "./SearchResult";
 export type { Service }           from "./Service";
 export type { ServiceItem }       from "./ServiceItem";
 export type { Slide }             from "./Slide";
+export type { SlideContent }      from "./SlideContent";
 export type { Song }              from "./Song";
 export type { SongArrangement }   from "./SongArrangement";
 export type { SongInput }         from "./SongInput";
