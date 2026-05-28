@@ -23,7 +23,8 @@ type Route =
   | "bible"
   | "media"
   | "settings"
-  | "dashboard";
+  | "dashboard"
+  | "design";
 
 interface SidebarProps {
   current: Route;

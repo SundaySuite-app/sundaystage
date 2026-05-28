@@ -57,6 +57,7 @@
   --color-fg-muted: var(--color-neutral-400);
   --color-border: var(--color-neutral-800);
   --color-accent: var(--color-sunday-gold-400);
+  --color-accent-fg: var(--color-sunday-blue-900); /* text on the gold accent */
   --color-brand: var(--color-sunday-blue-600);
 
   /* Status */

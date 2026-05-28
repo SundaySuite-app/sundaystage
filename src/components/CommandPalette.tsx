@@ -20,6 +20,7 @@ import {
   BookOpen,
   Image as ImageIcon,
   Settings,
+  Palette,
 } from "lucide-react";
 
 import type { Route } from "./Sidebar";
@@ -134,6 +135,19 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
               shortcut="⌘L"
             />
           </Command.Group>
+
+          {import.meta.env.DEV && (
+            <Command.Group
+              heading="Utvikler"
+              className="text-xs font-medium uppercase tracking-wider text-[var(--color-fg-muted)] mb-1 mt-4 px-2"
+            >
+              <Item
+                onSelect={() => go("design")}
+                icon={<Palette size={14} />}
+                label="Designsystem"
+              />
+            </Command.Group>
+          )}
         </Command.List>
       </div>
     </Command.Dialog>
