@@ -20,7 +20,9 @@ import type {
   ClaudeModel,
   CueList,
   CustomDeck,
+  DemoSummary,
   FormattedSong,
+  LocaleInfo,
   Library,
   LibraryInput,
   LiveAction,
@@ -235,5 +237,12 @@ export const media = {
     call<MediaAsset | null>("media_relink", { id, searchDirs }),
 };
 
+// ── Onboarding + i18n (Phase 13.1) ─────────────────────────────────────────────
+
+export const onboarding = {
+  locales:  () => call<LocaleInfo[]>("app_locales"),
+  seedDemo: (libraryId: string) => call<DemoSummary>("onboarding_seed_demo", { libraryId }),
+};
+
 /** Bundled namespace for ergonomic imports. */
-export const ipc = { library, song, service, live, deck, theme, arrangement, ai, media };
+export const ipc = { library, song, service, live, deck, theme, arrangement, ai, media, onboarding };

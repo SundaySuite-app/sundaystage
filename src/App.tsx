@@ -7,15 +7,37 @@ import { LibraryPage } from "@/features/library/LibraryPage";
 import { DecksPage } from "@/features/decks/DecksPage";
 import { MediaPage } from "@/features/media/MediaPage";
 import { LivePreview } from "@/features/live/LivePreview";
+import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
 import { ipc } from "@/lib/ipc";
+import { useT } from "@/lib/i18n";
 import type { Library, LiveSessionView, Service } from "@/lib/bindings";
+
+const ONBOARDED_KEY = "ss-onboarded";
 
 function App() {
   const [route, setRoute] = useState<Route>("library");
   const [liveService, setLiveService] = useState<Service | null>(null);
   const [resuming, setResuming] = useState(false);
   const [recoverable, setRecoverable] = useState<LiveSessionView | null>(null);
+  const [onboarded, setOnboarded] = useState(() => {
+    try {
+      return localStorage.getItem(ONBOARDED_KEY) === "1";
+    } catch {
+      return true;
+    }
+  });
+  const t = useT();
   const qc = useQueryClient();
+
+  const finishOnboarding = () => {
+    try {
+      localStorage.setItem(ONBOARDED_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setOnboarded(true);
+    void qc.invalidateQueries();
+  };
 
   // On launch, detect a live session that ended abnormally (Phase 6.1).
   useEffect(() => {
@@ -76,6 +98,11 @@ function App() {
     setRecoverable(null);
   };
 
+  // First-run onboarding takes over until completed.
+  if (!onboarded && activeLibrary) {
+    return <WelcomeScreen library={activeLibrary} onDone={finishOnboarding} />;
+  }
+
   // Live preview takes over the full window
   if (liveService) {
     return (
@@ -101,7 +128,7 @@ function App() {
       <main className="flex-1 overflow-hidden">
         {!activeLibrary ? (
           <div className="grid h-full place-items-center text-[var(--color-fg-muted)]">
-            <p>Laster bibliotek…</p>
+            <p>{t("loadingLibrary")}</p>
           </div>
         ) : route === "library" ? (
           <LibraryPage library={activeLibrary} />

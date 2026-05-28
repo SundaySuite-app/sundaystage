@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { useT, type TKey } from "@/lib/i18n";
 
 type Route =
   | "library"
@@ -26,16 +27,17 @@ interface SidebarProps {
   onGoLive: () => void;
 }
 
-const NAV_ITEMS: Array<{ id: Route; label: string; icon: typeof Library }> = [
-  { id: "dashboard", label: "Dashbord",   icon: LayoutDashboard },
-  { id: "library",   label: "Bibliotek",  icon: Library },
-  { id: "decks",     label: "Decks",      icon: LayoutTemplate },
-  { id: "services",  label: "Tjenester",  icon: CalendarDays },
-  { id: "bible",     label: "Bibel",      icon: BookOpen },
-  { id: "media",     label: "Media",      icon: ImageIcon },
+const NAV_ITEMS: Array<{ id: Route; tkey: TKey; icon: typeof Library }> = [
+  { id: "dashboard", tkey: "navDashboard", icon: LayoutDashboard },
+  { id: "library",   tkey: "navLibrary",   icon: Library },
+  { id: "decks",     tkey: "navDecks",     icon: LayoutTemplate },
+  { id: "services",  tkey: "navServices",  icon: CalendarDays },
+  { id: "bible",     tkey: "navBible",     icon: BookOpen },
+  { id: "media",     tkey: "navMedia",     icon: ImageIcon },
 ];
 
 export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
+  const t = useT();
   return (
     <nav className="flex h-full w-60 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       {/* Brand */}
@@ -46,7 +48,7 @@ export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
         <div className="leading-tight">
           <div className="text-sm font-semibold">SundayStage</div>
           <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider">
-            Live Presentation
+            {t("appTagline")}
           </div>
         </div>
       </div>
@@ -69,7 +71,7 @@ export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
                 )}
               >
                 <Icon size={16} aria-hidden />
-                <span>{item.label}</span>
+                <span>{t(item.tkey)}</span>
               </button>
             </li>
           );
@@ -84,7 +86,7 @@ export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]/60 hover:text-[var(--color-fg)]"
         >
           <Settings size={16} aria-hidden />
-          <span>Innstillinger</span>
+          <span>{t("navSettings")}</span>
         </button>
         <button
           type="button"
@@ -92,7 +94,7 @@ export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2.5 text-sm font-bold text-[var(--color-sunday-blue-900)] shadow-sm transition-all hover:brightness-110 active:translate-y-px"
         >
           <Play size={16} aria-hidden fill="currentColor" />
-          <span>Gå live</span>
+          <span>{t("goLive")}</span>
         </button>
       </div>
     </nav>

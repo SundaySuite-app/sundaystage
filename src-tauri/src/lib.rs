@@ -104,6 +104,9 @@ pub fn run() {
             commands::media::media_list,
             commands::media::media_delete,
             commands::media::media_relink,
+            // Onboarding + i18n (Phase 13.1)
+            commands::onboarding::app_locales,
+            commands::onboarding::onboarding_seed_demo,
             // Service
             commands::services::service_create,
             commands::services::service_get,

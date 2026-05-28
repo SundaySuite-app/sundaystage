@@ -8,6 +8,7 @@
 pub mod ai;
 pub mod bible;
 pub mod cue_list;
+pub mod demo;
 pub mod media;
 pub mod live_session;
 pub mod session_store;
