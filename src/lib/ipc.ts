@@ -18,6 +18,10 @@ import type {
   AiTestResult,
   AppError,
   ArrangementItem,
+  BibleBook,
+  BiblePassage,
+  BibleTranslation,
+  BibleVerse,
   ChapterMarker,
   ClaudeModel,
   CueList,
@@ -293,6 +297,50 @@ export const output = {
   isOpen: () => call<boolean>("output_is_open"),
 };
 
+// ── Bible (Phase 7.1) ────────────────────────────────────────────────────────
+
+export const bible = {
+  translations: () => call<BibleTranslation[]>("bible_translations"),
+  books: (translationId: string) =>
+    call<BibleBook[]>("bible_books", { translationId }),
+  chapters: (translationId: string, book: string) =>
+    call<number[]>("bible_chapters", { translationId, book }),
+  passage: (
+    translationId: string,
+    book: string,
+    chapter: number,
+    verseStart: number | null,
+    verseEnd: number | null,
+  ) =>
+    call<BibleVerse[]>("bible_passage", {
+      translationId,
+      book,
+      chapter,
+      verseStart,
+      verseEnd,
+    }),
+  lookup: (translationId: string, query: string) =>
+    call<BiblePassage>("bible_lookup", { translationId, query }),
+  search: (query: string, translationId: string | null) =>
+    call<BibleVerse[]>("bible_search", { query, translationId }),
+  addToService: (
+    serviceId: string,
+    translationId: string,
+    book: string,
+    chapter: number,
+    verseStart: number | null,
+    verseEnd: number | null,
+  ) =>
+    call<ServiceItem>("bible_add_to_service", {
+      serviceId,
+      translationId,
+      book,
+      chapter,
+      verseStart,
+      verseEnd,
+    }),
+};
+
 // ── Crash reporting (Phase 6.1) ─────────────────────────────────────────────────
 
 export const crash = {
@@ -317,4 +365,5 @@ export const ipc = {
   sync,
   output,
   crash,
+  bible,
 };

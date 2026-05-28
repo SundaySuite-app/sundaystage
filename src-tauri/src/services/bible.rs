@@ -209,9 +209,150 @@ pub fn render_reference(r: &ParsedBibleRef) -> String {
     }
 }
 
+// ── Book display names (localized) ──────────────────────────────────────────
+
+/// Norwegian display name for a canonical English book name. Falls back to the
+/// canonical name for books not in the table.
+pub fn book_display(canonical: &str, lang: &str) -> String {
+    if lang != "no" {
+        return canonical.to_string();
+    }
+    let no = match canonical {
+        "Genesis" => "1. Mosebok",
+        "Exodus" => "2. Mosebok",
+        "Psalms" => "Salmenes bok",
+        "Proverbs" => "Ordspråkene",
+        "Isaiah" => "Jesaja",
+        "Matthew" => "Matteus",
+        "Mark" => "Markus",
+        "Luke" => "Lukas",
+        "John" => "Johannes",
+        "Acts" => "Apostlenes gjerninger",
+        "Romans" => "Romerne",
+        "1 Corinthians" => "1. Korinterbrev",
+        "2 Corinthians" => "2. Korinterbrev",
+        "Galatians" => "Galaterne",
+        "Ephesians" => "Efeserne",
+        "Philippians" => "Filipperne",
+        "Colossians" => "Kolosserne",
+        "Hebrews" => "Hebreerne",
+        "James" => "Jakob",
+        "Revelation" => "Åpenbaringen",
+        other => other,
+    };
+    no.to_string()
+}
+
+// ── Bundled public-domain text (curated starter set) ─────────────────────────
+
+pub struct SeedVerse {
+    pub book: &'static str,
+    pub book_order: i64,
+    pub chapter: i64,
+    pub verse: i64,
+    pub text: &'static str,
+}
+
+pub struct SeedTranslation {
+    pub code: &'static str,
+    pub name: &'static str,
+    pub language: &'static str,
+    pub verses: &'static [SeedVerse],
+}
+
+/// Bundled translations. A curated set of the passages churches actually
+/// project — enough to browse, search, and compare out of the box. A full
+/// 66-book import is the (network-bound) downloader follow-up. KJV and Bibelen
+/// 1930 are both public domain.
+pub fn bundled_translations() -> &'static [SeedTranslation] {
+    &[
+        SeedTranslation {
+            code: "KJV",
+            name: "King James Version",
+            language: "en",
+            verses: KJV,
+        },
+        SeedTranslation {
+            code: "NB1930",
+            name: "Bibelen 1930",
+            language: "no",
+            verses: NB1930,
+        },
+    ]
+}
+
+macro_rules! v {
+    ($book:expr, $order:expr, $ch:expr, $vs:expr, $text:expr) => {
+        SeedVerse {
+            book: $book,
+            book_order: $order,
+            chapter: $ch,
+            verse: $vs,
+            text: $text,
+        }
+    };
+}
+
+const KJV: &[SeedVerse] = &[
+    v!("John", 43, 1, 1, "In the beginning was the Word, and the Word was with God, and the Word was God."),
+    v!("John", 43, 1, 2, "The same was in the beginning with God."),
+    v!("John", 43, 1, 3, "All things were made by him; and without him was not any thing made that was made."),
+    v!("John", 43, 1, 4, "In him was life; and the life was the light of men."),
+    v!("John", 43, 1, 5, "And the light shineth in darkness; and the darkness comprehended it not."),
+    v!("John", 43, 3, 16, "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life."),
+    v!("Psalms", 19, 23, 1, "The LORD is my shepherd; I shall not want."),
+    v!("Psalms", 19, 23, 2, "He maketh me to lie down in green pastures: he leadeth me beside the still waters."),
+    v!("Psalms", 19, 23, 3, "He restoreth my soul: he leadeth me in the paths of righteousness for his name's sake."),
+    v!("Psalms", 19, 23, 4, "Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me."),
+    v!("Psalms", 19, 23, 5, "Thou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over."),
+    v!("Psalms", 19, 23, 6, "Surely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the LORD for ever."),
+    v!("1 Corinthians", 46, 13, 4, "Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up,"),
+    v!("1 Corinthians", 46, 13, 5, "Doth not behave itself unseemly, seeketh not her own, is not easily provoked, thinketh no evil;"),
+    v!("1 Corinthians", 46, 13, 6, "Rejoiceth not in iniquity, but rejoiceth in the truth;"),
+    v!("1 Corinthians", 46, 13, 7, "Beareth all things, believeth all things, hopeth all things, endureth all things."),
+    v!("Philippians", 50, 4, 6, "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God."),
+    v!("Philippians", 50, 4, 7, "And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus."),
+    v!("Romans", 45, 8, 28, "And we know that all things work together for good to them that love God, to them who are the called according to his purpose."),
+    v!("Matthew", 40, 11, 28, "Come unto me, all ye that labour and are heavy laden, and I will give you rest."),
+    v!("Isaiah", 23, 41, 10, "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness."),
+];
+
+const NB1930: &[SeedVerse] = &[
+    v!("John", 43, 3, 16, "For så har Gud elsket verden at han gav sin Sønn, den enbårne, forat hver den som tror på ham, ikke skal fortapes, men ha evig liv."),
+    v!("Psalms", 19, 23, 1, "Herren er min hyrde, mig fattes intet."),
+    v!("Psalms", 19, 23, 2, "Han lar mig ligge i grønne enger, han leder mig til hvilens vann."),
+    v!("Psalms", 19, 23, 3, "Han vederkveger min sjel, han fører mig på rettferdighets stier for sitt navns skyld."),
+    v!("Psalms", 19, 23, 4, "Om jeg enn skulde vandre i dødsskyggens dal, frykter jeg ikke for ondt; for du er med mig, din kjepp og din stav de trøster mig."),
+    v!("Psalms", 19, 23, 5, "Du dekker bord for mig like for mine fienders øine, du salver mitt hode med olje; mitt beger flyter over."),
+    v!("Psalms", 19, 23, 6, "Bare godhet og miskunnhet skal efterjage mig alle mitt livs dager, og jeg skal bo i Herrens hus gjennem lange tider."),
+    v!("Matthew", 40, 11, 28, "Kom til mig, alle I som strever og har tungt å bære, og jeg vil gi eder hvile!"),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bundled_set_is_coherent() {
+        for t in bundled_translations() {
+            assert!(!t.verses.is_empty(), "{} has no verses", t.code);
+            for verse in t.verses {
+                assert!(
+                    resolve_book(verse.book).is_some(),
+                    "unknown book {}",
+                    verse.book
+                );
+                assert!(!verse.text.trim().is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn book_display_localizes_norwegian() {
+        assert_eq!(book_display("John", "no"), "Johannes");
+        assert_eq!(book_display("Psalms", "no"), "Salmenes bok");
+        assert_eq!(book_display("John", "en"), "John");
+    }
 
     #[test]
     fn parses_english_with_verse_range() {

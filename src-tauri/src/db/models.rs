@@ -141,6 +141,34 @@ pub struct BibleReference {
     pub created_at: i64,
 }
 
+// ── Bible text library (Phase 7.1) ──────────────────────────────────────────
+
+/// An installed translation (a bundled public-domain text, or a downloaded one).
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/BibleTranslation.ts")]
+pub struct BibleTranslation {
+    pub id: String,
+    pub code: String,
+    pub name: String,
+    pub language: String,
+    pub public_domain: i64,
+    pub created_at: i64,
+}
+
+/// A single verse of a translation.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/BibleVerse.ts")]
+pub struct BibleVerse {
+    pub id: String,
+    pub translation_id: String,
+    pub book: String,
+    pub book_order: i64,
+    pub chapter: i64,
+    pub verse: i64,
+    pub text: String,
+    pub created_at: i64,
+}
+
 // ── Service / ServiceItem ───────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]

@@ -68,7 +68,14 @@ pub fn run() {
             let db_path: PathBuf = data_dir.join("sundaystage.db");
 
             // Open the database synchronously — Tauri's setup is not async.
-            let db = tauri::async_runtime::block_on(async move { Database::open(&db_path).await })?;
+            // Seed the bundled Bible translations (idempotent) while we're here.
+            let db = tauri::async_runtime::block_on(async move {
+                let db = Database::open(&db_path).await?;
+                crate::db::repositories::BibleRepo::new(&db.pool)
+                    .seed()
+                    .await?;
+                crate::error::AppResult::Ok(db)
+            })?;
 
             app.manage(AppState {
                 db,
@@ -130,6 +137,14 @@ pub fn run() {
             commands::crash::crash_reporting_set,
             commands::crash::crash_reports_count,
             commands::crash::crash_reports_clear,
+            // Bible (Phase 7.1)
+            commands::bible::bible_translations,
+            commands::bible::bible_books,
+            commands::bible::bible_chapters,
+            commands::bible::bible_passage,
+            commands::bible::bible_lookup,
+            commands::bible::bible_search,
+            commands::bible::bible_add_to_service,
             // Output displays (Phase 5.2)
             commands::output::output_monitors,
             commands::output::output_config,

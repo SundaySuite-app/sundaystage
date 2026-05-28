@@ -7,6 +7,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { DecksPage } from "@/features/decks/DecksPage";
 import { MediaPage } from "@/features/media/MediaPage";
+import { BiblePage } from "@/features/bible/BiblePage";
 import { LivePreview } from "@/features/live/LivePreview";
 import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
 import { DesignPage } from "@/features/design/DesignPage";
@@ -142,6 +143,8 @@ function App() {
           <DecksPage library={activeLibrary} />
         ) : route === "media" ? (
           <MediaPage library={activeLibrary} />
+        ) : route === "bible" ? (
+          <BiblePage library={activeLibrary} />
         ) : (
           <Placeholder route={route} />
         )}
