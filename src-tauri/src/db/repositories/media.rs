@@ -49,7 +49,10 @@ impl<'a> MediaRepo<'a> {
             .bind(id)
             .fetch_optional(self.pool)
             .await?
-            .ok_or_else(|| AppError::NotFound { entity: "media_asset", id: id.to_string() })
+            .ok_or_else(|| AppError::NotFound {
+                entity: "media_asset",
+                id: id.to_string(),
+            })
     }
 
     pub async fn delete(&self, id: &str) -> AppResult<()> {
@@ -58,7 +61,10 @@ impl<'a> MediaRepo<'a> {
             .execute(self.pool)
             .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "media_asset", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "media_asset",
+                id: id.to_string(),
+            });
         }
         Ok(())
     }
@@ -66,16 +72,18 @@ impl<'a> MediaRepo<'a> {
     /// Point an asset at a new path (after a hash-based relink).
     pub async fn relink(&self, id: &str, new_path: &str) -> AppResult<MediaAsset> {
         let now = now_ms();
-        let res = sqlx::query(
-            "UPDATE media_asset SET original_path = ?1, updated_at = ?2 WHERE id = ?3",
-        )
-        .bind(new_path)
-        .bind(now)
-        .bind(id)
-        .execute(self.pool)
-        .await?;
+        let res =
+            sqlx::query("UPDATE media_asset SET original_path = ?1, updated_at = ?2 WHERE id = ?3")
+                .bind(new_path)
+                .bind(now)
+                .bind(id)
+                .execute(self.pool)
+                .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "media_asset", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "media_asset",
+                id: id.to_string(),
+            });
         }
         self.get(id).await
     }
@@ -95,12 +103,11 @@ impl<'a> MediaRepo<'a> {
     /// folder, sundayrec recordings, cloud-sync folders) and asks us to
     /// match by hash.
     pub async fn find_by_hash(&self, content_hash: &str) -> AppResult<Vec<MediaAsset>> {
-        let rows = sqlx::query_as::<_, MediaAsset>(
-            "SELECT * FROM media_asset WHERE content_hash = ?1",
-        )
-        .bind(content_hash)
-        .fetch_all(self.pool)
-        .await?;
+        let rows =
+            sqlx::query_as::<_, MediaAsset>("SELECT * FROM media_asset WHERE content_hash = ?1")
+                .bind(content_hash)
+                .fetch_all(self.pool)
+                .await?;
         Ok(rows)
     }
 }

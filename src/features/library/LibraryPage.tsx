@@ -21,19 +21,22 @@ interface Props {
 export function LibraryPage({ library }: Props) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [openSong, setOpenSong] = useState<{ id: string; title: string } | null>(null);
+  const [openSong, setOpenSong] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const songsQuery = useQuery({
     queryKey: ["songs", library.id],
-    queryFn:  () => ipc.song.list(library.id, 200),
+    queryFn: () => ipc.song.list(library.id, 200),
   });
 
   const searchQuery = useQuery({
     queryKey: ["songs", library.id, "search", search],
-    queryFn:  () => ipc.song.search(library.id, search, 50),
-    enabled:  search.trim().length > 1,
+    queryFn: () => ipc.song.search(library.id, search, 50),
+    enabled: search.trim().length > 1,
   });
 
   const createSong = useMutation({
@@ -52,7 +55,13 @@ export function LibraryPage({ library }: Props) {
   });
 
   if (openSong) {
-    return <SongEditor songId={openSong.id} title={openSong.title} onBack={() => setOpenSong(null)} />;
+    return (
+      <SongEditor
+        songId={openSong.id}
+        title={openSong.title}
+        onBack={() => setOpenSong(null)}
+      />
+    );
   }
 
   const showingSearch = search.trim().length > 1;
@@ -69,7 +78,9 @@ export function LibraryPage({ library }: Props) {
     <div className="flex h-full flex-col">
       {/* Top bar */}
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
-        <h1 className="text-[var(--text-ui-xl)] font-semibold">Sangbibliotek</h1>
+        <h1 className="text-[var(--text-ui-xl)] font-semibold">
+          Sangbibliotek
+        </h1>
         <span className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
           {library.name}
         </span>
@@ -117,7 +128,12 @@ export function LibraryPage({ library }: Props) {
       {toast && (
         <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] px-4 py-2 text-sm shadow-[var(--shadow-elevated)]">
           {toast}
-          <button onClick={() => setToast(null)} className="ml-3 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">✕</button>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-3 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+          >
+            ✕
+          </button>
         </div>
       )}
 

@@ -8,11 +8,20 @@
  * look without losing its layout.
  */
 
-import type { SlideDoc, Template, TemplateLayout, Theme, ThemeTokens } from "@/lib/bindings";
+import type {
+  SlideDoc,
+  Template,
+  TemplateLayout,
+  Theme,
+  ThemeTokens,
+} from "@/lib/bindings";
 
 export function defaultTokens(): ThemeTokens {
   return {
-    background: { type: "gradient", value: "linear-gradient(160deg, #1a2a52, #0b1020)" },
+    background: {
+      type: "gradient",
+      value: "linear-gradient(160deg, #1a2a52, #0b1020)",
+    },
     text_color: "#ffffff",
     accent_color: "#e8c069",
     font_family: "Inter, system-ui, sans-serif",

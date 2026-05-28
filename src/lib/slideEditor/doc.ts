@@ -57,7 +57,10 @@ export function newBlockId(): string {
   return `blk_${Date.now().toString(36)}_${blockSeq.toString(36)}`;
 }
 
-export function newTextBlock(text = "Ny tekst", rect?: Partial<SlideRect>): TextBlock {
+export function newTextBlock(
+  text = "Ny tekst",
+  rect?: Partial<SlideRect>,
+): TextBlock {
   return {
     type: "text",
     id: newBlockId(),
@@ -108,15 +111,24 @@ export function addBlock(doc: SlideDoc, block: SlideBlock): SlideDoc {
 }
 
 export function replaceBlock(doc: SlideDoc, block: SlideBlock): SlideDoc {
-  return { ...doc, blocks: doc.blocks.map((b) => (b.id === block.id ? block : b)) };
+  return {
+    ...doc,
+    blocks: doc.blocks.map((b) => (b.id === block.id ? block : b)),
+  };
 }
 
-export function removeBlocks(doc: SlideDoc, ids: ReadonlySet<string> | string[]): SlideDoc {
+export function removeBlocks(
+  doc: SlideDoc,
+  ids: ReadonlySet<string> | string[],
+): SlideDoc {
   const set = ids instanceof Set ? ids : new Set(ids);
   return { ...doc, blocks: doc.blocks.filter((b) => !set.has(b.id)) };
 }
 
-export function setBackground(doc: SlideDoc, background: SlideBackground): SlideDoc {
+export function setBackground(
+  doc: SlideDoc,
+  background: SlideBackground,
+): SlideDoc {
   return { ...doc, background };
 }
 
@@ -129,7 +141,10 @@ export function patchTextBlock(
 }
 
 /** Patch a text block's typographic style. */
-export function patchStyle(block: TextBlock, patch: Partial<TextStyle>): TextBlock {
+export function patchStyle(
+  block: TextBlock,
+  patch: Partial<TextStyle>,
+): TextBlock {
   return { ...block, style: { ...block.style, ...patch } };
 }
 
@@ -172,7 +187,11 @@ export function backgroundStyle(bg: SlideBackground): CSSProperties {
 }
 
 /** Absolute-position box for a block on a canvas of `canvasW`×`canvasH` px. */
-export function blockBoxStyle(rect: SlideRect, canvasW: number, canvasH: number): CSSProperties {
+export function blockBoxStyle(
+  rect: SlideRect,
+  canvasW: number,
+  canvasH: number,
+): CSSProperties {
   return {
     position: "absolute",
     left: `${rect.x * canvasW}px`,
@@ -187,14 +206,18 @@ const H_TO_FLEX: Record<TextBlock["align"], CSSProperties["alignItems"]> = {
   center: "center",
   right: "flex-end",
 };
-const V_TO_FLEX: Record<TextBlock["valign"], CSSProperties["justifyContent"]> = {
-  top: "flex-start",
-  middle: "center",
-  bottom: "flex-end",
-};
+const V_TO_FLEX: Record<TextBlock["valign"], CSSProperties["justifyContent"]> =
+  {
+    top: "flex-start",
+    middle: "center",
+    bottom: "flex-end",
+  };
 
 /** Inner text styling for a text block, scaled to the canvas height. */
-export function textBlockStyle(block: TextBlock, canvasH: number): CSSProperties {
+export function textBlockStyle(
+  block: TextBlock,
+  canvasH: number,
+): CSSProperties {
   const scale = canvasH / STAGE_HEIGHT;
   return {
     display: "flex",

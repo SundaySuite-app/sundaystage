@@ -31,7 +31,8 @@ const en: Catalog = {
   goLive: "Go live",
   loadingLibrary: "Loading library…",
   welcomeTitle: "Welcome to SundayStage",
-  welcomeIntro: "Pick your language and we'll prepare a demo service so you have something to play with right away.",
+  welcomeIntro:
+    "Pick your language and we'll prepare a demo service so you have something to play with right away.",
   pickLanguage: "Language",
   seedDemo: "Add demo content",
   skip: "Start empty",
@@ -56,7 +57,8 @@ const no: Catalog = {
   goLive: "Gå live",
   loadingLibrary: "Laster bibliotek…",
   welcomeTitle: "Velkommen til SundayStage",
-  welcomeIntro: "Velg språk, så lager vi en demo-gudstjeneste du kan leke med med en gang.",
+  welcomeIntro:
+    "Velg språk, så lager vi en demo-gudstjeneste du kan leke med med en gang.",
   pickLanguage: "Språk",
   seedDemo: "Legg til demo-innhold",
   skip: "Start tomt",
@@ -72,28 +74,58 @@ const no: Catalog = {
 // Scandinavian + de/fr/pl: nav/chrome only; everything else falls back to en.
 const sv: Catalog = {
   appTagline: "Live-presentation",
-  navDashboard: "Översikt", navLibrary: "Bibliotek", navDecks: "Decks", navServices: "Tjänster",
-  navBible: "Bibel", navMedia: "Media", navSettings: "Inställningar", goLive: "Gå live",
+  navDashboard: "Översikt",
+  navLibrary: "Bibliotek",
+  navDecks: "Decks",
+  navServices: "Tjänster",
+  navBible: "Bibel",
+  navMedia: "Media",
+  navSettings: "Inställningar",
+  goLive: "Gå live",
 };
 const da: Catalog = {
   appTagline: "Live-præsentation",
-  navDashboard: "Oversigt", navLibrary: "Bibliotek", navDecks: "Decks", navServices: "Tjenester",
-  navBible: "Bibel", navMedia: "Medier", navSettings: "Indstillinger", goLive: "Gå live",
+  navDashboard: "Oversigt",
+  navLibrary: "Bibliotek",
+  navDecks: "Decks",
+  navServices: "Tjenester",
+  navBible: "Bibel",
+  navMedia: "Medier",
+  navSettings: "Indstillinger",
+  goLive: "Gå live",
 };
 const de: Catalog = {
   appTagline: "Live-Präsentation",
-  navDashboard: "Übersicht", navLibrary: "Bibliothek", navDecks: "Decks", navServices: "Dienste",
-  navBible: "Bibel", navMedia: "Medien", navSettings: "Einstellungen", goLive: "Live gehen",
+  navDashboard: "Übersicht",
+  navLibrary: "Bibliothek",
+  navDecks: "Decks",
+  navServices: "Dienste",
+  navBible: "Bibel",
+  navMedia: "Medien",
+  navSettings: "Einstellungen",
+  goLive: "Live gehen",
 };
 const fr: Catalog = {
   appTagline: "Présentation en direct",
-  navDashboard: "Tableau de bord", navLibrary: "Bibliothèque", navDecks: "Decks", navServices: "Services",
-  navBible: "Bible", navMedia: "Médias", navSettings: "Paramètres", goLive: "Passer en direct",
+  navDashboard: "Tableau de bord",
+  navLibrary: "Bibliothèque",
+  navDecks: "Decks",
+  navServices: "Services",
+  navBible: "Bible",
+  navMedia: "Médias",
+  navSettings: "Paramètres",
+  goLive: "Passer en direct",
 };
 const pl: Catalog = {
   appTagline: "Prezentacja na żywo",
-  navDashboard: "Pulpit", navLibrary: "Biblioteka", navDecks: "Decks", navServices: "Nabożeństwa",
-  navBible: "Biblia", navMedia: "Media", navSettings: "Ustawienia", goLive: "Na żywo",
+  navDashboard: "Pulpit",
+  navLibrary: "Biblioteka",
+  navDecks: "Decks",
+  navServices: "Nabożeństwa",
+  navBible: "Biblia",
+  navMedia: "Media",
+  navSettings: "Ustawienia",
+  goLive: "Na żywo",
 };
 
 const CATALOG: Record<Lang, Catalog> = { en, no, sv, da, de, fr, pl };

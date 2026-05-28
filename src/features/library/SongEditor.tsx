@@ -17,7 +17,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Copy, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
 
-import type { ArrangementItem, SongArrangement, SongSection } from "@/lib/bindings";
+import type {
+  ArrangementItem,
+  SongArrangement,
+  SongSection,
+} from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { docWithText } from "@/lib/slideEditor/doc";
 import { cn } from "@/lib/cn";
@@ -70,20 +74,32 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
   const sectionsKey = ["sections", songId] as const;
   const arrangementsKey = ["arrangements", songId] as const;
 
-  const sectionsQuery = useQuery({ queryKey: sectionsKey, queryFn: () => ipc.song.sections(songId) });
+  const sectionsQuery = useQuery({
+    queryKey: sectionsKey,
+    queryFn: () => ipc.song.sections(songId),
+  });
   const arrangementsQuery = useQuery({
     queryKey: arrangementsKey,
     queryFn: () => ipc.arrangement.list(songId),
   });
-  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data]);
-  const arrangements = useMemo(() => arrangementsQuery.data ?? [], [arrangementsQuery.data]);
+  const sections = useMemo(
+    () => sectionsQuery.data ?? [],
+    [sectionsQuery.data],
+  );
+  const arrangements = useMemo(
+    () => arrangementsQuery.data ?? [],
+    [arrangementsQuery.data],
+  );
 
   const [activeArrId, setActiveArrId] = useState<string | null>(null);
   const [showPaste, setShowPaste] = useState(false);
   useEffect(() => {
     if (arrangements.length === 0) {
       setActiveArrId(null);
-    } else if (!activeArrId || !arrangements.some((a) => a.id === activeArrId)) {
+    } else if (
+      !activeArrId ||
+      !arrangements.some((a) => a.id === activeArrId)
+    ) {
       const def = arrangements.find((a) => Number(a.is_default) === 1);
       setActiveArrId(def?.id ?? arrangements[0].id);
     }
@@ -123,7 +139,13 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
       )}
 
       <div className="grid flex-1 grid-cols-[1fr_1fr] overflow-hidden">
-        <SectionsPanel songId={songId} sections={sections} qc={qc} sectionsKey={sectionsKey} arrangementsKey={arrangementsKey} />
+        <SectionsPanel
+          songId={songId}
+          sections={sections}
+          qc={qc}
+          sectionsKey={sectionsKey}
+          arrangementsKey={arrangementsKey}
+        />
         <ArrangementPanel
           songId={songId}
           sections={sections}
@@ -162,8 +184,15 @@ function SectionsPanel({
     onSuccess: () => qc.invalidateQueries({ queryKey: sectionsKey }),
   });
   const saveMut = useMutation({
-    mutationFn: ({ id, label, lyrics }: { id: string; label: string; lyrics: string }) =>
-      ipc.song.updateSection(id, label, lyrics),
+    mutationFn: ({
+      id,
+      label,
+      lyrics,
+    }: {
+      id: string;
+      label: string;
+      lyrics: string;
+    }) => ipc.song.updateSection(id, label, lyrics),
     onSuccess: (saved) =>
       qc.setQueryData<SongSection[]>(sectionsKey, (old) =>
         (old ?? []).map((s) => (s.id === saved.id ? saved : s)),
@@ -179,7 +208,8 @@ function SectionsPanel({
     },
   });
   const reorderMut = useMutation({
-    mutationFn: (orderedIds: string[]) => ipc.song.reorderSections(songId, orderedIds),
+    mutationFn: (orderedIds: string[]) =>
+      ipc.song.reorderSections(songId, orderedIds),
     onSuccess: (rows) => qc.setQueryData<SongSection[]>(sectionsKey, rows),
   });
 
@@ -221,7 +251,9 @@ function SectionsPanel({
           >
             <SectionRow
               section={section}
-              onSave={(label, lyrics) => saveMut.mutate({ id: section.id, label, lyrics })}
+              onSave={(label, lyrics) =>
+                saveMut.mutate({ id: section.id, label, lyrics })
+              }
               onDelete={() => deleteMut.mutate(section.id)}
             />
           </div>
@@ -243,12 +275,17 @@ function SectionRow({
   const [label, setLabel] = useState(section.label);
   const [lyrics, setLyrics] = useState(section.lyrics);
 
-  const labelOptions = SECTION_LABELS.includes(label) ? SECTION_LABELS : [label, ...SECTION_LABELS];
+  const labelOptions = SECTION_LABELS.includes(label)
+    ? SECTION_LABELS
+    : [label, ...SECTION_LABELS];
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="cursor-grab text-[var(--color-fg-muted)]" title="Dra for å endre rekkefølge">
+        <span
+          className="cursor-grab text-[var(--color-fg-muted)]"
+          title="Dra for å endre rekkefølge"
+        >
           ⠿
         </span>
         <select
@@ -284,7 +321,8 @@ function SectionRow({
         placeholder="Tekstlinjer…"
         onChange={(e) => setLyrics(e.target.value)}
         onBlur={() => {
-          if (lyrics !== section.lyrics || label !== section.label) onSave(label, lyrics);
+          if (lyrics !== section.lyrics || label !== section.label)
+            onSave(label, lyrics);
         }}
         className="w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm leading-snug focus:border-[var(--color-accent)] focus:outline-none"
       />
@@ -323,17 +361,22 @@ function ArrangementPanel({
     setOrder((itemsQuery.data ?? []).map((i) => i.section_id));
   }, [itemsQuery.data]);
 
-  const sectionMap = useMemo(() => new Map(sections.map((s) => [s.id, s])), [sections]);
+  const sectionMap = useMemo(
+    () => new Map(sections.map((s) => [s.id, s])),
+    [sections],
+  );
 
   const createMut = useMutation({
-    mutationFn: () => ipc.arrangement.create(songId, `Arrangement ${arrangements.length + 1}`),
+    mutationFn: () =>
+      ipc.arrangement.create(songId, `Arrangement ${arrangements.length + 1}`),
     onSuccess: (a) => {
       void qc.invalidateQueries({ queryKey: arrangementsKey });
       onActivate(a.id);
     },
   });
   const renameMut = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => ipc.arrangement.rename(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      ipc.arrangement.rename(id, name),
     onSuccess: () => qc.invalidateQueries({ queryKey: arrangementsKey }),
   });
   const deleteMut = useMutation({
@@ -352,7 +395,8 @@ function ArrangementPanel({
     },
   });
   const setItemsMut = useMutation({
-    mutationFn: (sectionIds: string[]) => ipc.arrangement.setItems(activeArrId!, sectionIds),
+    mutationFn: (sectionIds: string[]) =>
+      ipc.arrangement.setItems(activeArrId!, sectionIds),
     onSuccess: (rows) => qc.setQueryData<ArrangementItem[]>(itemsKey, rows),
   });
 
@@ -448,7 +492,9 @@ function ArrangementPanel({
               Slett
             </button>
             <span className="flex-1" />
-            <span className="text-xs text-[var(--color-fg-muted)]">{generated.length} lysbilder</span>
+            <span className="text-xs text-[var(--color-fg-muted)]">
+              {generated.length} lysbilder
+            </span>
           </div>
 
           {/* Section palette → click to append */}
@@ -456,7 +502,9 @@ function ArrangementPanel({
             <Subhead>Legg til del i arrangementet</Subhead>
             <div className="flex flex-wrap gap-1.5">
               {sections.length === 0 && (
-                <span className="text-xs text-[var(--color-fg-muted)]">Lag deler først.</span>
+                <span className="text-xs text-[var(--color-fg-muted)]">
+                  Lag deler først.
+                </span>
               )}
               {sections.map((s) => (
                 <button
@@ -494,14 +542,20 @@ function ArrangementPanel({
                         dragFrom === i && "opacity-40",
                       )}
                     >
-                      <span className="cursor-grab text-[var(--color-fg-muted)]">⠿</span>
+                      <span className="cursor-grab text-[var(--color-fg-muted)]">
+                        ⠿
+                      </span>
                       <span className="w-5 font-mono text-[10px] text-[var(--color-fg-muted)]">
                         {i + 1}
                       </span>
-                      <span className="flex-1">{sec ? humanize(sec.label) : "(slettet)"}</span>
+                      <span className="flex-1">
+                        {sec ? humanize(sec.label) : "(slettet)"}
+                      </span>
                       <button
                         type="button"
-                        onClick={() => commitOrder(order.filter((_, idx) => idx !== i))}
+                        onClick={() =>
+                          commitOrder(order.filter((_, idx) => idx !== i))
+                        }
                         className="grid h-5 w-5 place-items-center rounded text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-danger)]"
                       >
                         <X size={12} />
@@ -521,9 +575,15 @@ function ArrangementPanel({
                 {generated.map((g) => (
                   <div key={g.key} className="shrink-0">
                     <div className="overflow-hidden rounded-md ring-1 ring-[var(--color-border)]">
-                      <SlideCanvas doc={docWithText(g.lines.join("\n"))} width={160} height={90} />
+                      <SlideCanvas
+                        doc={docWithText(g.lines.join("\n"))}
+                        width={160}
+                        height={90}
+                      />
                     </div>
-                    <p className="mt-1 text-center text-[10px] text-[var(--color-fg-muted)]">{g.label}</p>
+                    <p className="mt-1 text-center text-[10px] text-[var(--color-fg-muted)]">
+                      {g.label}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -533,7 +593,9 @@ function ArrangementPanel({
       ) : (
         <div className="grid flex-1 place-items-center p-4 text-center">
           <div>
-            <p className="mb-3 text-sm text-[var(--color-fg-muted)]">Ingen arrangementer enda.</p>
+            <p className="mb-3 text-sm text-[var(--color-fg-muted)]">
+              Ingen arrangementer enda.
+            </p>
             <button
               type="button"
               onClick={() => createMut.mutate()}
@@ -550,7 +612,13 @@ function ArrangementPanel({
 
 // ── Shared bits ──────────────────────────────────────────────────────────────────
 
-function PanelHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+function PanelHeader({
+  title,
+  children,
+}: {
+  title: string;
+  children?: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
       <h2 className="text-sm font-semibold">{title}</h2>

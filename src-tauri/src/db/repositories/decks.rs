@@ -80,7 +80,10 @@ impl<'a> DeckRepo<'a> {
             .execute(self.pool)
             .await?;
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "custom_deck", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "custom_deck",
+                id: id.to_string(),
+            });
         }
         self.get_deck(id).await
     }
@@ -92,7 +95,10 @@ impl<'a> DeckRepo<'a> {
             .execute(self.pool)
             .await?;
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "custom_deck", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "custom_deck",
+                id: id.to_string(),
+            });
         }
         Ok(())
     }
@@ -134,7 +140,10 @@ impl<'a> DeckRepo<'a> {
             .bind(id)
             .fetch_optional(self.pool)
             .await?
-            .ok_or_else(|| AppError::NotFound { entity: "slide", id: id.to_string() })
+            .ok_or_else(|| AppError::NotFound {
+                entity: "slide",
+                id: id.to_string(),
+            })
     }
 
     pub async fn list_slides(&self, deck_id: &str) -> AppResult<Vec<Slide>> {
@@ -151,16 +160,17 @@ impl<'a> DeckRepo<'a> {
     pub async fn update_slide_content(&self, id: &str, doc: &SlideDoc) -> AppResult<Slide> {
         let now = now_ms();
         let content = doc.to_json()?;
-        let result = sqlx::query(
-            "UPDATE slide SET content = ?1, updated_at = ?2 WHERE id = ?3",
-        )
-        .bind(&content)
-        .bind(now)
-        .bind(id)
-        .execute(self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE slide SET content = ?1, updated_at = ?2 WHERE id = ?3")
+            .bind(&content)
+            .bind(now)
+            .bind(id)
+            .execute(self.pool)
+            .await?;
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "slide", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "slide",
+                id: id.to_string(),
+            });
         }
         let slide = self.get_slide(id).await?;
         if let Some(deck_id) = &slide.custom_deck_id {
@@ -243,7 +253,11 @@ impl<'a> DeckRepo<'a> {
     }
 
     /// Set (or clear, with `None`) a slide's per-slide template override.
-    pub async fn set_slide_template(&self, id: &str, template_id: Option<&str>) -> AppResult<Slide> {
+    pub async fn set_slide_template(
+        &self,
+        id: &str,
+        template_id: Option<&str>,
+    ) -> AppResult<Slide> {
         self.set_slide_field("template_id", id, template_id).await
     }
 
@@ -264,7 +278,10 @@ impl<'a> DeckRepo<'a> {
             .execute(self.pool)
             .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "slide", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "slide",
+                id: id.to_string(),
+            });
         }
         self.get_slide(id).await
     }
@@ -272,7 +289,11 @@ impl<'a> DeckRepo<'a> {
     /// Reorder a deck's slides to match `ordered_ids` exactly. Ids are assigned
     /// positions by their index in the list. Rejects a list that doesn't match
     /// the deck's current slide set so the UI and DB can't silently diverge.
-    pub async fn reorder_slides(&self, deck_id: &str, ordered_ids: &[String]) -> AppResult<Vec<Slide>> {
+    pub async fn reorder_slides(
+        &self,
+        deck_id: &str,
+        ordered_ids: &[String],
+    ) -> AppResult<Vec<Slide>> {
         let current = self.list_slides(deck_id).await?;
         if current.len() != ordered_ids.len() {
             return Err(AppError::Validation(format!(
@@ -332,7 +353,10 @@ mod tests {
     async fn fixture() -> (Database, String) {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Test".into(), default_locale: None })
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
             .await
             .unwrap();
         (db, lib.id)
@@ -361,7 +385,10 @@ mod tests {
         let renamed = repo.rename_deck(&deck.id, "New").await.unwrap();
         assert_eq!(renamed.name, "New");
         repo.delete_deck(&deck.id).await.unwrap();
-        assert_eq!(repo.get_deck(&deck.id).await.unwrap_err().code(), "not_found");
+        assert_eq!(
+            repo.get_deck(&deck.id).await.unwrap_err().code(),
+            "not_found"
+        );
     }
 
     #[tokio::test]
@@ -392,7 +419,10 @@ mod tests {
         assert_eq!(b.position, 1);
         assert_eq!(c.position, 2);
         let slides = repo.list_slides(&deck.id).await.unwrap();
-        assert_eq!(slides.iter().map(|s| s.position).collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert_eq!(
+            slides.iter().map(|s| s.position).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
     }
 
     #[tokio::test]
@@ -401,7 +431,10 @@ mod tests {
         let repo = DeckRepo::new(&db.pool);
         let deck = repo.create_deck(&lib, "Deck").await.unwrap();
         let slide = repo.create_slide(&deck.id, &doc("before")).await.unwrap();
-        let updated = repo.update_slide_content(&slide.id, &doc("after lyrics")).await.unwrap();
+        let updated = repo
+            .update_slide_content(&slide.id, &doc("after lyrics"))
+            .await
+            .unwrap();
         let parsed = SlideDoc::from_json(&updated.content);
         match &parsed.blocks[0] {
             crate::services::slide_doc::SlideBlock::Text { text, .. } => {
@@ -427,7 +460,10 @@ mod tests {
         assert_eq!(slides[0].id, a.id);
         assert_eq!(slides[1].id, dup.id);
         assert_eq!(slides[2].content, doc("b").to_json().unwrap());
-        assert_eq!(slides.iter().map(|s| s.position).collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert_eq!(
+            slides.iter().map(|s| s.position).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
     }
 
     #[tokio::test]
@@ -443,7 +479,10 @@ mod tests {
         assert_eq!(slides.len(), 2);
         assert_eq!(slides[0].id, a.id);
         assert_eq!(slides[1].id, c.id);
-        assert_eq!(slides.iter().map(|s| s.position).collect::<Vec<_>>(), vec![0, 1]);
+        assert_eq!(
+            slides.iter().map(|s| s.position).collect::<Vec<_>>(),
+            vec![0, 1]
+        );
     }
 
     #[tokio::test]
@@ -462,7 +501,10 @@ mod tests {
         assert_eq!(reordered[0].id, c.id);
         assert_eq!(reordered[1].id, a.id);
         assert_eq!(reordered[2].id, b.id);
-        assert_eq!(reordered.iter().map(|s| s.position).collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert_eq!(
+            reordered.iter().map(|s| s.position).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
     }
 
     #[tokio::test]
@@ -474,7 +516,10 @@ mod tests {
         let _b = repo.create_slide(&deck.id, &doc("b")).await.unwrap();
         // Wrong length
         assert_eq!(
-            repo.reorder_slides(&deck.id, &[a.id.clone()]).await.unwrap_err().code(),
+            repo.reorder_slides(&deck.id, std::slice::from_ref(&a.id))
+                .await
+                .unwrap_err()
+                .code(),
             "validation"
         );
         // Right length, unknown id

@@ -122,16 +122,23 @@ pub fn parse_format_response(input: &serde_json::Value) -> AppResult<FormattedSo
         sections.push(FormattedSection { label, lyrics });
     }
     if sections.is_empty() {
-        return Err(AppError::Internal("formatert sang har ingen seksjoner".into()));
+        return Err(AppError::Internal(
+            "formatert sang har ingen seksjoner".into(),
+        ));
     }
 
     let mut warnings: Vec<String> = input
         .get("warnings")
         .and_then(|w| w.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
-    let labels: std::collections::HashSet<&str> = sections.iter().map(|s| s.label.as_str()).collect();
+    let labels: std::collections::HashSet<&str> =
+        sections.iter().map(|s| s.label.as_str()).collect();
     let mut arrangement: Vec<String> = Vec::new();
     if let Some(arr) = input.get("arrangement").and_then(|a| a.as_array()) {
         for entry in arr {
@@ -140,7 +147,9 @@ pub fn parse_format_response(input: &serde_json::Value) -> AppResult<FormattedSo
                 if labels.contains(norm.as_str()) {
                     arrangement.push(norm);
                 } else {
-                    warnings.push(format!("Arrangement viste til ukjent del «{raw}» — hoppet over"));
+                    warnings.push(format!(
+                        "Arrangement viste til ukjent del «{raw}» — hoppet over"
+                    ));
                 }
             }
         }
@@ -160,7 +169,13 @@ pub fn parse_format_response(input: &serde_json::Value) -> AppResult<FormattedSo
         .and_then(|t| t.as_str())
         .map(String::from);
 
-    Ok(FormattedSong { title_suggestion, language, sections, arrangement, warnings })
+    Ok(FormattedSong {
+        title_suggestion,
+        language,
+        sections,
+        arrangement,
+        warnings,
+    })
 }
 
 // ── Heuristic path (pure offline fallback) ─────────────────────────────────────
@@ -231,7 +246,10 @@ pub fn heuristic_format(raw: &str) -> FormattedSong {
         };
         let label = unique_label(&sections, label);
         by_lyrics.insert(b.lyrics.clone(), label.clone());
-        sections.push(FormattedSection { label: label.clone(), lyrics: b.lyrics.clone() });
+        sections.push(FormattedSection {
+            label: label.clone(),
+            lyrics: b.lyrics.clone(),
+        });
         arrangement.push(label);
     }
 
@@ -290,29 +308,42 @@ pub fn normalize_label(raw: &str) -> String {
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
         .collect();
     let parts: Vec<String> = cleaned.split_whitespace().map(String::from).collect();
-    let number: Option<String> = parts.iter().find(|p| p.chars().all(|c| c.is_ascii_digit())).cloned();
+    let number: Option<String> = parts
+        .iter()
+        .find(|p| p.chars().all(|c| c.is_ascii_digit()))
+        .cloned();
     let words: Vec<&str> = parts
         .iter()
         .filter(|p| !p.chars().all(|c| c.is_ascii_digit()))
         .map(|s| s.as_str())
         .collect();
 
-    let has = |w: &str| words.iter().any(|x| *x == w);
-    let base = if words.iter().any(|w| w.starts_with("prechorus")) || (has("pre") && has("chorus")) {
+    let has = |w: &str| words.contains(&w);
+    let base = if words.iter().any(|w| w.starts_with("prechorus")) || (has("pre") && has("chorus"))
+    {
         "pre_chorus"
     } else if words.iter().any(|w| matches!(*w, "verse" | "vers" | "v")) {
         "verse"
-    } else if words.iter().any(|w| matches!(*w, "chorus" | "refrain" | "refreng" | "kor")) {
+    } else if words
+        .iter()
+        .any(|w| matches!(*w, "chorus" | "refrain" | "refreng" | "kor"))
+    {
         "chorus"
     } else if words.iter().any(|w| matches!(*w, "bridge" | "bro")) {
         "bridge"
     } else if has("intro") {
         "intro"
-    } else if words.iter().any(|w| matches!(*w, "outro" | "ending" | "slutt" | "utgang")) {
+    } else if words
+        .iter()
+        .any(|w| matches!(*w, "outro" | "ending" | "slutt" | "utgang"))
+    {
         "ending"
     } else if has("tag") {
         "tag"
-    } else if words.iter().any(|w| matches!(*w, "instrumental" | "mellomspill" | "solo")) {
+    } else if words
+        .iter()
+        .any(|w| matches!(*w, "instrumental" | "mellomspill" | "solo"))
+    {
         "instrumental"
     } else if words.is_empty() {
         "verse"
@@ -337,23 +368,45 @@ fn detect_header(line: &str) -> Option<String> {
     // Headers are short and contain a known section keyword.
     let inner: String = t
         .chars()
-        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { ' ' })
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
         .collect();
     let words: Vec<&str> = inner.split_whitespace().collect();
     if words.is_empty() || words.len() > 3 {
         return None;
     }
     const KEYWORDS: &[&str] = &[
-        "verse", "vers", "chorus", "refrain", "refreng", "prechorus", "pre", "bridge", "bro",
-        "intro", "outro", "ending", "tag", "instrumental", "mellomspill",
+        "verse",
+        "vers",
+        "chorus",
+        "refrain",
+        "refreng",
+        "prechorus",
+        "pre",
+        "bridge",
+        "bro",
+        "intro",
+        "outro",
+        "ending",
+        "tag",
+        "instrumental",
+        "mellomspill",
     ];
-    let is_label_word =
-        |w: &&str| KEYWORDS.contains(w) || w.starts_with("prechorus") || w.chars().all(|c| c.is_ascii_digit());
+    let is_label_word = |w: &&str| {
+        KEYWORDS.contains(w) || w.starts_with("prechorus") || w.chars().all(|c| c.is_ascii_digit())
+    };
     // A header is *only* label words (+ an optional number) — not a lyric line
     // that merely happens to contain a keyword ("Verse one line", "Bridge over
     // troubled water").
     let only_label_words = words.iter().all(is_label_word);
-    let has_keyword = words.iter().any(|w| KEYWORDS.contains(w) || w.starts_with("prechorus"));
+    let has_keyword = words
+        .iter()
+        .any(|w| KEYWORDS.contains(w) || w.starts_with("prechorus"));
     if only_label_words && has_keyword {
         Some(normalize_label(t))
     } else {
@@ -363,17 +416,24 @@ fn detect_header(line: &str) -> Option<String> {
 
 fn is_repeat_marker(line: &str) -> bool {
     let t = line.trim().to_lowercase();
-    let stripped: String = t.chars().filter(|c| !matches!(c, '(' | ')' | '[' | ']' | '.')).collect();
+    let stripped: String = t
+        .chars()
+        .filter(|c| !matches!(c, '(' | ')' | '[' | ']' | '.'))
+        .collect();
     let s = stripped.trim();
-    matches!(s, "x2" | "x3" | "x4" | "2x" | "3x" | "4x" | "repeat" | "gjenta")
-        || s.starts_with("repeat ")
+    matches!(
+        s,
+        "x2" | "x3" | "x4" | "2x" | "3x" | "4x" | "repeat" | "gjenta"
+    ) || s.starts_with("repeat ")
         || s.starts_with("gjenta ")
 }
 
 /// A chord token like `G`, `Am`, `F#m7`, `C/E`.
 fn is_chord_token(tok: &str) -> bool {
     let mut chars = tok.chars();
-    let Some(first) = chars.next() else { return false };
+    let Some(first) = chars.next() else {
+        return false;
+    };
     if !('A'..='G').contains(&first.to_ascii_uppercase()) {
         return false;
     }
@@ -395,7 +455,10 @@ fn is_chord_line(line: &str) -> bool {
     if !toks.iter().all(|t| is_chord_token(t)) {
         return false;
     }
-    toks.len() >= 2 || toks[0].chars().any(|c| c.is_ascii_digit() || matches!(c, '#' | '/'))
+    toks.len() >= 2
+        || toks[0]
+            .chars()
+            .any(|c| c.is_ascii_digit() || matches!(c, '#' | '/'))
 }
 
 fn detect_language(text: &str) -> String {
@@ -403,8 +466,12 @@ fn detect_language(text: &str) -> String {
     if lower.contains('æ') || lower.contains('ø') || lower.contains('å') {
         return "no".to_string();
     }
-    let no_words = ["og", "jeg", "det", "er", "ikke", "deg", "meg", "til", "har", "som", "din"];
-    let en_words = ["the", "and", "you", "your", "is", "of", "to", "we", "i", "in", "his"];
+    let no_words = [
+        "og", "jeg", "det", "er", "ikke", "deg", "meg", "til", "har", "som", "din",
+    ];
+    let en_words = [
+        "the", "and", "you", "your", "is", "of", "to", "we", "i", "in", "his",
+    ];
     let tokens: Vec<String> = lower
         .split(|c: char| !c.is_alphanumeric())
         .filter(|s| !s.is_empty())
@@ -432,13 +499,16 @@ pub async fn apply_formatted_song(
     let arr_repo = ArrangementRepo::new(pool);
 
     // Create sections, remembering label → section id (first wins on dup label).
-    let mut label_to_id: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut label_to_id: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     let mut created: Vec<SongSection> = Vec::new();
     for section in &formatted.sections {
         if label_to_id.contains_key(&section.label) {
             continue;
         }
-        let s = song_repo.add_section(song_id, &section.label, &section.lyrics).await?;
+        let s = song_repo
+            .add_section(song_id, &section.label, &section.lyrics)
+            .await?;
         label_to_id.insert(section.label.clone(), s.id.clone());
         created.push(s);
     }
@@ -533,7 +603,10 @@ mod tests {
     #[test]
     fn heuristic_detects_language() {
         assert_eq!(heuristic_format("Du er hellig, du er fri").language, "no");
-        assert_eq!(heuristic_format("You are holy, you are free and good").language, "en");
+        assert_eq!(
+            heuristic_format("You are holy, you are free and good").language,
+            "en"
+        );
     }
 
     // ── parse_format_response ──────────────────────────────────────────────────
@@ -582,7 +655,10 @@ mod tests {
     #[test]
     fn parse_errors_without_sections() {
         let input = serde_json::json!({ "language": "no", "arrangement": [] });
-        assert_eq!(parse_format_response(&input).unwrap_err().code(), "internal");
+        assert_eq!(
+            parse_format_response(&input).unwrap_err().code(),
+            "internal"
+        );
     }
 
     // ── apply_formatted_song ───────────────────────────────────────────────────
@@ -594,31 +670,52 @@ mod tests {
 
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "T".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "T".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
         let song = SongRepo::new(&db.pool)
             .create(SongInput {
-                library_id: lib.id, title: "T".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                library_id: lib.id,
+                title: "T".into(),
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
+            .await
+            .unwrap();
 
         let formatted = FormattedSong {
             title_suggestion: None,
             language: "en".into(),
             sections: vec![
-                FormattedSection { label: "verse_1".into(), lyrics: "v1".into() },
-                FormattedSection { label: "chorus".into(), lyrics: "c".into() },
+                FormattedSection {
+                    label: "verse_1".into(),
+                    lyrics: "v1".into(),
+                },
+                FormattedSection {
+                    label: "chorus".into(),
+                    lyrics: "c".into(),
+                },
             ],
             arrangement: vec!["verse_1".into(), "chorus".into(), "chorus".into()],
             warnings: vec![],
         };
-        let arr = apply_formatted_song(&db.pool, &song.id, &formatted).await.unwrap();
+        let arr = apply_formatted_song(&db.pool, &song.id, &formatted)
+            .await
+            .unwrap();
 
         let sections = SongRepo::new(&db.pool).sections(&song.id).await.unwrap();
         assert_eq!(sections.len(), 2);
-        let resolved = ArrangementRepo::new(&db.pool).resolved_sections(&arr.id).await.unwrap();
+        let resolved = ArrangementRepo::new(&db.pool)
+            .resolved_sections(&arr.id)
+            .await
+            .unwrap();
         // verse_1, chorus, chorus
         assert_eq!(resolved.len(), 3);
         assert_eq!(resolved[0].label, "verse_1");

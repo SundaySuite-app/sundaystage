@@ -8,18 +8,12 @@ use crate::error::AppResult;
 use crate::AppState;
 
 #[tauri::command]
-pub async fn library_create(
-    state: State<'_, AppState>,
-    input: LibraryInput,
-) -> AppResult<Library> {
+pub async fn library_create(state: State<'_, AppState>, input: LibraryInput) -> AppResult<Library> {
     LibraryRepo::new(&state.db.pool).create(input).await
 }
 
 #[tauri::command]
-pub async fn library_get(
-    state: State<'_, AppState>,
-    id: String,
-) -> AppResult<Library> {
+pub async fn library_get(state: State<'_, AppState>, id: String) -> AppResult<Library> {
     LibraryRepo::new(&state.db.pool).get(&id).await
 }
 

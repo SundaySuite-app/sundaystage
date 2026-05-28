@@ -13,7 +13,9 @@ pub async fn arrangement_create(
     song_id: String,
     name: String,
 ) -> AppResult<SongArrangement> {
-    ArrangementRepo::new(&state.db.pool).create(&song_id, &name).await
+    ArrangementRepo::new(&state.db.pool)
+        .create(&song_id, &name)
+        .await
 }
 
 #[tauri::command]
@@ -30,7 +32,9 @@ pub async fn arrangement_rename(
     id: String,
     name: String,
 ) -> AppResult<SongArrangement> {
-    ArrangementRepo::new(&state.db.pool).rename(&id, &name).await
+    ArrangementRepo::new(&state.db.pool)
+        .rename(&id, &name)
+        .await
 }
 
 #[tauri::command]
@@ -62,7 +66,9 @@ pub async fn arrangement_items(
     state: State<'_, AppState>,
     arrangement_id: String,
 ) -> AppResult<Vec<ArrangementItem>> {
-    ArrangementRepo::new(&state.db.pool).items(&arrangement_id).await
+    ArrangementRepo::new(&state.db.pool)
+        .items(&arrangement_id)
+        .await
 }
 
 #[tauri::command]

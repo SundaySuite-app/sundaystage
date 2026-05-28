@@ -1,0 +1,9 @@
+dist
+node_modules
+src-tauri/target
+src-tauri/gen
+src/lib/bindings
+package-lock.json
+playwright-report
+test-results
+coverage

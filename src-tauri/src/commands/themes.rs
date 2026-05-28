@@ -13,7 +13,9 @@ use crate::AppState;
 
 #[tauri::command]
 pub async fn theme_list(state: State<'_, AppState>, library_id: String) -> AppResult<Vec<Theme>> {
-    ThemeRepo::new(&state.db.pool).list_themes(&library_id).await
+    ThemeRepo::new(&state.db.pool)
+        .list_themes(&library_id)
+        .await
 }
 
 #[tauri::command]
@@ -21,7 +23,9 @@ pub async fn template_list(
     state: State<'_, AppState>,
     library_id: String,
 ) -> AppResult<Vec<Template>> {
-    ThemeRepo::new(&state.db.pool).list_templates(&library_id).await
+    ThemeRepo::new(&state.db.pool)
+        .list_templates(&library_id)
+        .await
 }
 
 #[tauri::command]
@@ -53,7 +57,9 @@ pub async fn theme_update_tokens(
     id: String,
     tokens: ThemeTokens,
 ) -> AppResult<Theme> {
-    ThemeRepo::new(&state.db.pool).update_theme_tokens(&id, &tokens).await
+    ThemeRepo::new(&state.db.pool)
+        .update_theme_tokens(&id, &tokens)
+        .await
 }
 
 #[tauri::command]
@@ -62,7 +68,9 @@ pub async fn theme_rename(
     id: String,
     name: String,
 ) -> AppResult<Theme> {
-    ThemeRepo::new(&state.db.pool).rename_theme(&id, &name).await
+    ThemeRepo::new(&state.db.pool)
+        .rename_theme(&id, &name)
+        .await
 }
 
 #[tauri::command]
@@ -98,7 +106,9 @@ pub async fn slide_set_theme(
     id: String,
     theme_id: Option<String>,
 ) -> AppResult<Slide> {
-    DeckRepo::new(&state.db.pool).set_slide_theme(&id, theme_id.as_deref()).await
+    DeckRepo::new(&state.db.pool)
+        .set_slide_theme(&id, theme_id.as_deref())
+        .await
 }
 
 #[tauri::command]
@@ -107,7 +117,9 @@ pub async fn slide_set_template(
     id: String,
     template_id: Option<String>,
 ) -> AppResult<Slide> {
-    DeckRepo::new(&state.db.pool).set_slide_template(&id, template_id.as_deref()).await
+    DeckRepo::new(&state.db.pool)
+        .set_slide_template(&id, template_id.as_deref())
+        .await
 }
 
 #[tauri::command]

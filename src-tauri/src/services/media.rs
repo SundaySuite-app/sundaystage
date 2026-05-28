@@ -165,7 +165,11 @@ mod tests {
     #[test]
     fn relink_finds_a_moved_file_by_fingerprint() {
         let dir = tempfile::tempdir().unwrap();
-        let original = write_file(dir.path(), "background.png", b"church background image bytes");
+        let original = write_file(
+            dir.path(),
+            "background.png",
+            b"church background image bytes",
+        );
         let fp = content_fingerprint(&original).unwrap();
 
         // "Move" it into a nested subfolder.

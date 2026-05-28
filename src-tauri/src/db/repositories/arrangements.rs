@@ -57,7 +57,10 @@ impl<'a> ArrangementRepo<'a> {
             .bind(id)
             .fetch_optional(self.pool)
             .await?
-            .ok_or_else(|| AppError::NotFound { entity: "song_arrangement", id: id.to_string() })
+            .ok_or_else(|| AppError::NotFound {
+                entity: "song_arrangement",
+                id: id.to_string(),
+            })
     }
 
     pub async fn list(&self, song_id: &str) -> AppResult<Vec<SongArrangement>> {
@@ -72,14 +75,18 @@ impl<'a> ArrangementRepo<'a> {
 
     pub async fn rename(&self, id: &str, name: &str) -> AppResult<SongArrangement> {
         let now = now_ms();
-        let res = sqlx::query("UPDATE song_arrangement SET name = ?1, updated_at = ?2 WHERE id = ?3")
-            .bind(name)
-            .bind(now)
-            .bind(id)
-            .execute(self.pool)
-            .await?;
+        let res =
+            sqlx::query("UPDATE song_arrangement SET name = ?1, updated_at = ?2 WHERE id = ?3")
+                .bind(name)
+                .bind(now)
+                .bind(id)
+                .execute(self.pool)
+                .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "song_arrangement", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "song_arrangement",
+                id: id.to_string(),
+            });
         }
         self.get(id).await
     }
@@ -200,13 +207,12 @@ impl<'a> ArrangementRepo<'a> {
         let arr = self.get(arrangement_id).await?;
         // Validate every section belongs to this song.
         for sid in section_ids {
-            let belongs: Option<String> = sqlx::query_scalar(
-                "SELECT id FROM song_section WHERE id = ?1 AND song_id = ?2",
-            )
-            .bind(sid)
-            .bind(&arr.song_id)
-            .fetch_optional(self.pool)
-            .await?;
+            let belongs: Option<String> =
+                sqlx::query_scalar("SELECT id FROM song_section WHERE id = ?1 AND song_id = ?2")
+                    .bind(sid)
+                    .bind(&arr.song_id)
+                    .fetch_optional(self.pool)
+                    .await?;
             if belongs.is_none() {
                 return Err(AppError::Validation(format!(
                     "section {} does not belong to song {}",
@@ -268,19 +274,34 @@ mod tests {
     async fn fixture() -> (Database, String, Vec<String>) {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Test".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
         let songs = SongRepo::new(&db.pool);
         let song = songs
             .create(SongInput {
                 library_id: lib.id.clone(),
                 title: "Amazing Grace".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
-        let v1 = songs.add_section(&song.id, "verse_1", "v1 line").await.unwrap();
-        let chorus = songs.add_section(&song.id, "chorus", "chorus line").await.unwrap();
+            .await
+            .unwrap();
+        let v1 = songs
+            .add_section(&song.id, "verse_1", "v1 line")
+            .await
+            .unwrap();
+        let chorus = songs
+            .add_section(&song.id, "chorus", "chorus line")
+            .await
+            .unwrap();
         (db, song.id, vec![v1.id, chorus.id])
     }
 
@@ -301,8 +322,12 @@ mod tests {
         let arr = repo.create(&song_id, "Full").await.unwrap();
         let (v1, chorus) = (&sections[0], &sections[1]);
         // verse → chorus → verse → chorus
-        repo.set_items(&arr.id, &[v1.clone(), chorus.clone(), v1.clone(), chorus.clone()])
-            .await.unwrap();
+        repo.set_items(
+            &arr.id,
+            &[v1.clone(), chorus.clone(), v1.clone(), chorus.clone()],
+        )
+        .await
+        .unwrap();
         let resolved = repo.resolved_sections(&arr.id).await.unwrap();
         assert_eq!(resolved.len(), 4);
         assert_eq!(resolved[0].label, "verse_1");
@@ -318,9 +343,15 @@ mod tests {
         let song_repo = SongRepo::new(&db.pool);
         let arr = arr_repo.create(&song_id, "Full").await.unwrap();
         let chorus = &sections[1];
-        arr_repo.set_items(&arr.id, &[chorus.clone(), chorus.clone()]).await.unwrap();
+        arr_repo
+            .set_items(&arr.id, &[chorus.clone(), chorus.clone()])
+            .await
+            .unwrap();
         // Edit the chorus once → both slots reflect it.
-        song_repo.update_section(chorus, "chorus", "EDITED chorus").await.unwrap();
+        song_repo
+            .update_section(chorus, "chorus", "EDITED chorus")
+            .await
+            .unwrap();
         let resolved = arr_repo.resolved_sections(&arr.id).await.unwrap();
         assert_eq!(resolved.len(), 2);
         assert!(resolved.iter().all(|s| s.lyrics == "EDITED chorus"));
@@ -333,7 +364,8 @@ mod tests {
         let arr = repo.create(&song_id, "Full").await.unwrap();
         let err = repo
             .set_items(&arr.id, &[sections[0].clone(), "ghost-section".to_string()])
-            .await.unwrap_err();
+            .await
+            .unwrap_err();
         assert_eq!(err.code(), "validation");
     }
 
@@ -356,7 +388,9 @@ mod tests {
         let (db, song_id, sections) = fixture().await;
         let repo = ArrangementRepo::new(&db.pool);
         let a = repo.create(&song_id, "A").await.unwrap();
-        repo.set_items(&a.id, &[sections[0].clone(), sections[1].clone()]).await.unwrap();
+        repo.set_items(&a.id, &[sections[0].clone(), sections[1].clone()])
+            .await
+            .unwrap();
         let copy = repo.duplicate(&a.id).await.unwrap();
         assert_eq!(copy.is_default, 0);
         assert!(copy.name.contains("kopi"));

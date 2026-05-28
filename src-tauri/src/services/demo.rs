@@ -8,8 +8,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::db::repositories::{ArrangementRepo, DeckRepo, ServiceRepo, SongRepo};
 use crate::db::models::SongInput;
+use crate::db::repositories::{ArrangementRepo, DeckRepo, ServiceRepo, SongRepo};
 use crate::db::{new_id, now_ms};
 use crate::error::AppResult;
 use crate::services::slide_doc::SlideDoc;
@@ -35,7 +35,10 @@ pub fn supported_locales() -> Vec<LocaleInfo> {
         ("pl", "Polski"),
     ]
     .into_iter()
-    .map(|(code, name)| LocaleInfo { code: code.into(), name: name.into() })
+    .map(|(code, name)| LocaleInfo {
+        code: code.into(),
+        name: name.into(),
+    })
     .collect()
 }
 
@@ -133,21 +136,57 @@ pub async fn seed_demo_content(pool: &SqlitePool, library_id: &str) -> AppResult
     // A welcome deck with a single notes slide.
     let deck = deck_repo.create_deck(library_id, "Velkommen").await?;
     deck_repo
-        .create_slide(&deck.id, &SlideDoc::with_lines("welcome", &["Velkommen til gudstjenesten".to_string()]))
+        .create_slide(
+            &deck.id,
+            &SlideDoc::with_lines("welcome", &["Velkommen til gudstjenesten".to_string()]),
+        )
         .await?;
 
     // The Welcome Service tying it together.
-    let service = svc_repo.create(library_id, "Velkomstgudstjeneste", now).await?;
+    let service = svc_repo
+        .create(library_id, "Velkomstgudstjeneste", now)
+        .await?;
     let mut pos = 0i64;
-    svc_repo.add_item(&service.id, pos, "announcement", None, None, None, None, Some("Velkommen!")).await?;
+    svc_repo
+        .add_item(
+            &service.id,
+            pos,
+            "announcement",
+            None,
+            None,
+            None,
+            None,
+            Some("Velkommen!"),
+        )
+        .await?;
     pos += 1;
     for (song_id, arr_id) in song_ids.iter().zip(default_arrangements.iter()) {
         svc_repo
-            .add_item(&service.id, pos, "song", Some(song_id), Some(arr_id), None, None, None)
+            .add_item(
+                &service.id,
+                pos,
+                "song",
+                Some(song_id),
+                Some(arr_id),
+                None,
+                None,
+                None,
+            )
             .await?;
         pos += 1;
     }
-    svc_repo.add_item(&service.id, pos, "scripture", None, None, None, Some(&bible_id), None).await?;
+    svc_repo
+        .add_item(
+            &service.id,
+            pos,
+            "scripture",
+            None,
+            None,
+            None,
+            Some(&bible_id),
+            None,
+        )
+        .await?;
 
     Ok(DemoSummary {
         songs: song_ids.len() as u32,
@@ -176,7 +215,10 @@ mod tests {
     async fn seed_creates_playable_welcome_service() {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Personal".into(), default_locale: None })
+            .create(LibraryInput {
+                name: "Personal".into(),
+                default_locale: None,
+            })
             .await
             .unwrap();
 
@@ -188,11 +230,17 @@ mod tests {
         assert_eq!(songs.len(), 3);
 
         // The welcome service compiles into a non-empty, playable cue list.
-        let cl = CueCompiler::new(&db.pool).compile(&summary.service_id).await.unwrap();
+        let cl = CueCompiler::new(&db.pool)
+            .compile(&summary.service_id)
+            .await
+            .unwrap();
         assert!(!cl.is_empty(), "demo service should produce cues");
 
         // The welcome deck has a slide.
-        let slides = DeckRepo::new(&db.pool).list_slides(&summary.deck_id).await.unwrap();
+        let slides = DeckRepo::new(&db.pool)
+            .list_slides(&summary.deck_id)
+            .await
+            .unwrap();
         assert_eq!(slides.len(), 1);
     }
 }

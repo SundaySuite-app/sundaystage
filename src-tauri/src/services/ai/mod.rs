@@ -125,7 +125,10 @@ pub fn build_messages_body(req: &StructuredRequest) -> serde_json::Value {
 
 /// Extract the forced tool call's `input` object from an Anthropic Messages
 /// response. Pure — tested against captured response shapes.
-pub fn extract_tool_input(resp: &serde_json::Value, tool_name: &str) -> AppResult<serde_json::Value> {
+pub fn extract_tool_input(
+    resp: &serde_json::Value,
+    tool_name: &str,
+) -> AppResult<serde_json::Value> {
     let content = resp
         .get("content")
         .and_then(|c| c.as_array())
@@ -164,7 +167,9 @@ pub struct AnthropicProvider {
 
 impl AnthropicProvider {
     pub fn new(api_key: impl Into<String>) -> Self {
-        Self { api_key: api_key.into() }
+        Self {
+            api_key: api_key.into(),
+        }
     }
 }
 
@@ -265,6 +270,9 @@ mod tests {
     #[test]
     fn extract_tool_input_errors_when_absent() {
         let resp = serde_json::json!({ "content": [{ "type": "text", "text": "no tool" }] });
-        assert_eq!(extract_tool_input(&resp, "emit").unwrap_err().code(), "internal");
+        assert_eq!(
+            extract_tool_input(&resp, "emit").unwrap_err().code(),
+            "internal"
+        );
     }
 }

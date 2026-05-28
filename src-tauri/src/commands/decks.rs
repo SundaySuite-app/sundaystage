@@ -17,7 +17,9 @@ pub async fn deck_create(
     library_id: String,
     name: String,
 ) -> AppResult<CustomDeck> {
-    DeckRepo::new(&state.db.pool).create_deck(&library_id, &name).await
+    DeckRepo::new(&state.db.pool)
+        .create_deck(&library_id, &name)
+        .await
 }
 
 #[tauri::command]
@@ -53,7 +55,9 @@ pub async fn slide_create(
     deck_id: String,
     doc: SlideDoc,
 ) -> AppResult<Slide> {
-    DeckRepo::new(&state.db.pool).create_slide(&deck_id, &doc).await
+    DeckRepo::new(&state.db.pool)
+        .create_slide(&deck_id, &doc)
+        .await
 }
 
 #[tauri::command]
@@ -67,7 +71,9 @@ pub async fn slide_update_content(
     id: String,
     doc: SlideDoc,
 ) -> AppResult<Slide> {
-    DeckRepo::new(&state.db.pool).update_slide_content(&id, &doc).await
+    DeckRepo::new(&state.db.pool)
+        .update_slide_content(&id, &doc)
+        .await
 }
 
 #[tauri::command]
@@ -86,5 +92,7 @@ pub async fn slide_reorder(
     deck_id: String,
     ordered_ids: Vec<String>,
 ) -> AppResult<Vec<Slide>> {
-    DeckRepo::new(&state.db.pool).reorder_slides(&deck_id, &ordered_ids).await
+    DeckRepo::new(&state.db.pool)
+        .reorder_slides(&deck_id, &ordered_ids)
+        .await
 }

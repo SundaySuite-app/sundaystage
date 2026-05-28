@@ -8,10 +8,7 @@ use crate::error::AppResult;
 use crate::AppState;
 
 #[tauri::command]
-pub async fn song_create(
-    state: State<'_, AppState>,
-    input: SongInput,
-) -> AppResult<Song> {
+pub async fn song_create(state: State<'_, AppState>, input: SongInput) -> AppResult<Song> {
     SongRepo::new(&state.db.pool).create(input).await
 }
 

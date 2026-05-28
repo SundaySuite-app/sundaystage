@@ -31,7 +31,10 @@ export function addBlockCommand(block: SlideBlock): Command {
   };
 }
 
-export function updateBlockCommand(before: SlideBlock, after: SlideBlock): Command {
+export function updateBlockCommand(
+  before: SlideBlock,
+  after: SlideBlock,
+): Command {
   return {
     label: "Endre element",
     apply: (doc) => replaceBlock(doc, after),
@@ -39,7 +42,10 @@ export function updateBlockCommand(before: SlideBlock, after: SlideBlock): Comma
   };
 }
 
-export function setBackgroundCommand(before: SlideBackground, after: SlideBackground): Command {
+export function setBackgroundCommand(
+  before: SlideBackground,
+  after: SlideBackground,
+): Command {
   return {
     label: "Endre bakgrunn",
     apply: (doc) => setBackground(doc, after),
@@ -156,13 +162,26 @@ export interface EditorHistory {
 }
 
 export function useEditorHistory(initial: SlideDoc): EditorHistory {
-  const [state, dispatch] = useReducer(reducer, { doc: initial, undo: [], redo: [] });
+  const [state, dispatch] = useReducer(reducer, {
+    doc: initial,
+    undo: [],
+    redo: [],
+  });
 
-  const apply = useCallback((cmd: Command) => dispatch({ type: "apply", cmd }), []);
-  const preview = useCallback((doc: SlideDoc) => dispatch({ type: "preview", doc }), []);
+  const apply = useCallback(
+    (cmd: Command) => dispatch({ type: "apply", cmd }),
+    [],
+  );
+  const preview = useCallback(
+    (doc: SlideDoc) => dispatch({ type: "preview", doc }),
+    [],
+  );
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
-  const reset = useCallback((doc: SlideDoc) => dispatch({ type: "reset", doc }), []);
+  const reset = useCallback(
+    (doc: SlideDoc) => dispatch({ type: "reset", doc }),
+    [],
+  );
 
   return useMemo(
     () => ({
@@ -175,6 +194,15 @@ export function useEditorHistory(initial: SlideDoc): EditorHistory {
       redo,
       reset,
     }),
-    [state.doc, state.undo.length, state.redo.length, apply, preview, undo, redo, reset],
+    [
+      state.doc,
+      state.undo.length,
+      state.redo.length,
+      apply,
+      preview,
+      undo,
+      redo,
+      reset,
+    ],
   );
 }

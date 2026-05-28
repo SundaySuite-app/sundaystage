@@ -6,13 +6,13 @@ Live presentation app for churches — companion to [SundayRec](https://github.c
 
 ## Why SundayStage exists
 
-|  | ProPresenter | EasyWorship | FreeShow | **SundayStage** |
-|---|---|---|---|---|
-| Price | $29-59/mo | One-time | Free OSS | **Free core, cheap Pro** |
-| Cross-platform | Mac+Win | Win-leaning | Yes | **Mac+Win first-class** |
-| AI-native lyric formatting | No | No | No | **Yes — Phase 4** |
-| Stable on Sunday morning | Has crashed | OK | Decent | **Crash isolation by design** |
-| Pair with church recorder | No | No | No | **SundayRec — Phase 10** |
+|                            | ProPresenter | EasyWorship | FreeShow | **SundayStage**               |
+| -------------------------- | ------------ | ----------- | -------- | ----------------------------- |
+| Price                      | $29-59/mo    | One-time    | Free OSS | **Free core, cheap Pro**      |
+| Cross-platform             | Mac+Win      | Win-leaning | Yes      | **Mac+Win first-class**       |
+| AI-native lyric formatting | No           | No          | No       | **Yes — Phase 4**             |
+| Stable on Sunday morning   | Has crashed  | OK          | Decent   | **Crash isolation by design** |
+| Pair with church recorder  | No           | No          | No       | **SundayRec — Phase 10**      |
 
 ## Stack
 
@@ -53,6 +53,7 @@ docs/
 ## Development
 
 Requires:
+
 - Rust stable (`rustup`)
 - Node 24+ + npm
 - macOS: Xcode command-line tools
@@ -64,17 +65,20 @@ npm run tauri dev           # builds Rust + starts Vite + opens app
 ```
 
 Frontend-only dev (no Rust hot reload):
+
 ```bash
 npm run dev
 ```
 
 Run Rust unit tests:
+
 ```bash
 cd src-tauri
 cargo test --lib
 ```
 
 Regenerate TypeScript bindings from Rust models:
+
 ```bash
 cd src-tauri
 cargo test --lib export_bindings    # writes to src/lib/bindings/*.ts

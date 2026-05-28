@@ -142,18 +142,30 @@ mod tests {
     #[test]
     fn status_local_only_when_cloud_disabled() {
         // Even mid-service, no cloud means local-only.
-        assert_eq!(compute_status(false, true, true, 5, 2), SyncStatus::LocalOnly);
+        assert_eq!(
+            compute_status(false, true, true, 5, 2),
+            SyncStatus::LocalOnly
+        );
     }
 
     #[test]
     fn status_pauses_during_live() {
-        assert_eq!(compute_status(true, true, true, 3, 0), SyncStatus::PausedLive);
+        assert_eq!(
+            compute_status(true, true, true, 3, 0),
+            SyncStatus::PausedLive
+        );
     }
 
     #[test]
     fn status_precedence_offline_conflict_syncing_synced() {
-        assert_eq!(compute_status(true, false, false, 0, 0), SyncStatus::Offline);
-        assert_eq!(compute_status(true, true, false, 1, 1), SyncStatus::Conflict);
+        assert_eq!(
+            compute_status(true, false, false, 0, 0),
+            SyncStatus::Offline
+        );
+        assert_eq!(
+            compute_status(true, true, false, 1, 1),
+            SyncStatus::Conflict
+        );
         assert_eq!(compute_status(true, true, false, 2, 0), SyncStatus::Syncing);
         assert_eq!(compute_status(true, true, false, 0, 0), SyncStatus::Synced);
     }
@@ -161,7 +173,10 @@ mod tests {
     #[test]
     fn sync_is_suspended_while_live() {
         assert!(should_sync(true, true, false));
-        assert!(!should_sync(true, true, true), "must not sync during a live service");
+        assert!(
+            !should_sync(true, true, true),
+            "must not sync during a live service"
+        );
         assert!(!should_sync(false, true, false), "no sync without cloud");
         assert!(!should_sync(true, false, false), "no sync while offline");
     }

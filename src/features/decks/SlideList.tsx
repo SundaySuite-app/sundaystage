@@ -25,7 +25,13 @@ interface SlideListProps {
   onReorder: (orderedIds: string[]) => void;
 }
 
-export function SlideList({ slides, activeId, onSelect, onAdd, onReorder }: SlideListProps) {
+export function SlideList({
+  slides,
+  activeId,
+  onSelect,
+  onAdd,
+  onReorder,
+}: SlideListProps) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
@@ -90,7 +96,9 @@ export function SlideList({ slides, activeId, onSelect, onAdd, onReorder }: Slid
               <div
                 className={cn(
                   "overflow-hidden rounded-md ring-1 transition-shadow",
-                  isActive ? "ring-2 ring-[var(--color-accent)]" : "ring-[var(--color-border)]",
+                  isActive
+                    ? "ring-2 ring-[var(--color-accent)]"
+                    : "ring-[var(--color-border)]",
                 )}
               >
                 <SlideCanvas doc={doc} width={THUMB_W} height={THUMB_H} />
@@ -102,7 +110,8 @@ export function SlideList({ slides, activeId, onSelect, onAdd, onReorder }: Slid
           <li className="px-1 py-6 text-center text-xs text-[var(--color-fg-muted)]">
             Ingen lysbilder enda.
             <br />
-            Trykk <span className="text-[var(--color-fg)]">+</span> for å legge til.
+            Trykk <span className="text-[var(--color-fg)]">+</span> for å legge
+            til.
           </li>
         )}
       </ol>

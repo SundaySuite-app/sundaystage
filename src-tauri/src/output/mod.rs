@@ -61,11 +61,17 @@ pub struct Watchdog {
 
 impl Watchdog {
     pub fn new(now: i64) -> Self {
-        Self { last_beat: now, timeout_ms: DEFAULT_TIMEOUT_MS }
+        Self {
+            last_beat: now,
+            timeout_ms: DEFAULT_TIMEOUT_MS,
+        }
     }
 
     pub fn with_timeout(now: i64, timeout_ms: i64) -> Self {
-        Self { last_beat: now, timeout_ms }
+        Self {
+            last_beat: now,
+            timeout_ms,
+        }
     }
 
     /// Record a heartbeat from the main app.
@@ -95,7 +101,7 @@ mod tests {
         assert!(wd.is_alive(1_500)); // within window
         assert!(wd.is_alive(3_000)); // exactly at timeout boundary
         assert!(!wd.is_alive(3_001)); // past it → dead
-        // A fresh beat revives it.
+                                      // A fresh beat revives it.
         wd.beat(3_001);
         assert!(wd.is_alive(4_000));
     }
@@ -109,7 +115,10 @@ mod tests {
 
     #[test]
     fn render_message_round_trips_with_frame() {
-        let msg = OutputMessage::Render { frame: LiveFrame::Black, seq: 7 };
+        let msg = OutputMessage::Render {
+            frame: LiveFrame::Black,
+            seq: 7,
+        };
         let json = serde_json::to_string(&msg).unwrap();
         let back: OutputMessage = serde_json::from_str(&json).unwrap();
         assert_eq!(msg, back);
@@ -120,7 +129,10 @@ mod tests {
 
     #[test]
     fn heartbeat_and_shutdown_round_trip() {
-        for msg in [OutputMessage::Heartbeat { at: 123 }, OutputMessage::Shutdown] {
+        for msg in [
+            OutputMessage::Heartbeat { at: 123 },
+            OutputMessage::Shutdown,
+        ] {
             let json = serde_json::to_string(&msg).unwrap();
             let back: OutputMessage = serde_json::from_str(&json).unwrap();
             assert_eq!(msg, back);
@@ -129,10 +141,15 @@ mod tests {
 
     #[test]
     fn ack_round_trips() {
-        let ack = OutputAck::Rendered { seq: 7, rendered_at: 999 };
+        let ack = OutputAck::Rendered {
+            seq: 7,
+            rendered_at: 999,
+        };
         let json = serde_json::to_string(&ack).unwrap();
         assert_eq!(serde_json::from_str::<OutputAck>(&json).unwrap(), ack);
-        let err = OutputAck::Error { message: "gpu lost".into() };
+        let err = OutputAck::Error {
+            message: "gpu lost".into(),
+        };
         let json = serde_json::to_string(&err).unwrap();
         assert_eq!(serde_json::from_str::<OutputAck>(&json).unwrap(), err);
     }

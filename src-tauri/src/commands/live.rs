@@ -30,10 +30,7 @@ pub fn bridge_protocol_version() -> String {
     PROTOCOL_VERSION.to_string()
 }
 
-fn require_session<T>(
-    state: &AppState,
-    f: impl FnOnce(&LiveSession) -> T,
-) -> AppResult<T> {
+fn require_session<T>(state: &AppState, f: impl FnOnce(&LiveSession) -> T) -> AppResult<T> {
     let guard = state.live.lock().expect("live mutex");
     let session = guard
         .as_ref()
@@ -75,7 +72,9 @@ pub async fn live_start(
     service_id: String,
 ) -> AppResult<LiveSessionView> {
     // Compile first (async, no lock held), then install the session.
-    let cue_list = CueCompiler::new(&state.db.pool).compile(&service_id).await?;
+    let cue_list = CueCompiler::new(&state.db.pool)
+        .compile(&service_id)
+        .await?;
     let session = LiveSession::new(service_id, cue_list, now_ms());
     let view = session.view();
     // Best-effort WAL; a failed write must never block going live.
@@ -101,7 +100,12 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
 /// Snapshot of the current session, or `None` if not live.
 #[tauri::command]
 pub fn live_state(state: State<'_, AppState>) -> AppResult<Option<LiveSessionView>> {
-    Ok(state.live.lock().expect("live mutex").as_ref().map(|s| s.view()))
+    Ok(state
+        .live
+        .lock()
+        .expect("live mutex")
+        .as_ref()
+        .map(|s| s.view()))
 }
 
 /// End the session and clear the recovery log (marks a clean shutdown).

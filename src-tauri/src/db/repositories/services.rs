@@ -19,12 +19,7 @@ impl<'a> ServiceRepo<'a> {
         Self { pool }
     }
 
-    pub async fn create(
-        &self,
-        library_id: &str,
-        name: &str,
-        starts_at: i64,
-    ) -> AppResult<Service> {
+    pub async fn create(&self, library_id: &str, name: &str, starts_at: i64) -> AppResult<Service> {
         let id = new_id();
         let now = now_ms();
         sqlx::query(
@@ -44,19 +39,22 @@ impl<'a> ServiceRepo<'a> {
     }
 
     pub async fn get(&self, id: &str) -> AppResult<Service> {
-        sqlx::query_as::<_, Service>(
-            "SELECT * FROM service WHERE id = ?1 AND deleted_at IS NULL",
-        )
-        .bind(id)
-        .fetch_optional(self.pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound {
-            entity: "service",
-            id: id.to_string(),
-        })
+        sqlx::query_as::<_, Service>("SELECT * FROM service WHERE id = ?1 AND deleted_at IS NULL")
+            .bind(id)
+            .fetch_optional(self.pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound {
+                entity: "service",
+                id: id.to_string(),
+            })
     }
 
-    pub async fn upcoming(&self, library_id: &str, from: i64, limit: i64) -> AppResult<Vec<Service>> {
+    pub async fn upcoming(
+        &self,
+        library_id: &str,
+        from: i64,
+        limit: i64,
+    ) -> AppResult<Vec<Service>> {
         let rows = sqlx::query_as::<_, Service>(
             r#"
             SELECT * FROM service
@@ -130,18 +128,25 @@ impl<'a> ServiceRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::repositories::LibraryRepo;
     use crate::db::models::LibraryInput;
+    use crate::db::repositories::LibraryRepo;
     use crate::db::Database;
 
     #[tokio::test]
     async fn create_and_list_upcoming() {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Test".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
         let repo = ServiceRepo::new(&db.pool);
-        let svc = repo.create(&lib.id, "Sunday 14 Sept", 1_758_540_000_000).await.unwrap();
+        let svc = repo
+            .create(&lib.id, "Sunday 14 Sept", 1_758_540_000_000)
+            .await
+            .unwrap();
         assert_eq!(svc.state, "planned");
         let upcoming = repo.upcoming(&lib.id, 0, 10).await.unwrap();
         assert_eq!(upcoming.len(), 1);

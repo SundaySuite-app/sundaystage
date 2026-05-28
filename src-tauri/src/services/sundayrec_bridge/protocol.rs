@@ -23,11 +23,21 @@ pub enum BridgeRequest {
     /// Capability/liveness check.
     Ping,
     /// SundayRec → Stage: a recording started.
-    RecordingStarted { recording_id: String, started_at: i64 },
+    RecordingStarted {
+        recording_id: String,
+        started_at: i64,
+    },
     /// SundayRec → Stage: a recording stopped.
-    RecordingStopped { recording_id: String, stopped_at: i64 },
+    RecordingStopped {
+        recording_id: String,
+        stopped_at: i64,
+    },
     /// Stage → SundayRec: a cue advanced; carries a timeline marker.
-    CueAdvanced { offset_ms: i64, title: String, cue_index: usize },
+    CueAdvanced {
+        offset_ms: i64,
+        title: String,
+        cue_index: usize,
+    },
     /// Stage → SundayRec: list available recordings.
     GetRecordings,
     /// Stage → SundayRec: fetch a recording's transcript.
@@ -40,12 +50,25 @@ pub enum BridgeRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case")]
 pub enum BridgeResponse {
-    Pong { app: String, version: String, capabilities: Vec<String> },
+    Pong {
+        app: String,
+        version: String,
+        capabilities: Vec<String>,
+    },
     Ok,
-    Recordings { recordings: Vec<RecordingRef> },
-    Transcript { recording_id: String, text: String },
-    SongHistory { songs: Vec<SongHistoryEntry> },
-    Error { message: String },
+    Recordings {
+        recordings: Vec<RecordingRef>,
+    },
+    Transcript {
+        recording_id: String,
+        text: String,
+    },
+    SongHistory {
+        songs: Vec<SongHistoryEntry>,
+    },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,9 +106,18 @@ mod tests {
     fn requests_round_trip_with_snake_case_verbs() {
         let cases = [
             BridgeRequest::Ping,
-            BridgeRequest::RecordingStarted { recording_id: "r1".into(), started_at: 100 },
-            BridgeRequest::CueAdvanced { offset_ms: 12_500, title: "Amazing Grace".into(), cue_index: 3 },
-            BridgeRequest::GetTranscript { recording_id: "r1".into() },
+            BridgeRequest::RecordingStarted {
+                recording_id: "r1".into(),
+                started_at: 100,
+            },
+            BridgeRequest::CueAdvanced {
+                offset_ms: 12_500,
+                title: "Amazing Grace".into(),
+                cue_index: 3,
+            },
+            BridgeRequest::GetTranscript {
+                recording_id: "r1".into(),
+            },
         ];
         for req in cases {
             let json = serde_json::to_string(&req).unwrap();
@@ -102,9 +134,15 @@ mod tests {
             this_app_pong(),
             BridgeResponse::Ok,
             BridgeResponse::Recordings {
-                recordings: vec![RecordingRef { id: "r".into(), title: "Sunday".into(), started_at: 1 }],
+                recordings: vec![RecordingRef {
+                    id: "r".into(),
+                    title: "Sunday".into(),
+                    started_at: 1,
+                }],
             },
-            BridgeResponse::Error { message: "nope".into() },
+            BridgeResponse::Error {
+                message: "nope".into(),
+            },
         ];
         for resp in cases {
             let json = serde_json::to_string(&resp).unwrap();
@@ -115,7 +153,11 @@ mod tests {
     #[test]
     fn pong_advertises_version_and_capabilities() {
         match this_app_pong() {
-            BridgeResponse::Pong { app, version, capabilities } => {
+            BridgeResponse::Pong {
+                app,
+                version,
+                capabilities,
+            } => {
                 assert_eq!(app, "sundaystage");
                 assert_eq!(version, PROTOCOL_VERSION);
                 assert!(capabilities.contains(&"export_srt".to_string()));

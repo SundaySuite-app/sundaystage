@@ -15,9 +15,9 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::db::repositories::{ArrangementRepo, ServiceRepo};
-use crate::db::now_ms;
 use crate::db::models::Service;
+use crate::db::now_ms;
+use crate::db::repositories::{ArrangementRepo, ServiceRepo};
 use crate::error::AppResult;
 use sqlx::SqlitePool;
 
@@ -119,35 +119,69 @@ pub fn parse_plan_response(
         .and_then(|t| t.as_str())
         .unwrap_or("AI-tjenesteplan")
         .to_string();
-    let theme = input.get("theme").and_then(|t| t.as_str()).map(String::from);
+    let theme = input
+        .get("theme")
+        .and_then(|t| t.as_str())
+        .map(String::from);
 
     let mut warnings = Vec::new();
     let mut items = Vec::new();
     if let Some(arr) = input.get("items").and_then(|i| i.as_array()) {
         for raw in arr {
             let kind = raw.get("kind").and_then(|k| k.as_str()).unwrap_or("note");
-            let title = raw.get("title").and_then(|t| t.as_str()).unwrap_or("").to_string();
+            let title = raw
+                .get("title")
+                .and_then(|t| t.as_str())
+                .unwrap_or("")
+                .to_string();
             if title.trim().is_empty() {
                 continue;
             }
-            let song_id = raw.get("song_id").and_then(|s| s.as_str()).map(String::from);
+            let song_id = raw
+                .get("song_id")
+                .and_then(|s| s.as_str())
+                .map(String::from);
             let key = raw.get("key").and_then(|k| k.as_str()).map(String::from);
-            let reference = raw.get("reference").and_then(|r| r.as_str()).map(String::from);
+            let reference = raw
+                .get("reference")
+                .and_then(|r| r.as_str())
+                .map(String::from);
             let note = raw.get("note").and_then(|n| n.as_str()).map(String::from);
 
             if kind == "song" {
                 match &song_id {
                     Some(id) if valid_song_ids.contains(id) => {
-                        items.push(PlanItem { kind: "song".into(), title, song_id, key, reference: None, note });
+                        items.push(PlanItem {
+                            kind: "song".into(),
+                            title,
+                            song_id,
+                            key,
+                            reference: None,
+                            note,
+                        });
                     }
                     _ => {
-                        warnings.push(format!("«{title}» matchet ingen sang i biblioteket — la til som notat"));
-                        items.push(PlanItem { kind: "note".into(), title, song_id: None, key: None, reference: None, note });
+                        warnings.push(format!(
+                            "«{title}» matchet ingen sang i biblioteket — la til som notat"
+                        ));
+                        items.push(PlanItem {
+                            kind: "note".into(),
+                            title,
+                            song_id: None,
+                            key: None,
+                            reference: None,
+                            note,
+                        });
                     }
                 }
             } else {
                 items.push(PlanItem {
-                    kind: if kind == "scripture" { "scripture" } else { "note" }.into(),
+                    kind: if kind == "scripture" {
+                        "scripture"
+                    } else {
+                        "note"
+                    }
+                    .into(),
                     title,
                     song_id: None,
                     key: None,
@@ -158,7 +192,12 @@ pub fn parse_plan_response(
         }
     }
 
-    ServicePlan { title, theme, items, warnings }
+    ServicePlan {
+        title,
+        theme,
+        items,
+        warnings,
+    }
 }
 
 /// Create a real `Service` from an accepted plan: a `song` item becomes a song
@@ -206,7 +245,16 @@ pub async fn apply_plan(
             .or_else(|| item.note.clone())
             .unwrap_or_else(|| item.title.clone());
         svc_repo
-            .add_item(&service.id, pos, "announcement", None, None, None, None, Some(&notes))
+            .add_item(
+                &service.id,
+                pos,
+                "announcement",
+                None,
+                None,
+                None,
+                None,
+                Some(&notes),
+            )
             .await?;
     }
 
@@ -262,8 +310,16 @@ mod tests {
     #[test]
     fn system_prompt_lists_song_ids() {
         let songs = vec![
-            LibrarySong { id: "s1".into(), title: "Amazing Grace".into(), key: Some("G".into()) },
-            LibrarySong { id: "s2".into(), title: "10,000 Reasons".into(), key: None },
+            LibrarySong {
+                id: "s1".into(),
+                title: "Amazing Grace".into(),
+                key: Some("G".into()),
+            },
+            LibrarySong {
+                id: "s2".into(),
+                title: "10,000 Reasons".into(),
+                key: None,
+            },
         ];
         let p = system_prompt(&songs);
         assert!(p.contains("id=s1 | Amazing Grace (key G)"));
@@ -279,23 +335,50 @@ mod tests {
 
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "T".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "T".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
         let song = SongRepo::new(&db.pool)
             .create(SongInput {
-                library_id: lib.id.clone(), title: "Amazing Grace".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                library_id: lib.id.clone(),
+                title: "Amazing Grace".into(),
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
-        let arr = ArrangementRepo::new(&db.pool).create(&song.id, "Full").await.unwrap();
+            .await
+            .unwrap();
+        let arr = ArrangementRepo::new(&db.pool)
+            .create(&song.id, "Full")
+            .await
+            .unwrap();
 
         let plan = ServicePlan {
             title: "Sunday".into(),
             theme: Some("grace".into()),
             items: vec![
-                PlanItem { kind: "song".into(), title: "Amazing Grace".into(), song_id: Some(song.id.clone()), key: Some("G".into()), reference: None, note: None },
-                PlanItem { kind: "scripture".into(), title: "John 3:16".into(), song_id: None, key: None, reference: Some("Joh 3:16".into()), note: None },
+                PlanItem {
+                    kind: "song".into(),
+                    title: "Amazing Grace".into(),
+                    song_id: Some(song.id.clone()),
+                    key: Some("G".into()),
+                    reference: None,
+                    note: None,
+                },
+                PlanItem {
+                    kind: "scripture".into(),
+                    title: "John 3:16".into(),
+                    song_id: None,
+                    key: None,
+                    reference: Some("Joh 3:16".into()),
+                    note: None,
+                },
             ],
             warnings: vec![],
         };

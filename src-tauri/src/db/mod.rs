@@ -57,8 +57,7 @@ impl Database {
 
     /// In-memory database for tests.
     pub async fn open_in_memory() -> AppResult<Self> {
-        let opts = SqliteConnectOptions::from_str("sqlite::memory:")?
-            .foreign_keys(true);
+        let opts = SqliteConnectOptions::from_str("sqlite::memory:")?.foreign_keys(true);
         let pool = SqlitePoolOptions::new()
             .max_connections(1) // shared in-memory needs a single connection
             .connect_with(opts)

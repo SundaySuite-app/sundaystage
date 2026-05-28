@@ -64,7 +64,9 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   const slides = useMemo(() => slidesQuery.data ?? [], [slidesQuery.data]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const history = useEditorHistory(blankDoc());
 
   // Refs so the (stable) keyboard handler always sees current state.
@@ -162,7 +164,9 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
       cmds.push(addBlockCommand(copy));
     }
     if (cmds.length === 0) return;
-    history.apply(cmds.length === 1 ? cmds[0] : compositeCommand("Dupliser", cmds));
+    history.apply(
+      cmds.length === 1 ? cmds[0] : compositeCommand("Dupliser", cmds),
+    );
     setSelectedIds(new Set(newIds));
   }, [history]);
 
@@ -174,11 +178,16 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
       for (const id of ids) {
         const b = findBlock(docRef.current, id);
         if (!b) continue;
-        const after = { ...b, rect: clampRect({ ...b.rect, x: b.rect.x + dx, y: b.rect.y + dy }) };
+        const after = {
+          ...b,
+          rect: clampRect({ ...b.rect, x: b.rect.x + dx, y: b.rect.y + dy }),
+        };
         cmds.push(updateBlockCommand(b, after));
       }
       if (cmds.length === 0) return;
-      history.apply(cmds.length === 1 ? cmds[0] : compositeCommand("Flytt", cmds));
+      history.apply(
+        cmds.length === 1 ? cmds[0] : compositeCommand("Flytt", cmds),
+      );
     },
     [history],
   );
@@ -187,7 +196,12 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) {
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT")
+      ) {
         return;
       }
       const mod = e.metaKey || e.ctrlKey;
@@ -240,7 +254,8 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
 
   // ── Slide operations ─────────────────────────────────────────────────────────
   const addSlideMutation = useMutation({
-    mutationFn: () => ipc.deck.createSlide(deck.id, docWithText("Nytt lysbilde")),
+    mutationFn: () =>
+      ipc.deck.createSlide(deck.id, docWithText("Nytt lysbilde")),
     onSuccess: (slide) => {
       qc.setQueryData<Slide[]>(slidesKey, (old) => [...(old ?? []), slide]);
       loadSlide(slide);
@@ -260,12 +275,15 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   });
 
   const reorderMutation = useMutation({
-    mutationFn: (orderedIds: string[]) => ipc.deck.reorderSlides(deck.id, orderedIds),
+    mutationFn: (orderedIds: string[]) =>
+      ipc.deck.reorderSlides(deck.id, orderedIds),
     onSuccess: (reordered) => qc.setQueryData<Slide[]>(slidesKey, reordered),
   });
 
   // ── Theme / template (Phase 3.2) ──────────────────────────────────────────────
-  const activeSlide = activeId ? slides.find((s) => s.id === activeId) ?? null : null;
+  const activeSlide = activeId
+    ? (slides.find((s) => s.id === activeId) ?? null)
+    : null;
 
   const patchSlideInCache = (saved: Slide) =>
     qc.setQueryData<Slide[]>(slidesKey, (old) =>
@@ -273,25 +291,35 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
     );
 
   const setSlideThemeMut = useMutation({
-    mutationFn: (themeId: string | null) => ipc.deck.setSlideTheme(activeId!, themeId),
+    mutationFn: (themeId: string | null) =>
+      ipc.deck.setSlideTheme(activeId!, themeId),
     onSuccess: patchSlideInCache,
   });
   const setSlideTemplateMut = useMutation({
-    mutationFn: (templateId: string | null) => ipc.deck.setSlideTemplate(activeId!, templateId),
+    mutationFn: (templateId: string | null) =>
+      ipc.deck.setSlideTemplate(activeId!, templateId),
     onSuccess: patchSlideInCache,
   });
 
   const replaceDoc = useCallback(
-    (after: SlideDoc) => history.apply(replaceDocCommand(docRef.current, after)),
+    (after: SlideDoc) =>
+      history.apply(replaceDocCommand(docRef.current, after)),
     [history],
   );
 
   // ── Canvas sizing (fit 16:9) ──────────────────────────────────────────────────
   const [wrapRef, wrap] = useElementSize();
-  const canvasW = Math.max(0, Math.floor(Math.min(wrap.w, wrap.h * STAGE_ASPECT)));
+  const canvasW = Math.max(
+    0,
+    Math.floor(Math.min(wrap.w, wrap.h * STAGE_ASPECT)),
+  );
   const canvasH = Math.floor(canvasW / STAGE_ASPECT);
 
-  const saveStatus = saveMutation.isPending ? "Lagrer…" : activeId ? "Lagret" : "";
+  const saveStatus = saveMutation.isPending
+    ? "Lagrer…"
+    : activeId
+      ? "Lagret"
+      : "";
 
   return (
     <div className="flex h-full flex-col bg-[var(--color-bg)]">
@@ -308,7 +336,11 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
 
         <div className="mx-2 h-5 w-px bg-[var(--color-border)]" />
 
-        <ToolbarButton onClick={addText} icon={<Type size={15} />} label="Tekst" />
+        <ToolbarButton
+          onClick={addText}
+          icon={<Type size={15} />}
+          label="Tekst"
+        />
         <ToolbarButton
           onClick={duplicateSelected}
           icon={<Copy size={15} />}
@@ -338,7 +370,9 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
         />
 
         <div className="flex-1" />
-        <span className="text-xs text-[var(--color-fg-muted)]">{saveStatus}</span>
+        <span className="text-xs text-[var(--color-fg-muted)]">
+          {saveStatus}
+        </span>
         {activeId && (
           <button
             type="button"
@@ -363,7 +397,10 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
           onReorder={(ids) => reorderMutation.mutate(ids)}
         />
 
-        <div ref={wrapRef} className="grid place-items-center overflow-hidden bg-[var(--color-bg)] p-8">
+        <div
+          ref={wrapRef}
+          className="grid place-items-center overflow-hidden bg-[var(--color-bg)] p-8"
+        >
           {activeId && canvasW > 0 ? (
             <div className="shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
               <SlideCanvas
@@ -378,7 +415,10 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
               />
             </div>
           ) : (
-            <EmptyCanvas onAdd={() => addSlideMutation.mutate()} hasSlides={slides.length > 0} />
+            <EmptyCanvas
+              onAdd={() => addSlideMutation.mutate()}
+              hasSlides={slides.length > 0}
+            />
           )}
         </div>
 
@@ -433,11 +473,19 @@ function ToolbarButton({
   );
 }
 
-function EmptyCanvas({ onAdd, hasSlides }: { onAdd: () => void; hasSlides: boolean }) {
+function EmptyCanvas({
+  onAdd,
+  hasSlides,
+}: {
+  onAdd: () => void;
+  hasSlides: boolean;
+}) {
   return (
     <div className="text-center">
       <p className="mb-3 text-sm text-[var(--color-fg-muted)]">
-        {hasSlides ? "Velg et lysbilde til venstre." : "Dette decket har ingen lysbilder enda."}
+        {hasSlides
+          ? "Velg et lysbilde til venstre."
+          : "Dette decket har ingen lysbilder enda."}
       </p>
       {!hasSlides && (
         <button

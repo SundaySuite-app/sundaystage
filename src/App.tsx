@@ -41,14 +41,17 @@ function App() {
 
   // On launch, detect a live session that ended abnormally (Phase 6.1).
   useEffect(() => {
-    ipc.live.recover().then((v) => v && setRecoverable(v)).catch(() => {});
+    ipc.live
+      .recover()
+      .then((v) => v && setRecoverable(v))
+      .catch(() => {});
   }, []);
 
   // Auto-create a "Personal" library on first run so the UI has something
   // to point at. Phase 13 replaces this with the proper onboarding wizard.
   const librariesQuery = useQuery({
     queryKey: ["libraries"],
-    queryFn:  () => ipc.library.list(),
+    queryFn: () => ipc.library.list(),
   });
 
   useEffect(() => {
@@ -70,11 +73,7 @@ function App() {
       const upcoming = await ipc.service.upcoming(activeLibrary.id, 0, 1);
       if (upcoming.length > 0) return upcoming[0];
       // Create a demo service so the live preview has something to compile
-      return ipc.service.create(
-        activeLibrary.id,
-        "Demo Service",
-        Date.now(),
-      );
+      return ipc.service.create(activeLibrary.id, "Demo Service", Date.now());
     },
     onSuccess: (svc) => {
       setLiveService(svc);
@@ -167,8 +166,8 @@ function RecoveryBanner({
     <div className="fixed bottom-4 left-1/2 z-50 w-[min(90vw,560px)] -translate-x-1/2 rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] p-4 shadow-[var(--shadow-elevated)]">
       <p className="text-sm font-semibold">Forrige live-økt ble avbrutt</p>
       <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-        En live-økt ble ikke avsluttet normalt. Du kan gjenoppta nøyaktig der du var
-        — cue {session.index + 1} av {session.total}.
+        En live-økt ble ikke avsluttet normalt. Du kan gjenoppta nøyaktig der du
+        var — cue {session.index + 1} av {session.total}.
       </p>
       <div className="mt-3 flex justify-end gap-2">
         <button
@@ -192,13 +191,13 @@ function RecoveryBanner({
 
 function Placeholder({ route }: { route: Route }) {
   const titles: Record<Route, { title: string; phase: string }> = {
-    dashboard: { title: "Dashbord",       phase: "Phase 2.1" },
-    library:   { title: "Sangbibliotek",  phase: "Phase 2.2" },
-    decks:     { title: "Decks",          phase: "Phase 3.1" },
-    services:  { title: "Tjenester",      phase: "Phase 5" },
-    bible:     { title: "Bibel",          phase: "Phase 7.1" },
-    media:     { title: "Media",          phase: "Phase 7.2" },
-    settings:  { title: "Innstillinger",  phase: "Phase 13" },
+    dashboard: { title: "Dashbord", phase: "Phase 2.1" },
+    library: { title: "Sangbibliotek", phase: "Phase 2.2" },
+    decks: { title: "Decks", phase: "Phase 3.1" },
+    services: { title: "Tjenester", phase: "Phase 5" },
+    bible: { title: "Bibel", phase: "Phase 7.1" },
+    media: { title: "Media", phase: "Phase 7.2" },
+    settings: { title: "Innstillinger", phase: "Phase 13" },
   };
   const info = titles[route];
 
@@ -208,7 +207,9 @@ function Placeholder({ route }: { route: Route }) {
         <div className="text-xs font-medium uppercase tracking-widest text-[var(--color-accent)] mb-2">
           {info.phase}
         </div>
-        <h1 className="text-[var(--text-ui-2xl)] font-bold mb-2">{info.title}</h1>
+        <h1 className="text-[var(--text-ui-2xl)] font-bold mb-2">
+          {info.title}
+        </h1>
         <p className="text-sm text-[var(--color-fg-muted)]">
           Denne siden er planlagt for {info.phase}. Vi har scaffolding klar —
           implementasjon kommer i senere fase.

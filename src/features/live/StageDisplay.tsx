@@ -23,10 +23,16 @@ function fmtDuration(ms: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
 }
 
-function cueText(cue: Cue | undefined): { lines: string[]; section: string | null } {
+function cueText(cue: Cue | undefined): {
+  lines: string[];
+  section: string | null;
+} {
   if (!cue) return { lines: [], section: null };
   if (cue.kind === "show_slide") {
-    return { lines: cue.slide_content.text_lines, section: cue.slide_content.section_label };
+    return {
+      lines: cue.slide_content.text_lines,
+      section: cue.slide_content.section_label,
+    };
   }
   if (cue.kind === "pause") return { lines: [cue.label], section: null };
   return { lines: [], section: null };
@@ -69,7 +75,10 @@ export function StageDisplay({
 
   const current =
     session.frame.kind === "slide"
-      ? { lines: session.frame.slide_content.text_lines, section: session.frame.slide_content.section_label }
+      ? {
+          lines: session.frame.slide_content.text_lines,
+          section: session.frame.slide_content.section_label,
+        }
       : session.frame.kind === "message"
         ? { lines: [session.frame.text], section: null }
         : { lines: [], section: null };
@@ -87,13 +96,19 @@ export function StageDisplay({
         )}
         <div className="flex-1" />
         {preset.show_service_timer && (
-          <span className="font-mono text-lg tabular-nums text-white/70" title="Tid siden start">
+          <span
+            className="font-mono text-lg tabular-nums text-white/70"
+            title="Tid siden start"
+          >
             ⏱ {fmtDuration(now - Number(session.started_at))}
           </span>
         )}
         {preset.show_clock && (
           <span className="font-mono text-lg tabular-nums text-white/90">
-            {new Date(now).toLocaleTimeString("no", { hour: "2-digit", minute: "2-digit" })}
+            {new Date(now).toLocaleTimeString("no", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </span>
         )}
         <select
@@ -128,7 +143,11 @@ export function StageDisplay({
                 <p
                   key={i}
                   className="font-bold leading-tight"
-                  style={{ fontSize: preset.lyrics_large ? "var(--text-stage-lg)" : "var(--text-stage-md)" }}
+                  style={{
+                    fontSize: preset.lyrics_large
+                      ? "var(--text-stage-lg)"
+                      : "var(--text-stage-md)",
+                  }}
                 >
                   {line}
                 </p>
@@ -143,8 +162,14 @@ export function StageDisplay({
           <aside className="flex w-80 flex-col gap-4 border-l border-white/10 p-5">
             {preset.show_next_slide && (
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">Neste</h3>
-                {next.section && <p className="text-sm font-bold text-[var(--color-accent)]">{next.section}</p>}
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">
+                  Neste
+                </h3>
+                {next.section && (
+                  <p className="text-sm font-bold text-[var(--color-accent)]">
+                    {next.section}
+                  </p>
+                )}
                 <p className="line-clamp-4 text-lg leading-snug text-white/70">
                   {next.lines.join(" / ") || "Slutt på listen"}
                 </p>
@@ -152,7 +177,9 @@ export function StageDisplay({
             )}
             {preset.show_notes && (
               <div className="flex-1">
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">Notater</h3>
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">
+                  Notater
+                </h3>
                 <p className="whitespace-pre-wrap text-sm text-white/60">
                   {notes?.trim() ? notes : "Ingen notater."}
                 </p>

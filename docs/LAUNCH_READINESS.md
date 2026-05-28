@@ -17,15 +17,15 @@ Phase 13.1 onward.
 
 ## i18n status per language
 
-| Lang | Nav/chrome | Full app strings |
-|------|-----------|------------------|
-| en   | ✅ | ✅ (base) |
-| no   | ✅ | ✅ |
-| sv   | ✅ | ⛔ falls back to en |
-| da   | ✅ | ⛔ falls back to en |
-| de   | ✅ | ⛔ falls back to en |
-| fr   | ✅ | ⛔ falls back to en |
-| pl   | ✅ | ⛔ falls back to en |
+| Lang | Nav/chrome | Full app strings    |
+| ---- | ---------- | ------------------- |
+| en   | ✅         | ✅ (base)           |
+| no   | ✅         | ✅                  |
+| sv   | ✅         | ⛔ falls back to en |
+| da   | ✅         | ⛔ falls back to en |
+| de   | ✅         | ⛔ falls back to en |
+| fr   | ✅         | ⛔ falls back to en |
+| pl   | ✅         | ⛔ falls back to en |
 
 - [ ] Route **every** user-visible string through `t()` (large mechanical pass;
       currently the shell/nav is done, feature pages are still mostly Norwegian

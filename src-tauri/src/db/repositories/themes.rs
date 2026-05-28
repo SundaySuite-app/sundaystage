@@ -60,12 +60,11 @@ impl<'a> ThemeRepo<'a> {
             .into_iter()
             .map(|t| static_theme_row(t.id, t.name, &t.tokens))
             .collect();
-        let db = sqlx::query_as::<_, Theme>(
-            "SELECT * FROM theme WHERE library_id = ?1 ORDER BY name",
-        )
-        .bind(library_id)
-        .fetch_all(self.pool)
-        .await?;
+        let db =
+            sqlx::query_as::<_, Theme>("SELECT * FROM theme WHERE library_id = ?1 ORDER BY name")
+                .bind(library_id)
+                .fetch_all(self.pool)
+                .await?;
         out.extend(db);
         Ok(out)
     }
@@ -93,7 +92,10 @@ impl<'a> ThemeRepo<'a> {
             .bind(id)
             .fetch_optional(self.pool)
             .await?
-            .ok_or_else(|| AppError::NotFound { entity: "theme", id: id.to_string() })
+            .ok_or_else(|| AppError::NotFound {
+                entity: "theme",
+                id: id.to_string(),
+            })
     }
 
     fn is_builtin(id: &str) -> bool {
@@ -150,7 +152,10 @@ impl<'a> ThemeRepo<'a> {
             .execute(self.pool)
             .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "theme", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "theme",
+                id: id.to_string(),
+            });
         }
         self.get_theme(id).await
     }
@@ -169,21 +174,29 @@ impl<'a> ThemeRepo<'a> {
             .execute(self.pool)
             .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "theme", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "theme",
+                id: id.to_string(),
+            });
         }
         self.get_theme(id).await
     }
 
     pub async fn delete_theme(&self, id: &str) -> AppResult<()> {
         if Self::is_builtin(id) {
-            return Err(AppError::Validation("innebygde temaer kan ikke slettes".to_string()));
+            return Err(AppError::Validation(
+                "innebygde temaer kan ikke slettes".to_string(),
+            ));
         }
         let res = sqlx::query("DELETE FROM theme WHERE id = ?1")
             .bind(id)
             .execute(self.pool)
             .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "theme", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "theme",
+                id: id.to_string(),
+            });
         }
         Ok(())
     }
@@ -223,7 +236,10 @@ impl<'a> ThemeRepo<'a> {
             .bind(id)
             .fetch_optional(self.pool)
             .await?
-            .ok_or_else(|| AppError::NotFound { entity: "library", id: id.to_string() })
+            .ok_or_else(|| AppError::NotFound {
+                entity: "library",
+                id: id.to_string(),
+            })
     }
 
     // ── Render bridge ──────────────────────────────────────────────────────────
@@ -242,7 +258,10 @@ impl<'a> ThemeRepo<'a> {
         Ok(map)
     }
 
-    async fn db_template_layouts(&self, library_id: &str) -> AppResult<HashMap<String, TemplateLayout>> {
+    async fn db_template_layouts(
+        &self,
+        library_id: &str,
+    ) -> AppResult<HashMap<String, TemplateLayout>> {
         let rows = sqlx::query_as::<_, Template>("SELECT * FROM template WHERE library_id = ?1")
             .bind(library_id)
             .fetch_all(self.pool)
@@ -282,7 +301,10 @@ mod tests {
     async fn fixture() -> (Database, String) {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Test".into(), default_locale: None })
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
             .await
             .unwrap();
         (db, lib.id)
@@ -297,10 +319,14 @@ mod tests {
         assert!(builtin_count >= 5);
         assert!(before.iter().all(|t| t.is_builtin == 1));
 
-        repo.create_theme(&lib, "Min stil", &ThemeTokens::default()).await.unwrap();
+        repo.create_theme(&lib, "Min stil", &ThemeTokens::default())
+            .await
+            .unwrap();
         let after = repo.list_themes(&lib).await.unwrap();
         assert_eq!(after.len(), builtin_count + 1);
-        assert!(after.iter().any(|t| t.name == "Min stil" && t.is_builtin == 0));
+        assert!(after
+            .iter()
+            .any(|t| t.name == "Min stil" && t.is_builtin == 0));
     }
 
     #[tokio::test]
@@ -312,7 +338,13 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.code(), "validation");
-        assert_eq!(repo.delete_theme(DEFAULT_THEME_ID).await.unwrap_err().code(), "validation");
+        assert_eq!(
+            repo.delete_theme(DEFAULT_THEME_ID)
+                .await
+                .unwrap_err()
+                .code(),
+            "validation"
+        );
         let _ = lib;
     }
 
@@ -324,7 +356,10 @@ mod tests {
         assert_eq!(copy.is_builtin, 0);
         assert!(copy.name.contains("kopi"));
         // The copy is editable.
-        let edited = ThemeTokens { text_color: "#ff0000".into(), ..ThemeTokens::default() };
+        let edited = ThemeTokens {
+            text_color: "#ff0000".into(),
+            ..ThemeTokens::default()
+        };
         let updated = repo.update_theme_tokens(&copy.id, &edited).await.unwrap();
         let tok: ThemeTokens = serde_json::from_str(&updated.tokens).unwrap();
         assert_eq!(tok.text_color, "#ff0000");
@@ -338,7 +373,10 @@ mod tests {
             .set_library_default_theme(&lib, Some("builtin-theme-evening"))
             .await
             .unwrap();
-        assert_eq!(updated.default_theme_id.as_deref(), Some("builtin-theme-evening"));
+        assert_eq!(
+            updated.default_theme_id.as_deref(),
+            Some("builtin-theme-evening")
+        );
         // Clearing it back to None works too.
         let cleared = repo.set_library_default_theme(&lib, None).await.unwrap();
         assert_eq!(cleared.default_theme_id, None);
@@ -348,7 +386,10 @@ mod tests {
     async fn render_uses_library_theme_tokens() {
         let (db, lib) = fixture().await;
         let repo = ThemeRepo::new(&db.pool);
-        let custom = ThemeTokens { text_color: "#abcdef".into(), ..ThemeTokens::default() };
+        let custom = ThemeTokens {
+            text_color: "#abcdef".into(),
+            ..ThemeTokens::default()
+        };
         let theme = repo.create_theme(&lib, "Custom", &custom).await.unwrap();
         let mut text = HashMap::new();
         text.insert("lyrics".to_string(), "Hello".to_string());

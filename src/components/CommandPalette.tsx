@@ -79,21 +79,60 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
             heading="Naviger"
             className="text-xs font-medium uppercase tracking-wider text-[var(--color-fg-muted)] mb-1 mt-2 px-2"
           >
-            <Item onSelect={() => go("library")}   icon={<Library size={14} />}        label="Sangbibliotek" />
-            <Item onSelect={() => go("decks")}     icon={<LayoutTemplate size={14} />} label="Decks" />
-            <Item onSelect={() => go("services")}  icon={<CalendarDays size={14} />}   label="Tjenester" />
-            <Item onSelect={() => go("bible")}     icon={<BookOpen size={14} />}       label="Bibel" />
-            <Item onSelect={() => go("media")}     icon={<ImageIcon size={14} />}      label="Media" />
-            <Item onSelect={() => go("settings")}  icon={<Settings size={14} />}       label="Innstillinger" />
+            <Item
+              onSelect={() => go("library")}
+              icon={<Library size={14} />}
+              label="Sangbibliotek"
+            />
+            <Item
+              onSelect={() => go("decks")}
+              icon={<LayoutTemplate size={14} />}
+              label="Decks"
+            />
+            <Item
+              onSelect={() => go("services")}
+              icon={<CalendarDays size={14} />}
+              label="Tjenester"
+            />
+            <Item
+              onSelect={() => go("bible")}
+              icon={<BookOpen size={14} />}
+              label="Bibel"
+            />
+            <Item
+              onSelect={() => go("media")}
+              icon={<ImageIcon size={14} />}
+              label="Media"
+            />
+            <Item
+              onSelect={() => go("settings")}
+              icon={<Settings size={14} />}
+              label="Innstillinger"
+            />
           </Command.Group>
 
           <Command.Group
             heading="Handlinger"
             className="text-xs font-medium uppercase tracking-wider text-[var(--color-fg-muted)] mb-1 mt-4 px-2"
           >
-            <Item onSelect={() => {}} icon={<Plus size={14} />} label="Ny sang…" shortcut="N" />
-            <Item onSelect={() => {}} icon={<Plus size={14} />} label="Ny tjeneste…" shortcut="⌘N" />
-            <Item onSelect={() => {}} icon={<Play size={14} fill="currentColor" />} label="Gå live" shortcut="⌘L" />
+            <Item
+              onSelect={() => {}}
+              icon={<Plus size={14} />}
+              label="Ny sang…"
+              shortcut="N"
+            />
+            <Item
+              onSelect={() => {}}
+              icon={<Plus size={14} />}
+              label="Ny tjeneste…"
+              shortcut="⌘N"
+            />
+            <Item
+              onSelect={() => {}}
+              icon={<Play size={14} fill="currentColor" />}
+              label="Gå live"
+              shortcut="⌘L"
+            />
           </Command.Group>
         </Command.List>
       </div>

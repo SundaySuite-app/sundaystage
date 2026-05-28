@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Tauri needs the system webview + GTK libs to compile on Linux.
+      # (ffmpeg for media thumbnails gets added here in its phase.)
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+
+      - run: npm ci
+
+      - name: Frontend lint / format / types
+        run: |
+          npm run lint
+          npm run format:check
+          npm run typecheck
+
+      - name: Frontend unit tests
+        run: npm run test
+
+      - name: Rust fmt / clippy / tests
+        working-directory: src-tauri
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: End-to-end (Playwright)
+        run: |
+          npm run build
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Compiles the frontend + the Rust app on both first-class platforms.
+      # Bundling/signing/notarization is wired up in Phase 13.2 (distribution).
+      - name: Build Tauri app
+        run: npm run tauri build -- --no-bundle

@@ -10,7 +10,13 @@
 import { useRef } from "react";
 
 import type { BackgroundKind, SlideDoc } from "@/lib/bindings";
-import { type TextBlock, isTextBlock, patchStyle, patchTextBlock, replaceBlock } from "@/lib/slideEditor/doc";
+import {
+  type TextBlock,
+  isTextBlock,
+  patchStyle,
+  patchTextBlock,
+  replaceBlock,
+} from "@/lib/slideEditor/doc";
 import {
   type Command,
   setBackgroundCommand,
@@ -27,9 +33,16 @@ interface InspectorProps {
 
 const SHADOW = "0 2px 8px rgba(0,0,0,0.6)";
 
-export function Inspector({ doc, selectedIds, onCommit, onPreview }: InspectorProps) {
+export function Inspector({
+  doc,
+  selectedIds,
+  onCommit,
+  onPreview,
+}: InspectorProps) {
   const single =
-    selectedIds.size === 1 ? doc.blocks.find((b) => selectedIds.has(b.id)) : undefined;
+    selectedIds.size === 1
+      ? doc.blocks.find((b) => selectedIds.has(b.id))
+      : undefined;
   const textBlock = single && isTextBlock(single) ? single : undefined;
 
   return (
@@ -54,7 +67,13 @@ export function Inspector({ doc, selectedIds, onCommit, onPreview }: InspectorPr
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-2.5">
       <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-fg-muted)]">
@@ -65,7 +84,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex items-center justify-between gap-3">
       <span className="text-xs text-[var(--color-fg-muted)]">{label}</span>
@@ -104,17 +129,25 @@ function SegmentedButtons<T extends string>({
   );
 }
 
-function BackgroundSection({ doc, onCommit }: { doc: SlideDoc; onCommit: (c: Command) => void }) {
+function BackgroundSection({
+  doc,
+  onCommit,
+}: {
+  doc: SlideDoc;
+  onCommit: (c: Command) => void;
+}) {
   const bg = doc.background;
   const setKind = (kind: BackgroundKind) => {
-    const value = kind === "gradient" && bg.type !== "gradient"
-      ? "linear-gradient(160deg, #1a2240, #0b1020)"
-      : kind === "color" && bg.type !== "color"
-        ? "#0b1020"
-        : bg.value;
+    const value =
+      kind === "gradient" && bg.type !== "gradient"
+        ? "linear-gradient(160deg, #1a2240, #0b1020)"
+        : kind === "color" && bg.type !== "color"
+          ? "#0b1020"
+          : bg.value;
     onCommit(setBackgroundCommand(bg, { type: kind, value }));
   };
-  const setValue = (value: string) => onCommit(setBackgroundCommand(bg, { ...bg, value }));
+  const setValue = (value: string) =>
+    onCommit(setBackgroundCommand(bg, { ...bg, value }));
 
   return (
     <Section title="Bakgrunn">
@@ -142,7 +175,13 @@ function BackgroundSection({ doc, onCommit }: { doc: SlideDoc; onCommit: (c: Com
   );
 }
 
-function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function ColorField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   // A hex value drives the native picker; arbitrary CSS colors still type in.
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : "#000000";
   return (
@@ -177,7 +216,8 @@ function TextBlockSection({
   // Captured when the textarea gains focus so the whole edit is one undo step.
   const editStart = useRef<TextBlock | null>(null);
 
-  const commitPatch = (after: TextBlock) => onCommit(updateBlockCommand(block, after));
+  const commitPatch = (after: TextBlock) =>
+    onCommit(updateBlockCommand(block, after));
 
   return (
     <Section title="Tekst">
@@ -187,12 +227,21 @@ function TextBlockSection({
         onFocus={() => {
           editStart.current = block;
         }}
-        onChange={(e) => onPreview(replaceBlock(doc, patchTextBlock(block, { text: e.target.value })))}
+        onChange={(e) =>
+          onPreview(
+            replaceBlock(doc, patchTextBlock(block, { text: e.target.value })),
+          )
+        }
         onBlur={(e) => {
           const before = editStart.current ?? block;
           editStart.current = null;
           if (before.text !== e.target.value) {
-            onCommit(updateBlockCommand(before, patchTextBlock(before, { text: e.target.value })));
+            onCommit(
+              updateBlockCommand(
+                before,
+                patchTextBlock(before, { text: e.target.value }),
+              ),
+            );
           }
         }}
         className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
@@ -228,14 +277,18 @@ function TextBlockSection({
           max={200}
           step={1}
           value={block.style.size}
-          onChange={(e) => commitPatch(patchStyle(block, { size: Number(e.target.value) }))}
+          onChange={(e) =>
+            commitPatch(patchStyle(block, { size: Number(e.target.value) }))
+          }
           className="w-32 accent-[var(--color-accent)]"
         />
       </Row>
       <Row label="Vekt">
         <select
           value={block.style.weight}
-          onChange={(e) => commitPatch(patchStyle(block, { weight: Number(e.target.value) }))}
+          onChange={(e) =>
+            commitPatch(patchStyle(block, { weight: Number(e.target.value) }))
+          }
           className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1 text-xs focus:border-[var(--color-accent)] focus:outline-none"
         >
           {[400, 500, 600, 700, 800, 900].map((w) => (
@@ -255,7 +308,9 @@ function TextBlockSection({
         <input
           type="checkbox"
           checked={block.style.italic}
-          onChange={(e) => commitPatch(patchStyle(block, { italic: e.target.checked }))}
+          onChange={(e) =>
+            commitPatch(patchStyle(block, { italic: e.target.checked }))
+          }
           className="h-4 w-4 accent-[var(--color-accent)]"
         />
       </Row>
@@ -263,7 +318,11 @@ function TextBlockSection({
         <input
           type="checkbox"
           checked={block.style.shadow !== null}
-          onChange={(e) => commitPatch(patchStyle(block, { shadow: e.target.checked ? SHADOW : null }))}
+          onChange={(e) =>
+            commitPatch(
+              patchStyle(block, { shadow: e.target.checked ? SHADOW : null }),
+            )
+          }
           className="h-4 w-4 accent-[var(--color-accent)]"
         />
       </Row>

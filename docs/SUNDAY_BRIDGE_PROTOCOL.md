@@ -15,7 +15,7 @@ against this doc.
 
 `PROTOCOL_VERSION = "1.0.0"`. Exchanged in `ping`/`pong`.
 
-The **only** forward-compatible change is *adding* a new verb. Existing verbs,
+The **only** forward-compatible change is _adding_ a new verb. Existing verbs,
 their fields, and their JSON shapes are frozen. A peer that receives an unknown
 verb must reply `{"result":"error","message":"unknown verb"}` and keep the
 connection alive. Bump the **minor** version when adding verbs; never the major
@@ -42,15 +42,15 @@ either side can revoke.
 
 Requests are tagged by `verb`, responses by `result` (snake_case).
 
-| Verb | Direction | Payload | Response |
-|------|-----------|---------|----------|
-| `ping` | either | — | `pong { app, version, capabilities[] }` |
-| `recording_started` | Rec → Stage | `recording_id, started_at` | `ok` |
-| `recording_stopped` | Rec → Stage | `recording_id, stopped_at` | `ok` |
-| `cue_advanced` | Stage → Rec | `offset_ms, title, cue_index` | `ok` |
-| `get_recordings` | Stage → Rec | — | `recordings { recordings[] }` |
-| `get_transcript` | Stage → Rec | `recording_id` | `transcript { recording_id, text }` |
-| `get_song_history` | Stage → Rec | — | `song_history { songs[] }` |
+| Verb                | Direction   | Payload                       | Response                                |
+| ------------------- | ----------- | ----------------------------- | --------------------------------------- |
+| `ping`              | either      | —                             | `pong { app, version, capabilities[] }` |
+| `recording_started` | Rec → Stage | `recording_id, started_at`    | `ok`                                    |
+| `recording_stopped` | Rec → Stage | `recording_id, stopped_at`    | `ok`                                    |
+| `cue_advanced`      | Stage → Rec | `offset_ms, title, cue_index` | `ok`                                    |
+| `get_recordings`    | Stage → Rec | —                             | `recordings { recordings[] }`           |
+| `get_transcript`    | Stage → Rec | `recording_id`                | `transcript { recording_id, text }`     |
+| `get_song_history`  | Stage → Rec | —                             | `song_history { songs[] }`              |
 
 `capabilities` SundayStage advertises: `cue_advanced`, `export_srt`,
 `chapter_markers`.
@@ -70,7 +70,7 @@ These derive purely from SundayStage's live session log — the operator does
 nothing extra.
 
 1. **Cue → chapter markers** (`export::chapter_markers`). A new chapter starts
-   when the cue's *service item* changes (song → song → sermon …); slides
+   when the cue's _service item_ changes (song → song → sermon …); slides
    within one song do **not** each become a chapter, and a blackout does not
    split a chapter. Output: `[{ offset_ms, title }]`, streamed live via
    `cue_advanced` and/or handed over post-service.
@@ -86,6 +86,6 @@ nothing extra.
 - **TONO streaming-licence audit** (Phase 10.2 feature 3): tagging each
   copyrighted song-cue with `was_streamed` (queried from SundayRec's streaming
   state), the pre-service advisory when the church's TONO streaming add-on is
-  missing (shown *before* the service, never during), and forwarding tagged
+  missing (shown _before_ the service, never during), and forwarding tagged
   usage events to SundaySong's `usage_log`. This needs the cue→`song_id` link
   surfaced onto cues plus the SundaySong account connection.

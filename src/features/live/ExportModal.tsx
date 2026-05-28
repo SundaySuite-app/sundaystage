@@ -30,8 +30,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<"chapters" | "srt">("chapters");
   const [copied, setCopied] = useState(false);
 
-  const markersQuery = useQuery({ queryKey: ["chapterMarkers"], queryFn: () => ipc.live.chapterMarkers() });
-  const srtQuery = useQuery({ queryKey: ["exportSrt"], queryFn: () => ipc.live.exportSrt() });
+  const markersQuery = useQuery({
+    queryKey: ["chapterMarkers"],
+    queryFn: () => ipc.live.chapterMarkers(),
+  });
+  const srtQuery = useQuery({
+    queryKey: ["exportSrt"],
+    queryFn: () => ipc.live.exportSrt(),
+  });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -45,7 +51,12 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
   const srt = srtQuery.data ?? "";
 
   const copy = async () => {
-    const text = tab === "srt" ? srt : markers.map((m) => `${fmtOffset(Number(m.offset_ms))}  ${m.title}`).join("\n");
+    const text =
+      tab === "srt"
+        ? srt
+        : markers
+            .map((m) => `${fmtOffset(Number(m.offset_ms))}  ${m.title}`)
+            .join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -57,7 +68,11 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-6">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
       <div className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]">
         <header className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
           <Clapperboard size={16} className="text-[var(--color-accent)]" />
@@ -103,29 +118,48 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             <ChapterList markers={markers} loading={markersQuery.isLoading} />
           ) : (
             <pre className="whitespace-pre-wrap rounded-md bg-[var(--color-bg)] p-3 font-mono text-xs text-[var(--color-fg-muted)]">
-              {srtQuery.isLoading ? "Genererer…" : srt.trim() || "Ingen lysbilder vist enda."}
+              {srtQuery.isLoading
+                ? "Genererer…"
+                : srt.trim() || "Ingen lysbilder vist enda."}
             </pre>
           )}
         </div>
 
         <footer className="border-t border-[var(--color-border)] px-4 py-2 text-[11px] text-[var(--color-fg-muted)]">
-          Genereres fra live-sesjonens logg. Fillagring + automatisk overlevering til SundayRec kommer via broen (Phase 10.1).
+          Genereres fra live-sesjonens logg. Fillagring + automatisk
+          overlevering til SundayRec kommer via broen (Phase 10.1).
         </footer>
       </div>
     </div>
   );
 }
 
-function ChapterList({ markers, loading }: { markers: ChapterMarker[]; loading: boolean }) {
-  if (loading) return <p className="text-sm text-[var(--color-fg-muted)]">Beregner…</p>;
+function ChapterList({
+  markers,
+  loading,
+}: {
+  markers: ChapterMarker[];
+  loading: boolean;
+}) {
+  if (loading)
+    return <p className="text-sm text-[var(--color-fg-muted)]">Beregner…</p>;
   if (markers.length === 0) {
-    return <p className="text-sm text-[var(--color-fg-muted)]">Ingen kapitler enda — naviger gjennom noen cues først.</p>;
+    return (
+      <p className="text-sm text-[var(--color-fg-muted)]">
+        Ingen kapitler enda — naviger gjennom noen cues først.
+      </p>
+    );
   }
   return (
     <ul className="space-y-1">
       {markers.map((m, i) => (
-        <li key={i} className="flex items-center gap-3 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm">
-          <span className="font-mono text-xs tabular-nums text-[var(--color-accent)]">{fmtOffset(Number(m.offset_ms))}</span>
+        <li
+          key={i}
+          className="flex items-center gap-3 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
+        >
+          <span className="font-mono text-xs tabular-nums text-[var(--color-accent)]">
+            {fmtOffset(Number(m.offset_ms))}
+          </span>
           <span>{m.title}</span>
         </li>
       ))}

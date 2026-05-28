@@ -1,6 +1,8 @@
 @import "./tokens.css";
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   background: var(--color-bg);
@@ -19,7 +21,17 @@ html, body, #root {
 }
 
 /* Scrollbars — minimal, dark-friendly */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-neutral-700); border-radius: 5px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-600); }
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-700);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-600);
+}

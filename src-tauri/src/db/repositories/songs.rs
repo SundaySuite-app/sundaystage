@@ -49,16 +49,14 @@ impl<'a> SongRepo<'a> {
     }
 
     pub async fn get(&self, id: &str) -> AppResult<Song> {
-        sqlx::query_as::<_, Song>(
-            "SELECT * FROM song WHERE id = ?1 AND deleted_at IS NULL",
-        )
-        .bind(id)
-        .fetch_optional(self.pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound {
-            entity: "song",
-            id: id.to_string(),
-        })
+        sqlx::query_as::<_, Song>("SELECT * FROM song WHERE id = ?1 AND deleted_at IS NULL")
+            .bind(id)
+            .fetch_optional(self.pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound {
+                entity: "song",
+                id: id.to_string(),
+            })
     }
 
     /// List songs in a library, most-recently-used first then alphabetical.
@@ -101,13 +99,11 @@ impl<'a> SongRepo<'a> {
     /// Restore a soft-deleted song.
     pub async fn restore(&self, id: &str) -> AppResult<Song> {
         let now = now_ms();
-        sqlx::query(
-            "UPDATE song SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2",
-        )
-        .bind(now)
-        .bind(id)
-        .execute(self.pool)
-        .await?;
+        sqlx::query("UPDATE song SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2")
+            .bind(now)
+            .bind(id)
+            .execute(self.pool)
+            .await?;
         self.get(id).await
     }
 
@@ -154,13 +150,11 @@ impl<'a> SongRepo<'a> {
     /// song is marked as `played`. Used by SundayPlan's rotation-fairness
     /// scoring and by the editor's "songs used this month" filter.
     pub async fn mark_used(&self, id: &str, when: i64) -> AppResult<()> {
-        sqlx::query(
-            "UPDATE song SET last_used_at = ?1, updated_at = ?1 WHERE id = ?2",
-        )
-        .bind(when)
-        .bind(id)
-        .execute(self.pool)
-        .await?;
+        sqlx::query("UPDATE song SET last_used_at = ?1, updated_at = ?1 WHERE id = ?2")
+            .bind(when)
+            .bind(id)
+            .execute(self.pool)
+            .await?;
         Ok(())
     }
 
@@ -224,7 +218,10 @@ impl<'a> SongRepo<'a> {
             .bind(id)
             .fetch_optional(self.pool)
             .await?
-            .ok_or_else(|| AppError::NotFound { entity: "song_section", id: id.to_string() })
+            .ok_or_else(|| AppError::NotFound {
+                entity: "song_section",
+                id: id.to_string(),
+            })
     }
 
     /// Update a section's label + lyrics. The FTS index follows via the
@@ -246,7 +243,10 @@ impl<'a> SongRepo<'a> {
         .execute(self.pool)
         .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "song_section", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "song_section",
+                id: id.to_string(),
+            });
         }
         self.get_section(id).await
     }
@@ -266,7 +266,10 @@ impl<'a> SongRepo<'a> {
             .execute(&mut *tx)
             .await?;
         if res.rows_affected() == 0 {
-            return Err(AppError::NotFound { entity: "song_section", id: id.to_string() });
+            return Err(AppError::NotFound {
+                entity: "song_section",
+                id: id.to_string(),
+            });
         }
         tx.commit().await?;
         Ok(())
@@ -319,9 +322,9 @@ impl<'a> SongRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::models::LibraryInput;
     use crate::db::repositories::LibraryRepo;
     use crate::db::Database;
-    use crate::db::models::LibraryInput;
 
     async fn fixture() -> (Database, String) {
         let db = Database::open_in_memory().await.unwrap();
@@ -366,18 +369,28 @@ mod tests {
             .create(SongInput {
                 library_id: library_id.clone(),
                 title: "Beta".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
+            .await
+            .unwrap();
         let _b = repo
             .create(SongInput {
                 library_id: library_id.clone(),
                 title: "Alpha".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
+            .await
+            .unwrap();
         // Mark Beta as recently used → should appear before Alpha
         repo.mark_used(&a.id, now_ms()).await.unwrap();
         let list = repo.list(&library_id, 10, 0).await.unwrap();
@@ -394,10 +407,15 @@ mod tests {
             .create(SongInput {
                 library_id: library_id.clone(),
                 title: "Goodbye".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
+            .await
+            .unwrap();
         repo.soft_delete(&song.id).await.unwrap();
         assert_eq!(repo.get(&song.id).await.unwrap_err().code(), "not_found");
         let list = repo.list(&library_id, 10, 0).await.unwrap();
@@ -413,14 +431,28 @@ mod tests {
                 library_id: library_id.clone(),
                 title: "Amazing Grace".into(),
                 language: Some("en".into()),
-                default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
-        repo.add_section(&song.id, "verse_1",
-            "Amazing grace how sweet the sound\nThat saved a wretch like me").await.unwrap();
-        repo.add_section(&song.id, "verse_2",
-            "I once was lost but now am found\nWas blind but now I see").await.unwrap();
+            .await
+            .unwrap();
+        repo.add_section(
+            &song.id,
+            "verse_1",
+            "Amazing grace how sweet the sound\nThat saved a wretch like me",
+        )
+        .await
+        .unwrap();
+        repo.add_section(
+            &song.id,
+            "verse_2",
+            "I once was lost but now am found\nWas blind but now I see",
+        )
+        .await
+        .unwrap();
 
         let results = repo.search(&library_id, "wretch", 10).await.unwrap();
         assert_eq!(results.len(), 1);
@@ -442,14 +474,26 @@ mod tests {
         let repo = SongRepo::new(&db.pool);
         let song = repo
             .create(SongInput {
-                library_id, title: "Test".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                library_id,
+                title: "Test".into(),
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
-        repo.add_section(&song.id, "verse_1", "first").await.unwrap();
-        repo.add_section(&song.id, "chorus", "second").await.unwrap();
-        repo.add_section(&song.id, "verse_2", "third").await.unwrap();
+            .await
+            .unwrap();
+        repo.add_section(&song.id, "verse_1", "first")
+            .await
+            .unwrap();
+        repo.add_section(&song.id, "chorus", "second")
+            .await
+            .unwrap();
+        repo.add_section(&song.id, "verse_2", "third")
+            .await
+            .unwrap();
         let sections = repo.sections(&song.id).await.unwrap();
         assert_eq!(sections.len(), 3);
         assert_eq!(sections[0].label, "verse_1");
@@ -462,11 +506,19 @@ mod tests {
             .create(SongInput {
                 library_id: library_id.to_string(),
                 title: "Test".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
-        let section = repo.add_section(&song.id, "verse_1", "old lyrics").await.unwrap();
+            .await
+            .unwrap();
+        let section = repo
+            .add_section(&song.id, "verse_1", "old lyrics")
+            .await
+            .unwrap();
         (song.id, section.id)
     }
 
@@ -475,7 +527,10 @@ mod tests {
         let (db, library_id) = fixture().await;
         let (_song, section_id) = song_with_one_section(&db, &library_id).await;
         let repo = SongRepo::new(&db.pool);
-        let updated = repo.update_section(&section_id, "chorus", "new lyrics").await.unwrap();
+        let updated = repo
+            .update_section(&section_id, "chorus", "new lyrics")
+            .await
+            .unwrap();
         assert_eq!(updated.label, "chorus");
         assert_eq!(updated.lyrics, "new lyrics");
     }
@@ -495,17 +550,24 @@ mod tests {
         let repo = SongRepo::new(&db.pool);
         let song = repo
             .create(SongInput {
-                library_id, title: "T".into(),
-                language: None, default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+                library_id,
+                title: "T".into(),
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
             })
-            .await.unwrap();
+            .await
+            .unwrap();
         let a = repo.add_section(&song.id, "verse_1", "a").await.unwrap();
         let b = repo.add_section(&song.id, "chorus", "b").await.unwrap();
         let c = repo.add_section(&song.id, "verse_2", "c").await.unwrap();
         let reordered = repo
             .reorder_sections(&song.id, &[c.id.clone(), a.id.clone(), b.id.clone()])
-            .await.unwrap();
+            .await
+            .unwrap();
         assert_eq!(reordered[0].id, c.id);
         assert_eq!(reordered[1].id, a.id);
         assert_eq!(reordered[2].id, b.id);

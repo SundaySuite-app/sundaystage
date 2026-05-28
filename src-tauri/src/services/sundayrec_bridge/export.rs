@@ -36,9 +36,17 @@ struct Point {
 /// The session's display timeline: the first cue is shown from `started_at`,
 /// then each log entry records the resulting state at its timestamp.
 fn timeline(session: &LiveSession) -> Vec<Point> {
-    let mut pts = vec![Point { at: session.started_at, index: 0, output: OutputState::Normal }];
+    let mut pts = vec![Point {
+        at: session.started_at,
+        index: 0,
+        output: OutputState::Normal,
+    }];
     for e in &session.log {
-        pts.push(Point { at: e.at, index: e.index, output: e.output });
+        pts.push(Point {
+            at: e.at,
+            index: e.index,
+            output: e.output,
+        });
     }
     pts
 }
@@ -102,7 +110,11 @@ pub fn session_to_srt(session: &LiveSession, ended_at: i64) -> String {
     let mut segs: Vec<(i64, i64, Vec<String>)> = Vec::new();
     for i in 0..pts.len() {
         let start = pts[i].at;
-        let end = if i + 1 < pts.len() { pts[i + 1].at } else { ended_at };
+        let end = if i + 1 < pts.len() {
+            pts[i + 1].at
+        } else {
+            ended_at
+        };
         if end <= start || pts[i].output != OutputState::Normal {
             continue;
         }
@@ -168,7 +180,15 @@ mod tests {
             slide("amazing-grace", "Chorus", "My chains are gone"),
             slide("how-great", "Verse 1", "O Lord my God"),
         ];
-        LiveSession::new("svc", CueList { service_id: "svc".into(), compiled_at: 0, cues }, 1_000)
+        LiveSession::new(
+            "svc",
+            CueList {
+                service_id: "svc".into(),
+                compiled_at: 0,
+                cues,
+            },
+            1_000,
+        )
     }
 
     #[test]

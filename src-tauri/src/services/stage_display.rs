@@ -98,7 +98,10 @@ mod tests {
             .find(|p| p.id == "stage-musician")
             .unwrap();
         assert!(m.show_section_label, "musicians steer by the section label");
-        assert!(!m.show_service_timer, "musicians don't need the service timer");
+        assert!(
+            !m.show_service_timer,
+            "musicians don't need the service timer"
+        );
     }
 
     #[test]

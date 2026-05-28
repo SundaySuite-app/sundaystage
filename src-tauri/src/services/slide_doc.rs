@@ -211,11 +211,16 @@ mod tests {
 
     #[test]
     fn with_lines_builds_single_centered_text_block() {
-        let lines = vec!["Amazing grace".to_string(), "how sweet the sound".to_string()];
+        let lines = vec![
+            "Amazing grace".to_string(),
+            "how sweet the sound".to_string(),
+        ];
         let doc = SlideDoc::with_lines("b1", &lines);
         assert_eq!(doc.blocks.len(), 1);
         match &doc.blocks[0] {
-            SlideBlock::Text { id, text, align, .. } => {
+            SlideBlock::Text {
+                id, text, align, ..
+            } => {
                 assert_eq!(id, "b1");
                 assert_eq!(text, "Amazing grace\nhow sweet the sound");
                 assert_eq!(*align, HAlign::Center);
@@ -273,7 +278,12 @@ mod tests {
                 SlideBlock::Text {
                     id: "a".into(),
                     text: "first".into(),
-                    rect: SlideRect { x: 0.0, y: 0.0, w: 1.0, h: 0.5 },
+                    rect: SlideRect {
+                        x: 0.0,
+                        y: 0.0,
+                        w: 1.0,
+                        h: 0.5,
+                    },
                     align: HAlign::Left,
                     valign: VAlign::Top,
                     style: TextStyle::default(),
@@ -281,7 +291,12 @@ mod tests {
                 SlideBlock::Text {
                     id: "b".into(),
                     text: "second\nthird".into(),
-                    rect: SlideRect { x: 0.0, y: 0.5, w: 1.0, h: 0.5 },
+                    rect: SlideRect {
+                        x: 0.0,
+                        y: 0.5,
+                        w: 1.0,
+                        h: 0.5,
+                    },
                     align: HAlign::Right,
                     valign: VAlign::Bottom,
                     style: TextStyle::default(),

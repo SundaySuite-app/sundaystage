@@ -51,14 +51,14 @@ impl AppError {
     /// Short, machine-readable category for the renderer to switch on.
     pub fn code(&self) -> &'static str {
         match self {
-            AppError::Database(_)   => "database",
-            AppError::Migration(_)  => "migration",
+            AppError::Database(_) => "database",
+            AppError::Migration(_) => "migration",
             AppError::NotFound { .. } => "not_found",
-            AppError::Conflict(_)   => "conflict",
+            AppError::Conflict(_) => "conflict",
             AppError::Validation(_) => "validation",
-            AppError::Io(_)         => "io",
-            AppError::Json(_)       => "json",
-            AppError::Internal(_)   => "internal",
+            AppError::Io(_) => "io",
+            AppError::Json(_) => "json",
+            AppError::Internal(_) => "internal",
         }
     }
 }

@@ -55,7 +55,10 @@ fn slide_cue(i: usize) -> Cue {
 async fn search_scales_to_thousands_of_songs() {
     let db = Database::open_in_memory().await.unwrap();
     let lib = LibraryRepo::new(&db.pool)
-        .create(LibraryInput { name: "Stress".into(), default_locale: None })
+        .create(LibraryInput {
+            name: "Stress".into(),
+            default_locale: None,
+        })
         .await
         .unwrap();
     let repo = SongRepo::new(&db.pool);
@@ -63,7 +66,10 @@ async fn search_scales_to_thousands_of_songs() {
     let n = 3000;
     let seed = Instant::now();
     for i in 0..n {
-        let song = repo.create(song_input(&lib.id, &format!("Song {i}"))).await.unwrap();
+        let song = repo
+            .create(song_input(&lib.id, &format!("Song {i}")))
+            .await
+            .unwrap();
         // Every 7th song mentions "grace" so the search has real hits to rank.
         let lyric = if i % 7 == 0 {
             format!("Amazing grace how sweet line {i}")
@@ -77,7 +83,11 @@ async fn search_scales_to_thousands_of_songs() {
     let t = Instant::now();
     let results = repo.search(&lib.id, "grace", 50).await.unwrap();
     let elapsed = t.elapsed();
-    println!("FTS search over {n} songs: {} hits in {:?}", results.len(), elapsed);
+    println!(
+        "FTS search over {n} songs: {} hits in {:?}",
+        results.len(),
+        elapsed
+    );
 
     assert!(!results.is_empty(), "search should find the 'grace' songs");
     assert!(results.len() <= 50, "limit respected");
@@ -96,7 +106,11 @@ async fn search_scales_to_thousands_of_songs() {
 #[test]
 fn rapid_cue_advance_is_instant() {
     let cues: Vec<Cue> = (0..800).map(slide_cue).collect();
-    let cl = CueList { service_id: "svc".into(), compiled_at: 0, cues };
+    let cl = CueList {
+        service_id: "svc".into(),
+        compiled_at: 0,
+        cues,
+    };
     let mut session = LiveSession::new("svc", cl, 0);
 
     let t = Instant::now();
@@ -108,7 +122,10 @@ fn rapid_cue_advance_is_instant() {
 
     assert_eq!(session.index, 50);
     assert_eq!(session.log.len(), 50);
-    assert!(elapsed.as_millis() < 50, "cue advance too slow: {elapsed:?}");
+    assert!(
+        elapsed.as_millis() < 50,
+        "cue advance too slow: {elapsed:?}"
+    );
 
     // Jump to the end + derive the frame — also instant.
     let t = Instant::now();
@@ -123,16 +140,25 @@ fn rapid_cue_advance_is_instant() {
 async fn large_arrangement_resolves_quickly() {
     let db = Database::open_in_memory().await.unwrap();
     let lib = LibraryRepo::new(&db.pool)
-        .create(LibraryInput { name: "Stress".into(), default_locale: None })
+        .create(LibraryInput {
+            name: "Stress".into(),
+            default_locale: None,
+        })
         .await
         .unwrap();
     let songs = SongRepo::new(&db.pool);
-    let song = songs.create(song_input(&lib.id, "Long arrangement")).await.unwrap();
+    let song = songs
+        .create(song_input(&lib.id, "Long arrangement"))
+        .await
+        .unwrap();
 
     // 12 sections, referenced 20× each → a 240-slot arrangement.
     let mut section_ids = Vec::new();
     for i in 0..12 {
-        let s = songs.add_section(&song.id, &format!("verse_{i}"), &format!("lyric {i}")).await.unwrap();
+        let s = songs
+            .add_section(&song.id, &format!("verse_{i}"), &format!("lyric {i}"))
+            .await
+            .unwrap();
         section_ids.push(s.id);
     }
     let arr_repo = ArrangementRepo::new(&db.pool);
@@ -142,6 +168,10 @@ async fn large_arrangement_resolves_quickly() {
 
     let t = Instant::now();
     let resolved = arr_repo.resolved_sections(&arr.id).await.unwrap();
-    println!("resolved a {}-slot arrangement in {:?}", resolved.len(), t.elapsed());
+    println!(
+        "resolved a {}-slot arrangement in {:?}",
+        resolved.len(),
+        t.elapsed()
+    );
     assert_eq!(resolved.len(), 240);
 }

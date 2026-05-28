@@ -40,7 +40,8 @@ function salientY(r: Rect): number[] {
 /** Frame edges + center, then every sibling's salient lines. */
 export function buildTargets(siblings: Rect[], axis: "x" | "y"): number[] {
   const out = [0, 0.5, 1];
-  for (const r of siblings) out.push(...(axis === "x" ? salientX(r) : salientY(r)));
+  for (const r of siblings)
+    out.push(...(axis === "x" ? salientX(r) : salientY(r)));
   return out;
 }
 

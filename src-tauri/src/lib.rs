@@ -36,8 +36,7 @@ pub struct AppState {
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .with_target(false)
         .init();
@@ -54,9 +53,7 @@ pub fn run() {
             let db_path: PathBuf = data_dir.join("sundaystage.db");
 
             // Open the database synchronously — Tauri's setup is not async.
-            let db = tauri::async_runtime::block_on(async move {
-                Database::open(&db_path).await
-            })?;
+            let db = tauri::async_runtime::block_on(async move { Database::open(&db_path).await })?;
 
             app.manage(AppState {
                 db,

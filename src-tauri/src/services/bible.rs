@@ -38,38 +38,40 @@ pub struct ParsedBibleRef {
 /// downloader.
 const BOOK_ALIASES: &[(&str, &[&str])] = &[
     // ── Old Testament (most-used in liturgical reading) ─────
-    ("Genesis",     &["Gen", "1 Mos", "1. Mosebok", "1. Mos", "1 Mosebok"]),
-    ("Exodus",      &["Exo", "Ex", "2 Mos", "2. Mosebok"]),
-    ("Psalms",      &["Ps", "Psalm", "Sal", "Salm", "Salmenes"]),
-    ("Proverbs",    &["Prov", "Ord", "Ordsp"]),
-    ("Isaiah",      &["Isa", "Jes", "Jesaja"]),
-
+    (
+        "Genesis",
+        &["Gen", "1 Mos", "1. Mosebok", "1. Mos", "1 Mosebok"],
+    ),
+    ("Exodus", &["Exo", "Ex", "2 Mos", "2. Mosebok"]),
+    ("Psalms", &["Ps", "Psalm", "Sal", "Salm", "Salmenes"]),
+    ("Proverbs", &["Prov", "Ord", "Ordsp"]),
+    ("Isaiah", &["Isa", "Jes", "Jesaja"]),
     // ── New Testament (most-used in worship) ─────────────────
-    ("Matthew",     &["Matt", "Mat", "Mt"]),
-    ("Mark",        &["Mark", "Mk", "Mrk"]),
-    ("Luke",        &["Luke", "Luk", "Lk"]),
-    ("John",        &["John", "Joh", "Jn", "Johannes"]),
-    ("Acts",        &["Acts", "Apg", "Apostlene"]),
-    ("Romans",      &["Rom", "Rm"]),
+    ("Matthew", &["Matt", "Mat", "Mt"]),
+    ("Mark", &["Mark", "Mk", "Mrk"]),
+    ("Luke", &["Luke", "Luk", "Lk"]),
+    ("John", &["John", "Joh", "Jn", "Johannes"]),
+    ("Acts", &["Acts", "Apg", "Apostlene"]),
+    ("Romans", &["Rom", "Rm"]),
     ("1 Corinthians", &["1 Cor", "1 Kor", "1.Kor", "1Kor"]),
     ("2 Corinthians", &["2 Cor", "2 Kor", "2.Kor", "2Kor"]),
-    ("Galatians",   &["Gal"]),
-    ("Ephesians",   &["Eph", "Ef", "Efeser"]),
+    ("Galatians", &["Gal"]),
+    ("Ephesians", &["Eph", "Ef", "Efeser"]),
     ("Philippians", &["Phil", "Fil"]),
-    ("Colossians",  &["Col", "Kol"]),
+    ("Colossians", &["Col", "Kol"]),
     ("1 Thessalonians", &["1 Thess", "1 Tess"]),
     ("2 Thessalonians", &["2 Thess", "2 Tess"]),
-    ("1 Timothy",   &["1 Tim"]),
-    ("2 Timothy",   &["2 Tim"]),
-    ("Titus",       &["Tit"]),
-    ("Hebrews",     &["Heb", "Hebr"]),
-    ("James",       &["Jas", "Jak", "Jakob"]),
-    ("1 Peter",     &["1 Pet", "1 Pt"]),
-    ("2 Peter",     &["2 Pet", "2 Pt"]),
-    ("1 John",      &["1 Jn", "1 Joh"]),
-    ("2 John",      &["2 Jn", "2 Joh"]),
-    ("3 John",      &["3 Jn", "3 Joh"]),
-    ("Revelation",  &["Rev", "Åp", "Åpenbaring"]),
+    ("1 Timothy", &["1 Tim"]),
+    ("2 Timothy", &["2 Tim"]),
+    ("Titus", &["Tit"]),
+    ("Hebrews", &["Heb", "Hebr"]),
+    ("James", &["Jas", "Jak", "Jakob"]),
+    ("1 Peter", &["1 Pet", "1 Pt"]),
+    ("2 Peter", &["2 Pet", "2 Pt"]),
+    ("1 John", &["1 Jn", "1 Joh"]),
+    ("2 John", &["2 Jn", "2 Joh"]),
+    ("3 John", &["3 Jn", "3 Joh"]),
+    ("Revelation", &["Rev", "Åp", "Åpenbaring"]),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -120,14 +122,22 @@ pub fn parse_reference(input: &str) -> Result<ParsedBibleRef, BibleParseError> {
         if v.is_empty() {
             (None, None)
         } else if let Some((a, b)) = v.split_once('-') {
-            let s: u32 = a.trim().parse().map_err(|_| BibleParseError::MalformedRange(v.to_string()))?;
-            let e: u32 = b.trim().parse().map_err(|_| BibleParseError::MalformedRange(v.to_string()))?;
+            let s: u32 = a
+                .trim()
+                .parse()
+                .map_err(|_| BibleParseError::MalformedRange(v.to_string()))?;
+            let e: u32 = b
+                .trim()
+                .parse()
+                .map_err(|_| BibleParseError::MalformedRange(v.to_string()))?;
             if e < s {
                 return Err(BibleParseError::MalformedRange(format!("{}>{}", s, e)));
             }
             (Some(s), Some(e))
         } else {
-            let s: u32 = v.parse().map_err(|_| BibleParseError::MalformedRange(v.to_string()))?;
+            let s: u32 = v
+                .parse()
+                .map_err(|_| BibleParseError::MalformedRange(v.to_string()))?;
             (Some(s), None)
         }
     } else {
@@ -192,8 +202,8 @@ fn normalize(s: &str) -> String {
 /// Render a `ParsedBibleRef` to display form: "John 3:16-17".
 pub fn render_reference(r: &ParsedBibleRef) -> String {
     match (r.verse_start, r.verse_end) {
-        (None, _)          => format!("{} {}", r.book, r.chapter),
-        (Some(s), None)    => format!("{} {}:{}", r.book, r.chapter, s),
+        (None, _) => format!("{} {}", r.book, r.chapter),
+        (Some(s), None) => format!("{} {}:{}", r.book, r.chapter, s),
         (Some(s), Some(e)) if s == e => format!("{} {}:{}", r.book, r.chapter, s),
         (Some(s), Some(e)) => format!("{} {}:{}-{}", r.book, r.chapter, s, e),
     }
@@ -209,7 +219,7 @@ mod tests {
         assert_eq!(r.book, "John");
         assert_eq!(r.chapter, 3);
         assert_eq!(r.verse_start, Some(16));
-        assert_eq!(r.verse_end,   Some(17));
+        assert_eq!(r.verse_end, Some(17));
     }
 
     #[test]
@@ -226,7 +236,7 @@ mod tests {
         assert_eq!(r.book, "1 Corinthians");
         assert_eq!(r.chapter, 13);
         assert_eq!(r.verse_start, Some(1));
-        assert_eq!(r.verse_end,   Some(13));
+        assert_eq!(r.verse_end, Some(13));
     }
 
     #[test]
@@ -243,7 +253,7 @@ mod tests {
         assert_eq!(r.book, "Psalms");
         assert_eq!(r.chapter, 23);
         assert_eq!(r.verse_start, None);
-        assert_eq!(r.verse_end,   None);
+        assert_eq!(r.verse_end, None);
     }
 
     #[test]
@@ -297,16 +307,19 @@ mod tests {
 
     #[test]
     fn resolve_book_handles_case_and_dots() {
-        assert_eq!(resolve_book("john"),    Some("John".into()));
-        assert_eq!(resolve_book("JOHN"),    Some("John".into()));
-        assert_eq!(resolve_book("Joh."),    Some("John".into()));
-        assert_eq!(resolve_book("1.Kor"),   Some("1 Corinthians".into()));
-        assert_eq!(resolve_book("1 kor"),   Some("1 Corinthians".into()));
+        assert_eq!(resolve_book("john"), Some("John".into()));
+        assert_eq!(resolve_book("JOHN"), Some("John".into()));
+        assert_eq!(resolve_book("Joh."), Some("John".into()));
+        assert_eq!(resolve_book("1.Kor"), Some("1 Corinthians".into()));
+        assert_eq!(resolve_book("1 kor"), Some("1 Corinthians".into()));
     }
 
     #[test]
     fn empty_string_rejected() {
-        assert!(matches!(parse_reference(""),    Err(BibleParseError::Empty)));
-        assert!(matches!(parse_reference("   "), Err(BibleParseError::Empty)));
+        assert!(matches!(parse_reference(""), Err(BibleParseError::Empty)));
+        assert!(matches!(
+            parse_reference("   "),
+            Err(BibleParseError::Empty)
+        ));
     }
 }

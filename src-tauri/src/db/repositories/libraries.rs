@@ -127,8 +127,18 @@ mod tests {
     async fn list_libraries_sorted_by_name() {
         let db = db().await;
         let repo = LibraryRepo::new(&db.pool);
-        repo.create(LibraryInput { name: "Beta".into(), default_locale: None }).await.unwrap();
-        repo.create(LibraryInput { name: "Alpha".into(), default_locale: None }).await.unwrap();
+        repo.create(LibraryInput {
+            name: "Beta".into(),
+            default_locale: None,
+        })
+        .await
+        .unwrap();
+        repo.create(LibraryInput {
+            name: "Alpha".into(),
+            default_locale: None,
+        })
+        .await
+        .unwrap();
         let list = repo.list().await.unwrap();
         assert_eq!(list[0].name, "Alpha");
         assert_eq!(list[1].name, "Beta");

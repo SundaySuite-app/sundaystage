@@ -45,9 +45,14 @@ export function MediaPage({ library }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [path, setPath] = useState("");
 
-  const mediaQuery = useQuery({ queryKey: mediaKey, queryFn: () => ipc.media.list(library.id) });
+  const mediaQuery = useQuery({
+    queryKey: mediaKey,
+    queryFn: () => ipc.media.list(library.id),
+  });
   const items = useMemo(() => mediaQuery.data ?? [], [mediaQuery.data]);
-  const shown = items.filter((m) => filter === "all" || m.asset.kind === filter);
+  const shown = items.filter(
+    (m) => filter === "all" || m.asset.kind === filter,
+  );
 
   const importMut = useMutation({
     mutationFn: (p: string) => ipc.media.import(library.id, p),
@@ -61,10 +66,12 @@ export function MediaPage({ library }: Props) {
     onSuccess: () => qc.invalidateQueries({ queryKey: mediaKey }),
   });
   const relinkMut = useMutation({
-    mutationFn: ({ id, dirs }: { id: string; dirs: string[] }) => ipc.media.relink(id, dirs),
+    mutationFn: ({ id, dirs }: { id: string; dirs: string[] }) =>
+      ipc.media.relink(id, dirs),
     onSuccess: (asset) => {
       void qc.invalidateQueries({ queryKey: mediaKey });
-      if (!asset) window.alert("Fant ingen fil med samme innhold i den mappen.");
+      if (!asset)
+        window.alert("Fant ingen fil med samme innhold i den mappen.");
     },
   });
 
@@ -85,7 +92,9 @@ export function MediaPage({ library }: Props) {
           type="text"
           value={path}
           onChange={(e) => setPath(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && path.trim() && importMut.mutate(path.trim())}
+          onKeyDown={(e) =>
+            e.key === "Enter" && path.trim() && importMut.mutate(path.trim())
+          }
           placeholder="/sti/til/fil.png eller .mp4"
           className="w-72 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
         />
@@ -112,7 +121,13 @@ export function MediaPage({ library }: Props) {
                 : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]",
             )}
           >
-            {f === "all" ? "Alle" : f === "image" ? "Bilder" : f === "video" ? "Video" : "Lyd"}
+            {f === "all"
+              ? "Alle"
+              : f === "image"
+                ? "Bilder"
+                : f === "video"
+                  ? "Video"
+                  : "Lyd"}
           </button>
         ))}
       </div>
@@ -132,7 +147,12 @@ export function MediaPage({ library }: Props) {
         ) : (
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
             {shown.map((m) => (
-              <MediaCard key={m.asset.id} status={m} onDelete={() => deleteMut.mutate(m.asset.id)} onRelink={() => relink(m.asset.id)} />
+              <MediaCard
+                key={m.asset.id}
+                status={m}
+                onDelete={() => deleteMut.mutate(m.asset.id)}
+                onRelink={() => relink(m.asset.id)}
+              />
             ))}
           </ul>
         )}
@@ -161,7 +181,10 @@ function MediaCard({
           {basename(asset.original_path)}
         </span>
         {!present && (
-          <span title="Filen finnes ikke på lagret sti" className="text-[var(--color-warning)]">
+          <span
+            title="Filen finnes ikke på lagret sti"
+            className="text-[var(--color-warning)]"
+          >
             <AlertTriangle size={13} />
           </span>
         )}

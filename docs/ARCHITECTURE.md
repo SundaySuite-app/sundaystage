@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-27
 
-This document captures the architectural decisions for SundayStage. Pair with `docs/DECISIONS.md` (ADRs) for the *why* behind specific choices.
+This document captures the architectural decisions for SundayStage. Pair with `docs/DECISIONS.md` (ADRs) for the _why_ behind specific choices.
 
 ## High-level architecture
 
@@ -87,150 +87,151 @@ Container for an entire data set. A user can have multiple libraries (e.g.
 "Personal", "Alta Frikirke", "Trondheim Misjonskirken"). Sync is scoped per
 library — a library never leaks data across boundaries.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `name` | TEXT NOT NULL | |
-| `default_locale` | TEXT | `no`, `en`, `sv`, `da`, `de`, `fr`, `pl` |
-| `default_theme_id` | TEXT FK Theme | nullable |
-| `created_at` | INTEGER NOT NULL | unix ms |
-| `updated_at` | INTEGER NOT NULL | |
+| Column             | Type             | Notes                                    |
+| ------------------ | ---------------- | ---------------------------------------- |
+| `id`               | TEXT PK          | UUIDv7                                   |
+| `name`             | TEXT NOT NULL    |                                          |
+| `default_locale`   | TEXT             | `no`, `en`, `sv`, `da`, `de`, `fr`, `pl` |
+| `default_theme_id` | TEXT FK Theme    | nullable                                 |
+| `created_at`       | INTEGER NOT NULL | unix ms                                  |
+| `updated_at`       | INTEGER NOT NULL |                                          |
 
 ### Person (composer, lyricist, translator, performer)
 
 Lightweight contact entity. Used for CCLI/TONO reporting and credits.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `display_name` | TEXT NOT NULL | "Brooke Ligertwood" |
-| `sort_name` | TEXT | "Ligertwood, Brooke" |
-| `external_ids` | TEXT JSON | `{ "ccli_artist_id": "...", "spotify": "..." }` |
+| Column         | Type            | Notes                                           |
+| -------------- | --------------- | ----------------------------------------------- |
+| `id`           | TEXT PK         | UUIDv7                                          |
+| `library_id`   | TEXT FK Library |                                                 |
+| `display_name` | TEXT NOT NULL   | "Brooke Ligertwood"                             |
+| `sort_name`    | TEXT            | "Ligertwood, Brooke"                            |
+| `external_ids` | TEXT JSON       | `{ "ccli_artist_id": "...", "spotify": "..." }` |
 
 ### Song
 
 The conceptual song. May have many arrangements, sections, translations.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `title` | TEXT NOT NULL | |
-| `ccli_song_id` | TEXT | nullable; for license reporting |
-| `tono_work_id` | TEXT | nullable; Norwegian rights database |
-| `copyright_notice` | TEXT | "© 2008 Hillsong Music Publishing" |
-| `default_key` | TEXT | `D`, `Am`, `F#`, etc. |
-| `tempo_bpm` | INTEGER | nullable |
-| `language` | TEXT | ISO 639-1 |
-| `last_used_at` | INTEGER | denormalized — when last in a service |
-| `created_at`, `updated_at`, `deleted_at` | INTEGER | soft delete |
+| Column                                   | Type            | Notes                                 |
+| ---------------------------------------- | --------------- | ------------------------------------- |
+| `id`                                     | TEXT PK         | UUIDv7                                |
+| `library_id`                             | TEXT FK Library |                                       |
+| `title`                                  | TEXT NOT NULL   |                                       |
+| `ccli_song_id`                           | TEXT            | nullable; for license reporting       |
+| `tono_work_id`                           | TEXT            | nullable; Norwegian rights database   |
+| `copyright_notice`                       | TEXT            | "© 2008 Hillsong Music Publishing"    |
+| `default_key`                            | TEXT            | `D`, `Am`, `F#`, etc.                 |
+| `tempo_bpm`                              | INTEGER         | nullable                              |
+| `language`                               | TEXT            | ISO 639-1                             |
+| `last_used_at`                           | INTEGER         | denormalized — when last in a service |
+| `created_at`, `updated_at`, `deleted_at` | INTEGER         | soft delete                           |
 
 ### SongSection
 
 A reusable block of lyrics: verse 1, chorus, bridge, intro, instrumental, tag.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `song_id` | TEXT FK Song | |
-| `label` | TEXT NOT NULL | `verse_1`, `chorus`, `bridge`, ... |
-| `lyrics` | TEXT NOT NULL | line-separated |
-| `chord_chart` | TEXT | optional ChordPro format |
-| `display_order` | INTEGER | for the section list editing UI |
+| Column          | Type          | Notes                              |
+| --------------- | ------------- | ---------------------------------- |
+| `id`            | TEXT PK       | UUIDv7                             |
+| `song_id`       | TEXT FK Song  |                                    |
+| `label`         | TEXT NOT NULL | `verse_1`, `chorus`, `bridge`, ... |
+| `lyrics`        | TEXT NOT NULL | line-separated                     |
+| `chord_chart`   | TEXT          | optional ChordPro format           |
+| `display_order` | INTEGER       | for the section list editing UI    |
 
 ### SongArrangement
 
 An ordered playback sequence of sections. A song can have multiple
 arrangements ("Full version", "Short version", "Acoustic").
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `song_id` | TEXT FK Song | |
-| `name` | TEXT NOT NULL | "Full version" |
-| `is_default` | INTEGER | 0/1, exactly one per song |
-| `created_at` | INTEGER | |
+| Column       | Type          | Notes                     |
+| ------------ | ------------- | ------------------------- |
+| `id`         | TEXT PK       | UUIDv7                    |
+| `song_id`    | TEXT FK Song  |                           |
+| `name`       | TEXT NOT NULL | "Full version"            |
+| `is_default` | INTEGER       | 0/1, exactly one per song |
+| `created_at` | INTEGER       |                           |
 
 ### ArrangementItem
 
 Many-to-many: which sections appear, in what order. Same section can appear
 multiple times (verse 1 → chorus → verse 2 → chorus).
 
-| Column | Type | Notes |
-|--------|------|-------|
+| Column           | Type                    | Notes        |
+| ---------------- | ----------------------- | ------------ |
 | `arrangement_id` | TEXT FK SongArrangement | composite PK |
-| `position` | INTEGER NOT NULL | composite PK |
-| `section_id` | TEXT FK SongSection | |
+| `position`       | INTEGER NOT NULL        | composite PK |
+| `section_id`     | TEXT FK SongSection     |              |
 
 ### BibleReference
 
 A scripture passage to display. Cached per translation so we don't need
 internet at service time.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `book` | TEXT NOT NULL | `John`, `1 Kor`, etc. |
-| `chapter` | INTEGER NOT NULL | |
-| `verse_start`, `verse_end` | INTEGER | |
-| `translation` | TEXT | `NIV`, `NB-30`, `NLB`, etc. |
-| `text` | TEXT NOT NULL | cached verses, line-broken |
+| Column                     | Type             | Notes                       |
+| -------------------------- | ---------------- | --------------------------- |
+| `id`                       | TEXT PK          | UUIDv7                      |
+| `book`                     | TEXT NOT NULL    | `John`, `1 Kor`, etc.       |
+| `chapter`                  | INTEGER NOT NULL |                             |
+| `verse_start`, `verse_end` | INTEGER          |                             |
+| `translation`              | TEXT             | `NIV`, `NB-30`, `NLB`, etc. |
+| `text`                     | TEXT NOT NULL    | cached verses, line-broken  |
 
 ### Service
 
 A planned worship service. Has date, name, notes, ordered items.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `name` | TEXT NOT NULL | "Sunday 14 Sept 2026, 11:00" |
-| `starts_at` | INTEGER | unix ms |
-| `notes` | TEXT | sermon outline, technical cues |
-| `created_at`, `updated_at` | INTEGER | |
+| Column                     | Type            | Notes                          |
+| -------------------------- | --------------- | ------------------------------ |
+| `id`                       | TEXT PK         | UUIDv7                         |
+| `library_id`               | TEXT FK Library |                                |
+| `name`                     | TEXT NOT NULL   | "Sunday 14 Sept 2026, 11:00"   |
+| `starts_at`                | INTEGER         | unix ms                        |
+| `notes`                    | TEXT            | sermon outline, technical cues |
+| `created_at`, `updated_at` | INTEGER         |                                |
 
 ### ServiceItem
 
 Ordered item in a service. Type-discriminated.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `service_id` | TEXT FK Service | |
-| `position` | INTEGER NOT NULL | |
-| `kind` | TEXT NOT NULL | `song`, `scripture`, `custom_deck`, `video`, `announcement`, `gap` |
-| `song_id`, `bible_reference_id`, `custom_deck_id`, `media_asset_id` | TEXT | nullable; exactly one matches `kind` |
-| `arrangement_id` | TEXT FK SongArrangement | when `kind=song` |
-| `key_override` | TEXT | when `kind=song` and user transposed |
-| `notes` | TEXT | per-item notes |
+| Column                                                              | Type                    | Notes                                                              |
+| ------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `id`                                                                | TEXT PK                 | UUIDv7                                                             |
+| `service_id`                                                        | TEXT FK Service         |                                                                    |
+| `position`                                                          | INTEGER NOT NULL        |                                                                    |
+| `kind`                                                              | TEXT NOT NULL           | `song`, `scripture`, `custom_deck`, `video`, `announcement`, `gap` |
+| `song_id`, `bible_reference_id`, `custom_deck_id`, `media_asset_id` | TEXT                    | nullable; exactly one matches `kind`                               |
+| `arrangement_id`                                                    | TEXT FK SongArrangement | when `kind=song`                                                   |
+| `key_override`                                                      | TEXT                    | when `kind=song` and user transposed                               |
+| `notes`                                                             | TEXT                    | per-item notes                                                     |
 
 ### CustomDeck
 
 Ad-hoc slide deck not tied to a song or scripture. Announcements, sermon
 slides, etc.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `name` | TEXT NOT NULL | |
-| `created_at` | INTEGER | |
+| Column       | Type            | Notes  |
+| ------------ | --------------- | ------ |
+| `id`         | TEXT PK         | UUIDv7 |
+| `library_id` | TEXT FK Library |        |
+| `name`       | TEXT NOT NULL   |        |
+| `created_at` | INTEGER         |        |
 
 ### Slide
 
 A rendered screen. Has text/media content plus position/styling.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
+| Column           | Type               | Notes                                                           |
+| ---------------- | ------------------ | --------------------------------------------------------------- |
+| `id`             | TEXT PK            | UUIDv7                                                          |
 | `custom_deck_id` | TEXT FK CustomDeck | nullable — slides for songs/scripture are generated, not stored |
-| `position` | INTEGER | within deck |
-| `content` | TEXT JSON | text blocks, images, backgrounds (see below) |
-| `theme_id` | TEXT FK Theme | nullable; per-slide override |
-| `template_id` | TEXT FK Template | nullable |
+| `position`       | INTEGER            | within deck                                                     |
+| `content`        | TEXT JSON          | text blocks, images, backgrounds (see below)                    |
+| `theme_id`       | TEXT FK Theme      | nullable; per-slide override                                    |
+| `template_id`    | TEXT FK Template   | nullable                                                        |
 
 `content` JSON shape:
+
 ```json
 {
   "background": { "type": "color"|"image"|"video"|"gradient", "value": "..." },
@@ -252,66 +253,66 @@ A rendered screen. Has text/media content plus position/styling.
 
 Image, video, audio file. Identified by hash for path stability.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `kind` | TEXT NOT NULL | `image`, `video`, `audio` |
-| `original_path` | TEXT NOT NULL | absolute path at import time |
-| `content_hash` | TEXT NOT NULL | sha-256; for relink on path break |
-| `thumbnail_path` | TEXT | generated by ffmpeg |
-| `width`, `height` | INTEGER | for images/video |
-| `duration_ms` | INTEGER | for video/audio |
-| `tags` | TEXT JSON | string array |
-| `imported_at` | INTEGER | |
+| Column            | Type            | Notes                             |
+| ----------------- | --------------- | --------------------------------- |
+| `id`              | TEXT PK         | UUIDv7                            |
+| `library_id`      | TEXT FK Library |                                   |
+| `kind`            | TEXT NOT NULL   | `image`, `video`, `audio`         |
+| `original_path`   | TEXT NOT NULL   | absolute path at import time      |
+| `content_hash`    | TEXT NOT NULL   | sha-256; for relink on path break |
+| `thumbnail_path`  | TEXT            | generated by ffmpeg               |
+| `width`, `height` | INTEGER         | for images/video                  |
+| `duration_ms`     | INTEGER         | for video/audio                   |
+| `tags`            | TEXT JSON       | string array                      |
+| `imported_at`     | INTEGER         |                                   |
 
 ### Theme
 
 A named bundle of typographic + color tokens. Applied at library, song, or
 slide level (cascade).
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `name` | TEXT NOT NULL | "Sunday Morning" |
-| `tokens` | TEXT JSON | colors, font, sizes |
+| Column       | Type            | Notes               |
+| ------------ | --------------- | ------------------- |
+| `id`         | TEXT PK         | UUIDv7              |
+| `library_id` | TEXT FK Library |                     |
+| `name`       | TEXT NOT NULL   | "Sunday Morning"    |
+| `tokens`     | TEXT JSON       | colors, font, sizes |
 
 ### Template
 
 A slide layout with named slots. Themes style those slots.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | nullable for built-in templates |
-| `name` | TEXT NOT NULL | "Lyrics Centered" |
-| `slots` | TEXT JSON | slot definitions (position, type) |
+| Column       | Type            | Notes                             |
+| ------------ | --------------- | --------------------------------- |
+| `id`         | TEXT PK         | UUIDv7                            |
+| `library_id` | TEXT FK Library | nullable for built-in templates   |
+| `name`       | TEXT NOT NULL   | "Lyrics Centered"                 |
+| `slots`      | TEXT JSON       | slot definitions (position, type) |
 
 ### Tag
 
 Free-form labels.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | TEXT PK | UUIDv7 |
-| `library_id` | TEXT FK Library | |
-| `name` | TEXT NOT NULL UNIQUE per library | |
-| `color` | TEXT | hex |
+| Column       | Type                             | Notes  |
+| ------------ | -------------------------------- | ------ |
+| `id`         | TEXT PK                          | UUIDv7 |
+| `library_id` | TEXT FK Library                  |        |
+| `name`       | TEXT NOT NULL UNIQUE per library |        |
+| `color`      | TEXT                             | hex    |
 
 ### SyncMeta (Phase 9)
 
 One row per syncable entity. Decoupled so the entity tables stay clean.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `entity_type` | TEXT | `song`, `service`, ... composite PK |
-| `entity_id` | TEXT | composite PK |
-| `server_id` | TEXT | UUID assigned by Supabase |
-| `updated_at` | INTEGER | last known server timestamp |
-| `last_synced_at` | INTEGER | last successful sync |
-| `device_id` | TEXT | id of device that made last edit |
-| `conflict_state` | TEXT | `none`, `local_diverged`, `server_diverged`, `manual` |
+| Column           | Type    | Notes                                                 |
+| ---------------- | ------- | ----------------------------------------------------- |
+| `entity_type`    | TEXT    | `song`, `service`, ... composite PK                   |
+| `entity_id`      | TEXT    | composite PK                                          |
+| `server_id`      | TEXT    | UUID assigned by Supabase                             |
+| `updated_at`     | INTEGER | last known server timestamp                           |
+| `last_synced_at` | INTEGER | last successful sync                                  |
+| `device_id`      | TEXT    | id of device that made last edit                      |
+| `conflict_state` | TEXT    | `none`, `local_diverged`, `server_diverged`, `manual` |
 
 ## Hardest queries — does the model support them?
 
@@ -399,7 +400,7 @@ preview and the live engine paint from one code path.
   has no external dependencies.
 - WAL mode for concurrent readers + single writer is plenty for this
   workload.
-- Supabase Postgres later (cloud sync) is a *separate* store, not a primary.
+- Supabase Postgres later (cloud sync) is a _separate_ store, not a primary.
 
 ### UUIDv7 over INTEGER autoincrement
 

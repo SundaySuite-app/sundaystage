@@ -12,6 +12,7 @@ mark them `Superseded` instead.
 ### Context
 
 We need a desktop app for Mac and Windows that:
+
 - Starts fast (volunteers' machines are modest)
 - Memory-efficient (4 outputs at 1080p, 4-hour session, no memory growth)
 - Can spawn isolated output processes
@@ -24,12 +25,14 @@ Tauri 2 + Rust backend.
 ### Consequences
 
 **Positive:**
+
 - Smaller bundle (~10 MB vs Electron's ~100+ MB)
 - Smaller memory footprint
 - Native multi-process from day one
 - Rust for the hot path (live engine)
 
 **Negative:**
+
 - Smaller ecosystem than Electron
 - Some plugins are less mature
 - Steeper Rust learning curve

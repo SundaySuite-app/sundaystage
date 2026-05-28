@@ -35,8 +35,12 @@ export function WelcomeScreen({ library, onDone }: WelcomeScreenProps) {
         <div className="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-brand)] text-2xl font-bold text-[var(--color-accent)]">
           S
         </div>
-        <h1 className="text-[var(--text-ui-3xl)] font-bold">{t("welcomeTitle")}</h1>
-        <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-fg-muted)]">{t("welcomeIntro")}</p>
+        <h1 className="text-[var(--text-ui-3xl)] font-bold">
+          {t("welcomeTitle")}
+        </h1>
+        <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-fg-muted)]">
+          {t("welcomeIntro")}
+        </p>
 
         <div className="mt-8 text-left">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--color-fg-muted)]">
@@ -80,7 +84,9 @@ export function WelcomeScreen({ library, onDone }: WelcomeScreenProps) {
           </button>
         </div>
         {seedMut.isError && (
-          <p className="mt-3 text-xs text-[var(--color-danger)]">{String(seedMut.error)}</p>
+          <p className="mt-3 text-xs text-[var(--color-danger)]">
+            {String(seedMut.error)}
+          </p>
         )}
       </div>
     </div>

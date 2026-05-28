@@ -79,7 +79,12 @@ interface SlideCanvasProps {
   onCommit?: (cmd: Command) => void;
 }
 
-function resizeRect(start: Rect, handle: HandleId, nx: number, ny: number): Rect {
+function resizeRect(
+  start: Rect,
+  handle: HandleId,
+  nx: number,
+  ny: number,
+): Rect {
   let { x, y, w, h } = start;
   const right = start.x + start.w;
   const bottom = start.y + start.h;
@@ -145,38 +150,51 @@ export function SlideCanvas({
     };
   }, []);
 
-  const computeMove = useCallback((d: Extract<DragState, { mode: "move" }>, p: Norm) => {
-    const dnx = p.nx - d.start.nx;
-    const dny = p.ny - d.start.ny;
-    const startPrimary = d.startRects.get(d.primaryId)!;
-    const candidate = clampRect({
-      ...startPrimary,
-      x: startPrimary.x + dnx,
-      y: startPrimary.y + dny,
-    });
-    const siblings = d.baseDoc.blocks
-      .filter((b) => !d.startRects.has(b.id))
-      .map((b) => b.rect);
-    const snapped = snapMove(candidate, siblings);
-    const snapDx = snapped.rect.x - candidate.x;
-    const snapDy = snapped.rect.y - candidate.y;
+  const computeMove = useCallback(
+    (d: Extract<DragState, { mode: "move" }>, p: Norm) => {
+      const dnx = p.nx - d.start.nx;
+      const dny = p.ny - d.start.ny;
+      const startPrimary = d.startRects.get(d.primaryId)!;
+      const candidate = clampRect({
+        ...startPrimary,
+        x: startPrimary.x + dnx,
+        y: startPrimary.y + dny,
+      });
+      const siblings = d.baseDoc.blocks
+        .filter((b) => !d.startRects.has(b.id))
+        .map((b) => b.rect);
+      const snapped = snapMove(candidate, siblings);
+      const snapDx = snapped.rect.x - candidate.x;
+      const snapDy = snapped.rect.y - candidate.y;
 
-    let next = d.baseDoc;
-    for (const [id, sr] of d.startRects) {
-      const block = findBlock(next, id);
-      if (!block) continue;
-      const nr = clampRect({ ...sr, x: sr.x + dnx + snapDx, y: sr.y + dny + snapDy });
-      next = replaceBlock(next, { ...block, rect: nr });
-    }
-    return { doc: next, guides: { x: snapped.guidesX, y: snapped.guidesY } };
-  }, []);
+      let next = d.baseDoc;
+      for (const [id, sr] of d.startRects) {
+        const block = findBlock(next, id);
+        if (!block) continue;
+        const nr = clampRect({
+          ...sr,
+          x: sr.x + dnx + snapDx,
+          y: sr.y + dny + snapDy,
+        });
+        next = replaceBlock(next, { ...block, rect: nr });
+      }
+      return { doc: next, guides: { x: snapped.guidesX, y: snapped.guidesY } };
+    },
+    [],
+  );
 
-  const computeResize = useCallback((d: Extract<DragState, { mode: "resize" }>, p: Norm) => {
-    const block = findBlock(d.baseDoc, d.id);
-    if (!block) return { doc: d.baseDoc, guides: { x: [], y: [] } };
-    const nr = resizeRect(d.startRect, d.handle, p.nx, p.ny);
-    return { doc: replaceBlock(d.baseDoc, { ...block, rect: nr }), guides: { x: [], y: [] } };
-  }, []);
+  const computeResize = useCallback(
+    (d: Extract<DragState, { mode: "resize" }>, p: Norm) => {
+      const block = findBlock(d.baseDoc, d.id);
+      if (!block) return { doc: d.baseDoc, guides: { x: [], y: [] } };
+      const nr = resizeRect(d.startRect, d.handle, p.nx, p.ny);
+      return {
+        doc: replaceBlock(d.baseDoc, { ...block, rect: nr }),
+        guides: { x: [], y: [] },
+      };
+    },
+    [],
+  );
 
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
@@ -186,7 +204,8 @@ export function SlideCanvas({
       if (Math.abs(p.nx - d.start.nx) + Math.abs(p.ny - d.start.ny) > 0.001) {
         d.moved = true;
       }
-      const { doc: next, guides } = d.mode === "move" ? computeMove(d, p) : computeResize(d, p);
+      const { doc: next, guides } =
+        d.mode === "move" ? computeMove(d, p) : computeResize(d, p);
       drawGuides(guides);
       onPreview?.(next);
     },
@@ -212,7 +231,8 @@ export function SlideCanvas({
           if (after) cmds.push(updateBlockCommand(before, after));
         }
         if (cmds.length === 1) onCommit?.(cmds[0]);
-        else if (cmds.length > 1) onCommit?.(compositeCommand("Flytt elementer", cmds));
+        else if (cmds.length > 1)
+          onCommit?.(compositeCommand("Flytt elementer", cmds));
       } else {
         const { doc: next } = computeResize(d, p);
         onPreview?.(next);
@@ -220,7 +240,15 @@ export function SlideCanvas({
         if (after) onCommit?.(updateBlockCommand(d.before, after));
       }
     },
-    [toNorm, computeMove, computeResize, drawGuides, onPreview, onCommit, onPointerMove],
+    [
+      toNorm,
+      computeMove,
+      computeResize,
+      drawGuides,
+      onPreview,
+      onCommit,
+      onPointerMove,
+    ],
   );
 
   const beginDrag = useCallback(
@@ -248,7 +276,9 @@ export function SlideCanvas({
         }
         activeIds = new Set(selected);
       } else {
-        activeIds = additive ? new Set([...selected, block.id]) : new Set([block.id]);
+        activeIds = additive
+          ? new Set([...selected, block.id])
+          : new Set([block.id]);
         onSelect?.(block.id, additive);
       }
 
@@ -312,7 +342,8 @@ export function SlideCanvas({
               interactive && "cursor-move",
               interactive && isSel
                 ? "outline outline-2 outline-[var(--color-accent)]"
-                : interactive && "hover:outline hover:outline-1 hover:outline-white/30",
+                : interactive &&
+                    "hover:outline hover:outline-1 hover:outline-white/30",
             )}
             onPointerDown={(e) => onBlockPointerDown(e, block)}
           >
@@ -339,7 +370,10 @@ export function SlideCanvas({
       })}
 
       {/* Snap guides (drawn imperatively during drag). */}
-      <div ref={guidesRef} className="pointer-events-none absolute inset-0 z-20" />
+      <div
+        ref={guidesRef}
+        className="pointer-events-none absolute inset-0 z-20"
+      />
     </div>
   );
 }

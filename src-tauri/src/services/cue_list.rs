@@ -19,8 +19,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::db::models::{Service, ServiceItem, SongSection, BibleReference, Slide};
-use crate::db::repositories::{ArrangementRepo, ServiceRepo, SongRepo, BibleRepo};
+use crate::db::models::{BibleReference, Service, ServiceItem, Slide, SongSection};
+use crate::db::repositories::{ArrangementRepo, ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
 use sqlx::SqlitePool;
 
@@ -43,20 +43,13 @@ pub enum Cue {
         source: CueSource,
     },
     /// Pure black output — operator hotkey 'Esc' fires this.
-    BlackOut {
-        cue_id: String,
-    },
+    BlackOut { cue_id: String },
     /// Show the church logo (configured per library).
-    ShowLogo {
-        cue_id: String,
-    },
+    ShowLogo { cue_id: String },
     /// Wait for the operator to advance manually. Most cues are
     /// implicitly this, but explicit `Pause` is useful for transitions
     /// (e.g. "do not auto-advance through the offering").
-    Pause {
-        cue_id: String,
-        label: String,
-    },
+    Pause { cue_id: String, label: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -99,9 +92,15 @@ pub struct CueList {
 }
 
 impl CueList {
-    pub fn len(&self) -> usize { self.cues.len() }
-    pub fn is_empty(&self) -> bool { self.cues.is_empty() }
-    pub fn get(&self, index: usize) -> Option<&Cue> { self.cues.get(index) }
+    pub fn len(&self) -> usize {
+        self.cues.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.cues.is_empty()
+    }
+    pub fn get(&self, index: usize) -> Option<&Cue> {
+        self.cues.get(index)
+    }
 }
 
 /// Lines-per-slide budget — defaults are conservative; user can override
@@ -130,8 +129,14 @@ impl<'a> CueCompiler<'a> {
         for item in &items {
             match item.kind.as_str() {
                 "song" => self.compile_song_item(&service, item, &mut cues).await?,
-                "scripture" => self.compile_scripture_item(&service, item, &mut cues).await?,
-                "custom_deck" => self.compile_custom_deck_item(&service, item, &mut cues).await?,
+                "scripture" => {
+                    self.compile_scripture_item(&service, item, &mut cues)
+                        .await?
+                }
+                "custom_deck" => {
+                    self.compile_custom_deck_item(&service, item, &mut cues)
+                        .await?
+                }
                 "announcement" | "video" | "gap" => {
                     // Phase placeholders — we'll surface these as Pause
                     // cues so the operator can advance manually.
@@ -189,8 +194,10 @@ impl<'a> CueCompiler<'a> {
             let slides = section_to_slides(section, DEFAULT_LINES_PER_SLIDE);
             for slide_lines in slides {
                 cues.push(Cue::ShowSlide {
-                    cue_id: format!("svc:{}:song:{}:s:{}:c:{}",
-                        item.service_id, song_id, section.id, cue_idx),
+                    cue_id: format!(
+                        "svc:{}:song:{}:s:{}:c:{}",
+                        item.service_id, song_id, section.id, cue_idx
+                    ),
                     slide_content: SlideContent {
                         section_label: Some(humanize_section_label(&section.label)),
                         text_lines: slide_lines,
@@ -225,31 +232,33 @@ impl<'a> CueCompiler<'a> {
             )));
         };
         // We cached the reference text on insert (Phase 7); just fetch it.
-        let reference: BibleReference = sqlx::query_as::<_, BibleReference>(
-            "SELECT * FROM bible_reference WHERE id = ?1",
-        )
-        .bind(ref_id)
-        .fetch_optional(self.pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound {
-            entity: "bible_reference",
-            id: ref_id.clone(),
-        })?;
+        let reference: BibleReference =
+            sqlx::query_as::<_, BibleReference>("SELECT * FROM bible_reference WHERE id = ?1")
+                .bind(ref_id)
+                .fetch_optional(self.pool)
+                .await?
+                .ok_or_else(|| AppError::NotFound {
+                    entity: "bible_reference",
+                    id: ref_id.clone(),
+                })?;
 
         let display = format!(
             "{} {}:{}{}",
             reference.book,
             reference.chapter,
             reference.verse_start,
-            reference.verse_end.map(|e| format!("-{}", e)).unwrap_or_default(),
+            reference
+                .verse_end
+                .map(|e| format!("-{}", e))
+                .unwrap_or_default(),
         );
 
         // Norwegian + English break verses differently. For v1 we just
         // chunk by line count. Phase 7.1 wires the per-translation
         // breaking strategy.
         let lines: Vec<String> = reference.text.lines().map(|s| s.to_string()).collect();
-        let mut cue_idx: u32 = 0;
-        for chunk in lines.chunks(DEFAULT_LINES_PER_SLIDE) {
+        for (cue_idx, chunk) in lines.chunks(DEFAULT_LINES_PER_SLIDE).enumerate() {
+            let cue_idx = cue_idx as u32;
             cues.push(Cue::ShowSlide {
                 cue_id: format!("svc:{}:scripture:{}:c:{}", item.service_id, ref_id, cue_idx),
                 slide_content: SlideContent {
@@ -266,7 +275,6 @@ impl<'a> CueCompiler<'a> {
                     display_label: format!("Bibel — {}", display),
                 },
             });
-            cue_idx += 1;
         }
         Ok(())
     }
@@ -371,36 +379,49 @@ pub(crate) fn extract_text_lines_from_content(content: &str) -> Option<Vec<Strin
             }
         }
     }
-    if out.is_empty() { None } else { Some(out) }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::Database;
     use crate::db::models::{LibraryInput, SongInput};
-    use crate::db::repositories::{ArrangementRepo, LibraryRepo, SongRepo, ServiceRepo};
+    use crate::db::repositories::{ArrangementRepo, LibraryRepo, ServiceRepo, SongRepo};
+    use crate::db::Database;
     use crate::db::{new_id, now_ms};
 
     async fn fixture_library_song(db: &Database) -> (String, String) {
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Test".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
         let song = SongRepo::new(&db.pool)
             .create(SongInput {
                 library_id: lib.id.clone(),
                 title: "Amazing Grace".into(),
                 language: Some("en".into()),
-                default_key: None, tempo_bpm: None,
-                ccli_song_id: None, tono_work_id: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
                 copyright_notice: Some("Public Domain".into()),
             })
-            .await.unwrap();
+            .await
+            .unwrap();
         SongRepo::new(&db.pool)
             .add_section(&song.id, "verse_1",
                 "Amazing grace how sweet the sound\nThat saved a wretch like me\nI once was lost but now am found\nWas blind but now I see").await.unwrap();
         SongRepo::new(&db.pool)
-            .add_section(&song.id, "chorus", "Praise the Lord\nPraise His name").await.unwrap();
+            .add_section(&song.id, "chorus", "Praise the Lord\nPraise His name")
+            .await
+            .unwrap();
         (lib.id, song.id)
     }
 
@@ -414,11 +435,14 @@ mod tests {
     #[tokio::test]
     async fn section_splits_lines() {
         let s = SongSection {
-            id: "x".into(), song_id: "y".into(),
+            id: "x".into(),
+            song_id: "y".into(),
             label: "verse_1".into(),
             lyrics: "a\nb\nc\nd\ne".into(),
-            chord_chart: None, display_order: 0,
-            created_at: 0, updated_at: 0,
+            chord_chart: None,
+            display_order: 0,
+            created_at: 0,
+            updated_at: 0,
         };
         let slides = section_to_slides(&s, 2);
         assert_eq!(slides.len(), 3);
@@ -434,7 +458,8 @@ mod tests {
         // Build a service with one song item
         let svc = ServiceRepo::new(&db.pool)
             .create(&lib_id, "Test service", now_ms())
-            .await.unwrap();
+            .await
+            .unwrap();
         let item_id = new_id();
         let now = now_ms();
         sqlx::query(
@@ -450,7 +475,8 @@ mod tests {
         .bind(&song_id)
         .bind(now)
         .execute(&db.pool)
-        .await.unwrap();
+        .await
+        .unwrap();
 
         let compiler = CueCompiler::new(&db.pool);
         let cl = compiler.compile(&svc.id).await.unwrap();
@@ -462,7 +488,11 @@ mod tests {
         assert_eq!(cl.len(), 2);
 
         match &cl.cues[0] {
-            Cue::ShowSlide { slide_content, source, .. } => {
+            Cue::ShowSlide {
+                slide_content,
+                source,
+                ..
+            } => {
                 assert_eq!(slide_content.section_label.as_deref(), Some("Verse 1"));
                 assert_eq!(slide_content.text_lines.len(), 4);
                 assert_eq!(source.display_label, "Sang — Verse 1");
@@ -484,8 +514,18 @@ mod tests {
         let (lib_id, song_id) = fixture_library_song(&db).await;
 
         let sections = SongRepo::new(&db.pool).sections(&song_id).await.unwrap();
-        let verse = sections.iter().find(|s| s.label == "verse_1").unwrap().id.clone();
-        let chorus = sections.iter().find(|s| s.label == "chorus").unwrap().id.clone();
+        let verse = sections
+            .iter()
+            .find(|s| s.label == "verse_1")
+            .unwrap()
+            .id
+            .clone();
+        let chorus = sections
+            .iter()
+            .find(|s| s.label == "chorus")
+            .unwrap()
+            .id
+            .clone();
 
         let arr_repo = ArrangementRepo::new(&db.pool);
         let arr = arr_repo.create(&song_id, "Full").await.unwrap();
@@ -539,8 +579,12 @@ mod tests {
     async fn compile_scripture_produces_cues_with_reference_text() {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Test".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
 
         // Insert a cached bible reference
         let ref_id = new_id();
@@ -557,7 +601,9 @@ mod tests {
         .execute(&db.pool).await.unwrap();
 
         let svc = ServiceRepo::new(&db.pool)
-            .create(&lib.id, "Scripture service", now).await.unwrap();
+            .create(&lib.id, "Scripture service", now)
+            .await
+            .unwrap();
 
         let item_id = new_id();
         sqlx::query(
@@ -572,12 +618,18 @@ mod tests {
         .bind(&svc.id)
         .bind(&ref_id)
         .bind(now)
-        .execute(&db.pool).await.unwrap();
+        .execute(&db.pool)
+        .await
+        .unwrap();
 
         let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
         assert_eq!(cl.len(), 1, "4 lines → 1 slide @ 4 lines per slide");
         match &cl.cues[0] {
-            Cue::ShowSlide { slide_content, source, .. } => {
+            Cue::ShowSlide {
+                slide_content,
+                source,
+                ..
+            } => {
                 assert_eq!(slide_content.reference.as_deref(), Some("John 3:16-17"));
                 assert_eq!(slide_content.text_lines.len(), 4);
                 assert_eq!(source.display_label, "Bibel — John 3:16-17");
@@ -590,10 +642,16 @@ mod tests {
     async fn compile_empty_service_produces_empty_cue_list() {
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)
-            .create(LibraryInput { name: "Empty".into(), default_locale: None })
-            .await.unwrap();
+            .create(LibraryInput {
+                name: "Empty".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
         let svc = ServiceRepo::new(&db.pool)
-            .create(&lib.id, "Empty service", now_ms()).await.unwrap();
+            .create(&lib.id, "Empty service", now_ms())
+            .await
+            .unwrap();
         let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
         assert!(cl.is_empty());
     }

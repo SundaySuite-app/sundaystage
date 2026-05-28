@@ -29,13 +29,20 @@ interface PasteFormatModalProps {
   onApplied: (arrangementId: string) => void;
 }
 
-export function PasteFormatModal({ songId, onClose, onApplied }: PasteFormatModalProps) {
+export function PasteFormatModal({
+  songId,
+  onClose,
+  onApplied,
+}: PasteFormatModalProps) {
   const [raw, setRaw] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("claude-sonnet-4-6");
   const [draft, setDraft] = useState<FormattedSong | null>(null);
 
-  const modelsQuery = useQuery({ queryKey: ["aiModels"], queryFn: () => ipc.ai.models() });
+  const modelsQuery = useQuery({
+    queryKey: ["aiModels"],
+    queryFn: () => ipc.ai.models(),
+  });
 
   const formatMut = useMutation({
     mutationFn: () => ipc.ai.formatLyrics(raw, apiKey.trim() || null, model),
@@ -52,7 +59,11 @@ export function PasteFormatModal({ songId, onClose, onApplied }: PasteFormatModa
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-6">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
       <div className="relative flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]">
         <header className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
           <Sparkles size={16} className="text-[var(--color-accent)]" />
@@ -118,7 +129,9 @@ export function PasteFormatModal({ songId, onClose, onApplied }: PasteFormatModa
               <div className="flex-1 space-y-3 overflow-y-auto p-3">
                 {draft.title_suggestion && (
                   <p className="text-sm">
-                    <span className="text-[var(--color-fg-muted)]">Tittelforslag: </span>
+                    <span className="text-[var(--color-fg-muted)]">
+                      Tittelforslag:{" "}
+                    </span>
                     {draft.title_suggestion}
                   </p>
                 )}
@@ -133,7 +146,10 @@ export function PasteFormatModal({ songId, onClose, onApplied }: PasteFormatModa
                   ))}
                 </div>
                 {draft.sections.map((s) => (
-                  <div key={s.label} className="rounded-md border border-[var(--color-border)] p-2">
+                  <div
+                    key={s.label}
+                    className="rounded-md border border-[var(--color-border)] p-2"
+                  >
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-accent)]">
                       {humanize(s.label)}
                     </div>
@@ -145,7 +161,10 @@ export function PasteFormatModal({ songId, onClose, onApplied }: PasteFormatModa
                 {draft.warnings.length > 0 && (
                   <ul className="space-y-1 border-t border-[var(--color-border)] pt-2">
                     {draft.warnings.map((w, i) => (
-                      <li key={i} className="text-[11px] text-[var(--color-warning)]">
+                      <li
+                        key={i}
+                        className="text-[11px] text-[var(--color-warning)]"
+                      >
                         ⚠ {w}
                       </li>
                     ))}

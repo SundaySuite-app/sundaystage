@@ -65,7 +65,10 @@ impl SessionStore {
 
     /// Append one action. One line, flushed immediately — crash-safe.
     pub fn record(&self, action: &LiveAction) -> std::io::Result<()> {
-        let mut f = OpenOptions::new().create(true).append(true).open(&self.path)?;
+        let mut f = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
         writeln!(f, "{}", serde_json::to_string(action)?)?;
         f.flush()
     }
@@ -126,7 +129,15 @@ mod tests {
 
     fn session(n: usize) -> LiveSession {
         let cues = (0..n).map(slide_cue).collect();
-        LiveSession::new("svc", CueList { service_id: "svc".into(), compiled_at: 0, cues }, 100)
+        LiveSession::new(
+            "svc",
+            CueList {
+                service_id: "svc".into(),
+                compiled_at: 0,
+                cues,
+            },
+            100,
+        )
     }
 
     fn store() -> (tempfile::TempDir, SessionStore) {
@@ -171,7 +182,10 @@ mod tests {
         // Simulate a crash mid-write: append a half-written line.
         {
             use std::io::Write;
-            let mut f = std::fs::OpenOptions::new().append(true).open(&store.path).unwrap();
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&store.path)
+                .unwrap();
             write!(f, "{{\"type\":\"go_t").unwrap(); // truncated, no newline
         }
         let recovered = store.recover().expect("recoverable despite torn line");

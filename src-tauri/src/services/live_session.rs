@@ -36,7 +36,9 @@ pub enum OutputState {
 pub enum LiveAction {
     Next,
     Previous,
-    GoTo { index: usize },
+    GoTo {
+        index: usize,
+    },
     /// Toggle blackout (Esc).
     Blackout,
     /// Toggle the church logo (L).
@@ -65,11 +67,15 @@ impl LiveAction {
 #[serde(tag = "kind", rename_all = "snake_case")]
 #[ts(export, export_to = "../../src/lib/bindings/LiveFrame.ts")]
 pub enum LiveFrame {
-    Slide { slide_content: SlideContent },
+    Slide {
+        slide_content: SlideContent,
+    },
     Black,
     Logo,
     /// A non-slide cue (e.g. a Pause) — show its label to the operator.
-    Message { text: String },
+    Message {
+        text: String,
+    },
 }
 
 /// One entry in the replay-able session log.
@@ -173,12 +179,14 @@ impl LiveSession {
             OutputState::Normal => {}
         }
         match self.cue_list.get(self.index) {
-            Some(Cue::ShowSlide { slide_content, .. }) => {
-                LiveFrame::Slide { slide_content: slide_content.clone() }
-            }
+            Some(Cue::ShowSlide { slide_content, .. }) => LiveFrame::Slide {
+                slide_content: slide_content.clone(),
+            },
             Some(Cue::BlackOut { .. }) => LiveFrame::Black,
             Some(Cue::ShowLogo { .. }) => LiveFrame::Logo,
-            Some(Cue::Pause { label, .. }) => LiveFrame::Message { text: label.clone() },
+            Some(Cue::Pause { label, .. }) => LiveFrame::Message {
+                text: label.clone(),
+            },
             None => LiveFrame::Black,
         }
     }
@@ -229,8 +237,14 @@ mod tests {
     }
 
     fn session(n: usize) -> LiveSession {
-        let cues: Vec<Cue> = (0..n).map(|i| slide_cue(&format!("c{i}"), &format!("line {i}"))).collect();
-        let cl = CueList { service_id: "svc".into(), compiled_at: 0, cues };
+        let cues: Vec<Cue> = (0..n)
+            .map(|i| slide_cue(&format!("c{i}"), &format!("line {i}")))
+            .collect();
+        let cl = CueList {
+            service_id: "svc".into(),
+            compiled_at: 0,
+            cues,
+        };
         LiveSession::new("svc", cl, 0)
     }
 
@@ -240,7 +254,9 @@ mod tests {
         assert_eq!(s.index, 0);
         assert_eq!(s.output, OutputState::Normal);
         match s.current_frame() {
-            LiveFrame::Slide { slide_content } => assert_eq!(slide_content.text_lines, vec!["line 0"]),
+            LiveFrame::Slide { slide_content } => {
+                assert_eq!(slide_content.text_lines, vec!["line 0"])
+            }
             _ => panic!("expected slide"),
         }
     }
@@ -319,7 +335,10 @@ mod tests {
             cues: vec![
                 Cue::BlackOut { cue_id: "b".into() },
                 Cue::ShowLogo { cue_id: "l".into() },
-                Cue::Pause { cue_id: "p".into(), label: "Offering".into() },
+                Cue::Pause {
+                    cue_id: "p".into(),
+                    label: "Offering".into(),
+                },
             ],
         };
         let mut s = LiveSession::new("s", cl, 0);
@@ -327,7 +346,12 @@ mod tests {
         s.dispatch(LiveAction::Next, 1);
         assert_eq!(s.current_frame(), LiveFrame::Logo);
         s.dispatch(LiveAction::Next, 2);
-        assert_eq!(s.current_frame(), LiveFrame::Message { text: "Offering".into() });
+        assert_eq!(
+            s.current_frame(),
+            LiveFrame::Message {
+                text: "Offering".into()
+            }
+        );
     }
 
     #[test]

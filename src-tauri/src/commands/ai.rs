@@ -44,7 +44,8 @@ pub async fn ai_format_lyrics(
 
     let Some(key) = key else {
         let mut f = heuristic_format(&raw);
-        f.warnings.push("Ingen API-nøkkel — formaterte lokalt uten AI.".into());
+        f.warnings
+            .push("Ingen API-nøkkel — formaterte lokalt uten AI.".into());
         return Ok(f);
     };
 
@@ -64,14 +65,16 @@ pub async fn ai_format_lyrics(
             Ok(f) => Ok(f),
             Err(e) => {
                 let mut f = heuristic_format(&raw);
-                f.warnings
-                    .push(format!("AI-svar kunne ikke tolkes ({e}) — formaterte lokalt."));
+                f.warnings.push(format!(
+                    "AI-svar kunne ikke tolkes ({e}) — formaterte lokalt."
+                ));
                 Ok(f)
             }
         },
         Err(e) => {
             let mut f = heuristic_format(&raw);
-            f.warnings.push(format!("AI utilgjengelig ({e}) — formaterte lokalt."));
+            f.warnings
+                .push(format!("AI utilgjengelig ({e}) — formaterte lokalt."));
             Ok(f)
         }
     }
@@ -100,13 +103,21 @@ pub async fn ai_plan_service(
     let key = api_key
         .filter(|k| !k.trim().is_empty())
         .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
-        .ok_or_else(|| AppError::Validation("Tjenesteplanlegging krever en Anthropic API-nøkkel.".into()))?;
+        .ok_or_else(|| {
+            AppError::Validation("Tjenesteplanlegging krever en Anthropic API-nøkkel.".into())
+        })?;
 
-    let songs = SongRepo::new(&state.db.pool).list(&library_id, 300, 0).await?;
+    let songs = SongRepo::new(&state.db.pool)
+        .list(&library_id, 300, 0)
+        .await?;
     let valid: HashSet<String> = songs.iter().map(|s| s.id.clone()).collect();
     let lib_songs: Vec<LibrarySong> = songs
         .into_iter()
-        .map(|s| LibrarySong { id: s.id, title: s.title, key: s.default_key })
+        .map(|s| LibrarySong {
+            id: s.id,
+            title: s.title,
+            key: s.default_key,
+        })
         .collect();
 
     let provider = AnthropicProvider::new(key);

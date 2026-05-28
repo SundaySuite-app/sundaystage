@@ -33,11 +33,11 @@ interface SidebarProps {
 
 const NAV_ITEMS: Array<{ id: Route; tkey: TKey; icon: typeof Library }> = [
   { id: "dashboard", tkey: "navDashboard", icon: LayoutDashboard },
-  { id: "library",   tkey: "navLibrary",   icon: Library },
-  { id: "decks",     tkey: "navDecks",     icon: LayoutTemplate },
-  { id: "services",  tkey: "navServices",  icon: CalendarDays },
-  { id: "bible",     tkey: "navBible",     icon: BookOpen },
-  { id: "media",     tkey: "navMedia",     icon: ImageIcon },
+  { id: "library", tkey: "navLibrary", icon: Library },
+  { id: "decks", tkey: "navDecks", icon: LayoutTemplate },
+  { id: "services", tkey: "navServices", icon: CalendarDays },
+  { id: "bible", tkey: "navBible", icon: BookOpen },
+  { id: "media", tkey: "navMedia", icon: ImageIcon },
 ];
 
 export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
@@ -125,7 +125,10 @@ const SYNC_DOT: Record<SyncStatus, string> = {
 
 function SyncBadge() {
   const t = useT();
-  const { data } = useQuery({ queryKey: ["syncStatus"], queryFn: () => ipc.sync.status() });
+  const { data } = useQuery({
+    queryKey: ["syncStatus"],
+    queryFn: () => ipc.sync.status(),
+  });
   const status: SyncStatus = data ?? "local_only";
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--color-fg-muted)]">

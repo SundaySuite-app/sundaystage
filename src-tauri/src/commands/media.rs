@@ -22,8 +22,8 @@ pub async fn media_import(
     path: String,
 ) -> AppResult<MediaAsset> {
     let p = Path::new(&path);
-    let kind = detect_kind(p)
-        .ok_or_else(|| AppError::Validation(format!("ustøttet filtype: {path}")))?;
+    let kind =
+        detect_kind(p).ok_or_else(|| AppError::Validation(format!("ustøttet filtype: {path}")))?;
     let fingerprint = content_fingerprint(p)?; // io::Error → AppError::Io
     MediaRepo::new(&state.db.pool)
         .import(&library_id, kind, &path, &fingerprint)

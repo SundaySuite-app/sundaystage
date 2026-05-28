@@ -16,10 +16,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CopyPlus, Star } from "lucide-react";
 
-import type { SlideDoc, Slide, Template, Theme, ThemeTokens } from "@/lib/bindings";
+import type {
+  SlideDoc,
+  Slide,
+  Template,
+  Theme,
+  ThemeTokens,
+} from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { newTextBlock } from "@/lib/slideEditor/doc";
-import { applyThemeToDoc, combinedText, parseLayout, parseTokens } from "@/lib/slideEditor/theme";
+import {
+  applyThemeToDoc,
+  combinedText,
+  parseLayout,
+  parseTokens,
+} from "@/lib/slideEditor/theme";
 import { cn } from "@/lib/cn";
 import { SlideCanvas } from "./SlideCanvas";
 
@@ -51,7 +62,10 @@ export function ThemeControls({
     queryFn: () => ipc.theme.listTemplates(libraryId),
   });
   const themes = useMemo(() => themesQuery.data ?? [], [themesQuery.data]);
-  const templates = useMemo(() => templatesQuery.data ?? [], [templatesQuery.data]);
+  const templates = useMemo(
+    () => templatesQuery.data ?? [],
+    [templatesQuery.data],
+  );
 
   // User picker overrides; reset to the slide's own ids when the slide changes.
   const [pickedTheme, setPickedTheme] = useState<string | null>(null);
@@ -62,20 +76,27 @@ export function ThemeControls({
   }, [activeSlide?.id]);
 
   const themeId = pickedTheme ?? activeSlide?.theme_id ?? themes[0]?.id ?? null;
-  const templateId = pickedTemplate ?? activeSlide?.template_id ?? templates[0]?.id ?? null;
+  const templateId =
+    pickedTemplate ?? activeSlide?.template_id ?? templates[0]?.id ?? null;
   const selectedTheme = themes.find((t) => t.id === themeId) ?? null;
   const editable = !!selectedTheme && Number(selectedTheme.is_builtin) === 0;
 
   // ── Apply actions ──────────────────────────────────────────────────────────
   const renderMut = useMutation({
-    mutationFn: ({ template, slotText }: { template: Template; slotText: Record<string, string> }) =>
-      ipc.theme.render(libraryId, template.id, themeId ?? "", slotText),
+    mutationFn: ({
+      template,
+      slotText,
+    }: {
+      template: Template;
+      slotText: Record<string, string>;
+    }) => ipc.theme.render(libraryId, template.id, themeId ?? "", slotText),
   });
 
   const applyTemplate = (template: Template) => {
     const layout = parseLayout(template);
     const text = combinedText(doc);
-    const slotText = layout.slots.length > 0 ? { [layout.slots[0].name]: text } : {};
+    const slotText =
+      layout.slots.length > 0 ? { [layout.slots[0].name]: text } : {};
     renderMut.mutate(
       { template, slotText },
       {
@@ -143,7 +164,6 @@ export function ThemeControls({
       blocks: [newTextBlock("Forhåndsvisning", { y: 0.35, h: 0.3 })],
     };
     return applyThemeToDoc(sample, editTokens);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editTokens]);
 
   return (
@@ -217,14 +237,22 @@ export function ThemeControls({
           <TokenRow label="Bakgrunn">
             <ColorInput
               value={editTokens.background.value}
-              onChange={(value) => editToken({ background: { ...editTokens.background, value } })}
+              onChange={(value) =>
+                editToken({ background: { ...editTokens.background, value } })
+              }
             />
           </TokenRow>
           <TokenRow label="Tekstfarge">
-            <ColorInput value={editTokens.text_color} onChange={(text_color) => editToken({ text_color })} />
+            <ColorInput
+              value={editTokens.text_color}
+              onChange={(text_color) => editToken({ text_color })}
+            />
           </TokenRow>
           <TokenRow label="Aksent">
-            <ColorInput value={editTokens.accent_color} onChange={(accent_color) => editToken({ accent_color })} />
+            <ColorInput
+              value={editTokens.accent_color}
+              onChange={(accent_color) => editToken({ accent_color })}
+            />
           </TokenRow>
           <TokenRow label={`Størrelse (${Math.round(editTokens.body_size)})`}>
             <input
@@ -239,7 +267,9 @@ export function ThemeControls({
           <TokenRow label="Vekt">
             <select
               value={editTokens.heading_weight}
-              onChange={(e) => editToken({ heading_weight: Number(e.target.value) })}
+              onChange={(e) =>
+                editToken({ heading_weight: Number(e.target.value) })
+              }
               className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1 text-xs focus:border-[var(--color-accent)] focus:outline-none"
             >
               {[400, 500, 600, 700, 800, 900].map((w) => (
@@ -254,7 +284,9 @@ export function ThemeControls({
               type="checkbox"
               checked={editTokens.shadow !== null}
               onChange={(e) =>
-                editToken({ shadow: e.target.checked ? "0 2px 8px rgba(0,0,0,0.6)" : null })
+                editToken({
+                  shadow: e.target.checked ? "0 2px 8px rgba(0,0,0,0.6)" : null,
+                })
               }
               className="h-4 w-4 accent-[var(--color-accent)]"
             />
@@ -277,7 +309,13 @@ function Header({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TokenRow({ label, children }: { label: string; children: React.ReactNode }) {
+function TokenRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex items-center justify-between gap-3">
       <span className="text-xs text-[var(--color-fg-muted)]">{label}</span>
@@ -286,7 +324,13 @@ function TokenRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-function ColorInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function ColorInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : "#000000";
   return (
     <span className="flex items-center gap-2">
@@ -294,7 +338,9 @@ function ColorInput({ value, onChange }: { value: string; onChange: (v: string) 
         type="color"
         value={hex}
         onChange={(e) => onChange(e.target.value)}
-        className={cn("h-6 w-8 cursor-pointer rounded border border-[var(--color-border)] bg-transparent")}
+        className={cn(
+          "h-6 w-8 cursor-pointer rounded border border-[var(--color-border)] bg-transparent",
+        )}
       />
       <input
         type="text"

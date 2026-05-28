@@ -29,7 +29,10 @@ export function DecksPage({ library }: Props) {
 
   const createDeck = useMutation({
     mutationFn: () =>
-      ipc.deck.create(library.id, `Nytt deck ${new Date().toLocaleDateString("no")}`),
+      ipc.deck.create(
+        library.id,
+        `Nytt deck ${new Date().toLocaleDateString("no")}`,
+      ),
     onSuccess: (deck) => {
       void qc.invalidateQueries({ queryKey: ["decks", library.id] });
       setOpenDeck(deck);
@@ -111,7 +114,9 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-[var(--color-bg-surface)] text-[var(--color-fg-muted)]">
         <LayoutTemplate size={20} />
       </div>
-      <h2 className="text-[var(--text-ui-lg)] font-semibold">Ingen decks enda</h2>
+      <h2 className="text-[var(--text-ui-lg)] font-semibold">
+        Ingen decks enda
+      </h2>
       <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
         Et deck er en samling lysbilder du designer selv — kunngjøringer,
         velkomstskjerm, prekenpunkter.

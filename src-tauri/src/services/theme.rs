@@ -122,14 +122,22 @@ pub fn resolve_template_id(
     song_template_id: &Option<String>,
     library_default_template_id: &Option<String>,
 ) -> String {
-    first_some(&[slide_template_id, song_template_id, library_default_template_id])
-        .unwrap_or_else(|| DEFAULT_TEMPLATE_ID.to_string())
+    first_some(&[
+        slide_template_id,
+        song_template_id,
+        library_default_template_id,
+    ])
+    .unwrap_or_else(|| DEFAULT_TEMPLATE_ID.to_string())
 }
 
 // ── Built-ins ────────────────────────────────────────────────────────────────
 
 fn theme(id: &str, name: &str, tokens: ThemeTokens) -> StaticTheme {
-    StaticTheme { id: id.to_string(), name: name.to_string(), tokens }
+    StaticTheme {
+        id: id.to_string(),
+        name: name.to_string(),
+        tokens,
+    }
 }
 
 /// A built-in theme as plain data (no DB row). The repo maps it to a `Theme`.
@@ -150,7 +158,11 @@ pub struct StaticTemplate {
 
 pub fn builtin_themes() -> Vec<StaticTheme> {
     vec![
-        theme("builtin-theme-sunday-morning", "Sunday Morning", ThemeTokens::default()),
+        theme(
+            "builtin-theme-sunday-morning",
+            "Sunday Morning",
+            ThemeTokens::default(),
+        ),
         theme(
             "builtin-theme-evening",
             "Evening Service",
@@ -179,7 +191,10 @@ pub fn builtin_themes() -> Vec<StaticTheme> {
             "builtin-theme-minimal-light",
             "Minimal Light",
             ThemeTokens {
-                background: SlideBackground { kind: BackgroundKind::Color, value: "#f7f7f5".into() },
+                background: SlideBackground {
+                    kind: BackgroundKind::Color,
+                    value: "#f7f7f5".into(),
+                },
                 text_color: "#101014".into(),
                 accent_color: "#9a6a18".into(),
                 heading_weight: 600,
@@ -191,7 +206,10 @@ pub fn builtin_themes() -> Vec<StaticTheme> {
             "builtin-theme-high-contrast",
             "High Contrast",
             ThemeTokens {
-                background: SlideBackground { kind: BackgroundKind::Color, value: "#000000".into() },
+                background: SlideBackground {
+                    kind: BackgroundKind::Color,
+                    value: "#000000".into(),
+                },
                 text_color: "#ffffff".into(),
                 accent_color: "#ffd400".into(),
                 heading_weight: 800,
@@ -202,8 +220,26 @@ pub fn builtin_themes() -> Vec<StaticTheme> {
     ]
 }
 
-fn slot(name: &str, role: SlotRole, x: f32, y: f32, w: f32, h: f32, align: HAlign, valign: VAlign, scale: f32) -> TemplateSlot {
-    TemplateSlot { name: name.into(), role, rect: SlideRect { x, y, w, h }, align, valign, size_scale: scale }
+#[allow(clippy::too_many_arguments)]
+fn slot(
+    name: &str,
+    role: SlotRole,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    align: HAlign,
+    valign: VAlign,
+    scale: f32,
+) -> TemplateSlot {
+    TemplateSlot {
+        name: name.into(),
+        role,
+        rect: SlideRect { x, y, w, h },
+        align,
+        valign,
+        size_scale: scale,
+    }
 }
 
 pub fn builtin_templates() -> Vec<StaticTemplate> {
@@ -212,14 +248,34 @@ pub fn builtin_templates() -> Vec<StaticTemplate> {
             id: "builtin-template-lyrics-centered".into(),
             name: "Lyrics Centered".into(),
             layout: TemplateLayout {
-                slots: vec![slot("lyrics", SlotRole::Lyrics, 0.08, 0.25, 0.84, 0.5, HAlign::Center, VAlign::Middle, 1.0)],
+                slots: vec![slot(
+                    "lyrics",
+                    SlotRole::Lyrics,
+                    0.08,
+                    0.25,
+                    0.84,
+                    0.5,
+                    HAlign::Center,
+                    VAlign::Middle,
+                    1.0,
+                )],
             },
         },
         StaticTemplate {
             id: "builtin-template-lyrics-lower-third".into(),
             name: "Lyrics Lower Third".into(),
             layout: TemplateLayout {
-                slots: vec![slot("lyrics", SlotRole::Lyrics, 0.06, 0.68, 0.88, 0.26, HAlign::Left, VAlign::Bottom, 0.85)],
+                slots: vec![slot(
+                    "lyrics",
+                    SlotRole::Lyrics,
+                    0.06,
+                    0.68,
+                    0.88,
+                    0.26,
+                    HAlign::Left,
+                    VAlign::Bottom,
+                    0.85,
+                )],
             },
         },
         StaticTemplate {
@@ -227,8 +283,28 @@ pub fn builtin_templates() -> Vec<StaticTemplate> {
             name: "Bible Verse".into(),
             layout: TemplateLayout {
                 slots: vec![
-                    slot("lyrics", SlotRole::Lyrics, 0.1, 0.2, 0.8, 0.55, HAlign::Center, VAlign::Middle, 0.9),
-                    slot("reference", SlotRole::Reference, 0.1, 0.78, 0.8, 0.12, HAlign::Center, VAlign::Middle, 0.5),
+                    slot(
+                        "lyrics",
+                        SlotRole::Lyrics,
+                        0.1,
+                        0.2,
+                        0.8,
+                        0.55,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.9,
+                    ),
+                    slot(
+                        "reference",
+                        SlotRole::Reference,
+                        0.1,
+                        0.78,
+                        0.8,
+                        0.12,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.5,
+                    ),
                 ],
             },
         },
@@ -237,8 +313,28 @@ pub fn builtin_templates() -> Vec<StaticTemplate> {
             name: "Title".into(),
             layout: TemplateLayout {
                 slots: vec![
-                    slot("title", SlotRole::Title, 0.1, 0.34, 0.8, 0.2, HAlign::Center, VAlign::Middle, 1.4),
-                    slot("footer", SlotRole::Footer, 0.1, 0.56, 0.8, 0.1, HAlign::Center, VAlign::Top, 0.45),
+                    slot(
+                        "title",
+                        SlotRole::Title,
+                        0.1,
+                        0.34,
+                        0.8,
+                        0.2,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        1.4,
+                    ),
+                    slot(
+                        "footer",
+                        SlotRole::Footer,
+                        0.1,
+                        0.56,
+                        0.8,
+                        0.1,
+                        HAlign::Center,
+                        VAlign::Top,
+                        0.45,
+                    ),
                 ],
             },
         },
@@ -247,8 +343,28 @@ pub fn builtin_templates() -> Vec<StaticTemplate> {
             name: "Two Column".into(),
             layout: TemplateLayout {
                 slots: vec![
-                    slot("left", SlotRole::Lyrics, 0.06, 0.2, 0.42, 0.6, HAlign::Center, VAlign::Middle, 0.85),
-                    slot("right", SlotRole::Lyrics, 0.52, 0.2, 0.42, 0.6, HAlign::Center, VAlign::Middle, 0.85),
+                    slot(
+                        "left",
+                        SlotRole::Lyrics,
+                        0.06,
+                        0.2,
+                        0.42,
+                        0.6,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.85,
+                    ),
+                    slot(
+                        "right",
+                        SlotRole::Lyrics,
+                        0.52,
+                        0.2,
+                        0.42,
+                        0.6,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.85,
+                    ),
                 ],
             },
         },
@@ -278,8 +394,14 @@ pub fn tokens_for(theme_id: &str, db_lookup: &HashMap<String, ThemeTokens>) -> T
 }
 
 /// Layout for a template id, checking built-ins then the supplied DB layouts.
-pub fn layout_for(template_id: &str, db_lookup: &HashMap<String, TemplateLayout>) -> TemplateLayout {
-    if let Some(t) = builtin_templates().into_iter().find(|t| t.id == template_id) {
+pub fn layout_for(
+    template_id: &str,
+    db_lookup: &HashMap<String, TemplateLayout>,
+) -> TemplateLayout {
+    if let Some(t) = builtin_templates()
+        .into_iter()
+        .find(|t| t.id == template_id)
+    {
         return t.layout;
     }
     if let Some(l) = db_lookup.get(template_id) {
@@ -331,7 +453,10 @@ pub fn render_slide(
             },
         });
     }
-    SlideDoc { background: tokens.background.clone(), blocks }
+    SlideDoc {
+        background: tokens.background.clone(),
+        blocks,
+    }
 }
 
 #[cfg(test)]
@@ -350,17 +475,17 @@ mod tests {
             resolve_theme_id(&some("slide"), &some("song"), &some("lib")),
             "slide"
         );
-        assert_eq!(
-            resolve_theme_id(&None, &some("song"), &some("lib")),
-            "song"
-        );
+        assert_eq!(resolve_theme_id(&None, &some("song"), &some("lib")), "song");
         assert_eq!(resolve_theme_id(&None, &None, &some("lib")), "lib");
     }
 
     #[test]
     fn cascade_falls_back_to_builtin_default_when_chain_empty() {
         assert_eq!(resolve_theme_id(&None, &None, &None), DEFAULT_THEME_ID);
-        assert_eq!(resolve_template_id(&None, &None, &None), DEFAULT_TEMPLATE_ID);
+        assert_eq!(
+            resolve_template_id(&None, &None, &None),
+            DEFAULT_TEMPLATE_ID
+        );
     }
 
     #[test]
@@ -385,7 +510,10 @@ mod tests {
     #[test]
     fn tokens_for_prefers_db_for_non_builtin_id() {
         let mut db = HashMap::new();
-        let custom = ThemeTokens { text_color: "#ff0000".into(), ..ThemeTokens::default() };
+        let custom = ThemeTokens {
+            text_color: "#ff0000".into(),
+            ..ThemeTokens::default()
+        };
         db.insert("lib-theme-1".to_string(), custom.clone());
         assert_eq!(tokens_for("lib-theme-1", &db), custom);
     }
@@ -424,7 +552,9 @@ mod tests {
     #[test]
     fn default_ids_exist_among_builtins() {
         assert!(builtin_themes().iter().any(|t| t.id == DEFAULT_THEME_ID));
-        assert!(builtin_templates().iter().any(|t| t.id == DEFAULT_TEMPLATE_ID));
+        assert!(builtin_templates()
+            .iter()
+            .any(|t| t.id == DEFAULT_TEMPLATE_ID));
     }
 
     // ── Render ──────────────────────────────────────────────────────────────
@@ -438,7 +568,10 @@ mod tests {
             .layout;
         let tokens = ThemeTokens::default();
         let mut text = HashMap::new();
-        text.insert("lyrics".to_string(), "For God so loved the world".to_string());
+        text.insert(
+            "lyrics".to_string(),
+            "For God so loved the world".to_string(),
+        );
         // reference slot intentionally left empty
         let doc = render_slide(&layout, &tokens, &text);
         assert_eq!(doc.blocks.len(), 1, "only the filled slot renders");
@@ -482,7 +615,10 @@ mod tests {
         let layout = layout_for("builtin-template-lyrics-centered", &HashMap::new());
         let tokens = ThemeTokens::default();
         let mut text = HashMap::new();
-        text.insert("lyrics".to_string(), "Amazing grace\nhow sweet the sound".to_string());
+        text.insert(
+            "lyrics".to_string(),
+            "Amazing grace\nhow sweet the sound".to_string(),
+        );
         let doc = render_slide(&layout, &tokens, &text);
         let json = doc.to_json().unwrap();
         let lines = crate::services::cue_list::extract_text_lines_from_content(&json).unwrap();
