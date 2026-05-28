@@ -8,3 +8,8 @@ pub mod libraries;
 pub mod songs;
 pub mod services;
 pub mod live;
+pub mod decks;
+pub mod themes;
+pub mod arrangements;
+pub mod ai;
+pub mod media;

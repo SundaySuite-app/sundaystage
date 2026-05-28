@@ -383,9 +383,13 @@ slide.theme_id ?? song.theme_id ?? library.default_theme_id ?? builtin_default
 slide.template_id ?? song.template_id ?? library.default_template_id ?? builtin_default
 ```
 
-Resolved in a small `cascade::resolve_theme(slide_id) -> Theme` Rust
-function with a memoization cache during render. The bugs hide here — has
-its own unit test suite.
+Implemented in `services::theme::{resolve_theme_id, resolve_template_id}`
+(Phase 3.2) — pure functions over the precedence chain that always yield a
+concrete id (final fallback = built-in default), plus `tokens_for`/`layout_for`
+that degrade a dangling id to the default rather than blanking the screen.
+The bugs hide here, so it has its own unit-test suite. `render_slide` then
+turns a resolved template+theme into the Phase 3.1 `SlideDoc`, so editor
+preview and the live engine paint from one code path.
 
 ## Why these decisions
 
@@ -451,14 +455,28 @@ Detailed in Phase 5.2 of the build plan. Summary:
 - [ ] Phase 1.2 — Rust data layer (in progress)
 - [ ] Phase 1.3 — IPC + state management
 - [ ] Phase 2 — App shell + library
-- [ ] Phase 3 — Slide editor
-- [ ] Phase 4 — AI lyric formatter
-- [ ] Phase 5 — Live engine + output isolation
-- [ ] Phase 6 — Reliability + stress testing
-- [ ] Phase 7 — Bible + media
-- [ ] Phase 8 — Stage display
+- [x] Phase 3 — Slide editor (3.1 canvas + 3.2 themes/templates/cascade + 3.3 song structure)
+  - 3.1: typed `SlideDoc` model, `DeckRepo`, direct-manipulation canvas with snap guides, multi-select, command-pattern undo/redo
+  - 3.2: `services::theme` (built-in themes/templates, cascade resolution, render bridge), `ThemeRepo`, per-slide/song/library overrides (migration 0002), editor theme/template pickers + live token editor
+  - 3.3: section editor + `ArrangementRepo` (ordered, repeatable section sequences, multiple arrangements/song), cue compiler now resolves `service_item.arrangement_id`, `SongEditor` UI (sections + arrangement builder + generated-slide preview)
+- [~] Phase 4 — AI lyric formatter (4.1 service layer + 4.2 lyric formatting done; streaming UI, keychain key storage, consent dialog, embeddings pending)
+  - 4.1: `services/ai` — `AiProvider` trait, `ClaudeModel` register + pure cost estimate, pure Messages request builder + tool-use response parser, `AnthropicProvider` behind optional `ai` cargo feature (default build falls back to local heuristic)
+  - 4.2: `services/ai/lyric_format` — `FormattedSong` model, system prompt + tool schema, validated response parser, pure `heuristic_format` offline fallback (chord/marker stripping, header detection, chorus-repeat collapse, language guess), `apply_formatted_song` → sections + arrangement. `PasteFormatModal` UI
+- [~] Phase 5 — Live engine + output isolation (5.1 compiler + runtime, 5.3 operator console done; 5.2 protocol+watchdog done, actual multi-window/multi-display spawning deferred — unverifiable headless)
+  - 5.1: `services::cue_list` compiler + `services::live_session` runtime (single dispatcher, output state, session log, crash-recovery persistence). Live commands (`live_start`/`live_dispatch`/`live_state`/`live_end`), session held in `AppState`
+  - 5.2: `output` module — `OutputMessage`/`OutputAck` wire protocol + `Watchdog` (hold-last-frame on heartbeat loss). The separate `sundaystage-output` binary + borderless full-screen windows + local-IPC transport + monitor APIs are deferred (need a real windowing session)
+  - 5.3: operator console (`LivePreview`) — cue list (current+next), live-output preview, coming-next preview, notes, next-cues filmstrip, ⌘J fuzzy quick-jump, hotkeys, output-health placeholder
+- [~] Phase 6 — Reliability + stress testing (6.1 crash recovery + 6.2 data/runtime stress done; Sentry crash-reporting + GUI/Playwright stress + output-process beep/badge deferred)
+  - 6.1: `services::session_store` append-only JSONL write-ahead log (header + one line per action, crash-safe; skips a torn trailing line), `live_recover` + relaunch resume flow (`RecoveryBanner`), crash detection via leftover log. Watchdog (5.2) + 400ms slide autosave (3.1) already in place
+  - 6.2: `tests/stress.rs` harness — FTS search over 3000 songs (~2ms), 50 cue advances over an 800-cue list (~180µs), 240-slot arrangement resolve (~3ms). Run with `cargo test --test stress`
+- [~] Phase 7 — Bible + media (7.1 bible done; 7.2 path-stability core + browser done — thumbnails/ffprobe, native file-dialog, background library, in-slide video playback deferred)
+  - 7.2: `services::media` content fingerprint (O(1) size+head+tail, no ffmpeg) + `find_by_fingerprint` relink search + `detect_kind`; `MediaRepo` import/get/delete/relink; commands (`media_import`/`media_list`→present-flagged `MediaStatus`/`media_delete`/`media_relink`); `MediaPage` grid with type filter, broken-path badge, hash relink
+- [~] Phase 8 — Stage display (presets + in-app stage view done; per-screen window assignment + drag-drop layout builder deferred with the 5.2 output process)
+  - `services::stage_display` `StageDisplayConfig` + 3 built-in presets (Worship Leader / Musician / Pastor), `stage_presets` command; `LiveSessionView.started_at` for the service timer; `StageDisplay` full-screen view (current lyrics big, next, section label, clock + service timer, notes) toggled from the operator console, preset-switchable
 - [ ] Phase 9 — Cloud sync + collaboration
-- [ ] Phase 10 — SundayRec integration
+- [~] Phase 10 — SundayRec integration (protocol design + marquee transforms done; loopback transport/discovery/pairing + TONO audit deferred — need a live network + peer app)
+  - 10.1: `services::sundayrec_bridge::protocol` versioned `BridgeRequest`/`BridgeResponse` (ping/recording_started/stopped/cue_advanced/get_recordings/get_transcript/get_song_history, v1.0.0), `docs/SUNDAY_BRIDGE_PROTOCOL.md`
+  - 10.2: `services::sundayrec_bridge::export` — pure `chapter_markers` (cue→chapter, item-grouped, blackout-safe) + `session_to_srt` (lyrics→SRT, timeline-anchored, gap/coalesce-aware) over the live session log; `bridge_chapter_markers`/`bridge_export_srt` commands + `ExportModal` (chapters + SRT preview, copy)
 - [ ] Phase 11 — Power AI features
 - [ ] Phase 12 — Companion PWA
 - [ ] Phase 13 — Polish + launch

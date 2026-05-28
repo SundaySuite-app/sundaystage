@@ -11,16 +11,25 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod output;
 pub mod services;
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::Manager;
 
 use crate::db::Database;
+use crate::services::live_session::LiveSession;
 
-/// Tauri-managed shared state. Cloneable handle to the sqlx pool.
+/// Tauri-managed shared state.
 pub struct AppState {
     pub db: Database,
+    /// App-local data directory (db file, persisted live session).
+    pub data_dir: PathBuf,
+    /// The running live session, if any. Held behind a `Mutex` because cue
+    /// advance mutates it from command handlers; guards are never held across
+    /// an `.await`.
+    pub live: Mutex<Option<LiveSession>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,7 +58,11 @@ pub fn run() {
                 Database::open(&db_path).await
             })?;
 
-            app.manage(AppState { db });
+            app.manage(AppState {
+                db,
+                data_dir,
+                live: std::sync::Mutex::new(None),
+            });
             tracing::info!("SundayStage backend ready");
             Ok(())
         })
@@ -67,6 +80,28 @@ pub fn run() {
             commands::songs::song_search,
             commands::songs::song_sections,
             commands::songs::song_add_section,
+            commands::songs::song_update_section,
+            commands::songs::song_delete_section,
+            commands::songs::song_reorder_sections,
+            // Arrangements (Phase 3.3)
+            commands::arrangements::arrangement_create,
+            commands::arrangements::arrangement_list,
+            commands::arrangements::arrangement_rename,
+            commands::arrangements::arrangement_delete,
+            commands::arrangements::arrangement_set_default,
+            commands::arrangements::arrangement_duplicate,
+            commands::arrangements::arrangement_items,
+            commands::arrangements::arrangement_set_items,
+            commands::arrangements::arrangement_sections,
+            // AI (Phase 4)
+            commands::ai::ai_models,
+            commands::ai::ai_format_lyrics,
+            commands::ai::ai_apply_format,
+            // Media (Phase 7.2)
+            commands::media::media_import,
+            commands::media::media_list,
+            commands::media::media_delete,
+            commands::media::media_relink,
             // Service
             commands::services::service_create,
             commands::services::service_get,
@@ -74,6 +109,41 @@ pub fn run() {
             commands::services::service_items,
             // Live engine
             commands::live::live_compile_cue_list,
+            commands::live::live_start,
+            commands::live::live_dispatch,
+            commands::live::live_state,
+            commands::live::live_end,
+            commands::live::live_recover,
+            commands::live::stage_presets,
+            // SundayRec bridge (Phase 10)
+            commands::live::bridge_protocol_version,
+            commands::live::bridge_chapter_markers,
+            commands::live::bridge_export_srt,
+            // Custom decks + slides (Phase 3.1 slide editor)
+            commands::decks::deck_create,
+            commands::decks::deck_get,
+            commands::decks::deck_list,
+            commands::decks::deck_rename,
+            commands::decks::deck_delete,
+            commands::decks::slide_create,
+            commands::decks::slide_list,
+            commands::decks::slide_update_content,
+            commands::decks::slide_duplicate,
+            commands::decks::slide_delete,
+            commands::decks::slide_reorder,
+            // Themes + templates (Phase 3.2)
+            commands::themes::theme_list,
+            commands::themes::template_list,
+            commands::themes::theme_create,
+            commands::themes::theme_duplicate,
+            commands::themes::theme_update_tokens,
+            commands::themes::theme_rename,
+            commands::themes::theme_delete,
+            commands::themes::library_set_default_theme,
+            commands::themes::library_set_default_template,
+            commands::themes::slide_set_theme,
+            commands::themes::slide_set_template,
+            commands::themes::template_render,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -68,3 +68,31 @@ pub async fn song_add_section(
         .add_section(&song_id, &label, &lyrics)
         .await
 }
+
+#[tauri::command]
+pub async fn song_update_section(
+    state: State<'_, AppState>,
+    id: String,
+    label: String,
+    lyrics: String,
+) -> AppResult<SongSection> {
+    SongRepo::new(&state.db.pool)
+        .update_section(&id, &label, &lyrics)
+        .await
+}
+
+#[tauri::command]
+pub async fn song_delete_section(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    SongRepo::new(&state.db.pool).delete_section(&id).await
+}
+
+#[tauri::command]
+pub async fn song_reorder_sections(
+    state: State<'_, AppState>,
+    song_id: String,
+    ordered_ids: Vec<String>,
+) -> AppResult<Vec<SongSection>> {
+    SongRepo::new(&state.db.pool)
+        .reorder_sections(&song_id, &ordered_ids)
+        .await
+}

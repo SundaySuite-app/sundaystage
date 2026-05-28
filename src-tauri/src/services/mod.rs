@@ -5,5 +5,13 @@
 //!     its items + their songs/scripture/decks and produces a flat
 //!     CueList for the live engine to execute.
 
+pub mod ai;
 pub mod bible;
 pub mod cue_list;
+pub mod media;
+pub mod live_session;
+pub mod session_store;
+pub mod slide_doc;
+pub mod stage_display;
+pub mod sundayrec_bridge;
+pub mod theme;

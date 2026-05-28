@@ -7,27 +7,51 @@
  *   import type { Song, Library } from "@/lib/bindings";
  */
 
+export type { AiPurpose }         from "./AiPurpose";
+export type { ArrangementItem }   from "./ArrangementItem";
+export type { BackgroundKind }    from "./BackgroundKind";
 export type { BibleReference }    from "./BibleReference";
+export type { ClaudeModel }       from "./ClaudeModel";
 export type { Cue }               from "./Cue";
 export type { CueList }           from "./CueList";
+export type { ChapterMarker }     from "./ChapterMarker";
 export type { CueSource }         from "./CueSource";
 export type { CustomDeck }        from "./CustomDeck";
+export type { FormattedSection }  from "./FormattedSection";
+export type { FormattedSong }     from "./FormattedSong";
+export type { HAlign }            from "./HAlign";
 export type { Library }           from "./Library";
 export type { LibraryInput }      from "./LibraryInput";
+export type { LiveAction }        from "./LiveAction";
+export type { LiveFrame }         from "./LiveFrame";
+export type { LiveSessionView }   from "./LiveSessionView";
+export type { OutputState }       from "./OutputState";
 export type { MediaAsset }        from "./MediaAsset";
+export type { MediaStatus }       from "./MediaStatus";
 export type { Person }            from "./Person";
 export type { SearchResult }      from "./SearchResult";
 export type { Service }           from "./Service";
 export type { ServiceItem }       from "./ServiceItem";
 export type { Slide }             from "./Slide";
+export type { SlideBackground }   from "./SlideBackground";
+export type { SlideBlock }        from "./SlideBlock";
 export type { SlideContent }      from "./SlideContent";
+export type { SlideDoc }          from "./SlideDoc";
+export type { SlideRect }         from "./SlideRect";
 export type { Song }              from "./Song";
 export type { SongArrangement }   from "./SongArrangement";
 export type { SongInput }         from "./SongInput";
 export type { SongSection }       from "./SongSection";
+export type { SlotRole }          from "./SlotRole";
+export type { StageDisplayConfig } from "./StageDisplayConfig";
 export type { Tag }               from "./Tag";
 export type { Template }          from "./Template";
+export type { TemplateLayout }    from "./TemplateLayout";
+export type { TemplateSlot }      from "./TemplateSlot";
+export type { TextStyle }         from "./TextStyle";
 export type { Theme }             from "./Theme";
+export type { ThemeTokens }       from "./ThemeTokens";
+export type { VAlign }            from "./VAlign";
 
 /** Error shape returned by every Tauri command (see error.rs). */
 export interface AppError {

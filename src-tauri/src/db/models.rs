@@ -70,6 +70,10 @@ pub struct Song {
     pub tempo_bpm: Option<i64>,
     pub language: String,
     pub last_used_at: Option<i64>,
+    /// Per-song theme override (cascade level 2). See `services::theme`.
+    pub theme_id: Option<String>,
+    /// Per-song template override (cascade level 2).
+    pub template_id: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     pub deleted_at: Option<i64>,
@@ -110,6 +114,16 @@ pub struct SongArrangement {
     pub is_default: i64, // 0/1 — SQLite has no bool
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+/// One position in an arrangement's ordered sequence. The same `section_id`
+/// may appear at multiple positions (verse → chorus → verse → chorus).
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/ArrangementItem.ts")]
+pub struct ArrangementItem {
+    pub arrangement_id: String,
+    pub position: i64,
+    pub section_id: String,
 }
 
 // ── BibleReference ──────────────────────────────────────────────────────────

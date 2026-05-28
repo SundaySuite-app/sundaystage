@@ -13,6 +13,7 @@ import { Command } from "cmdk";
 import { useEffect, useState } from "react";
 import {
   Library,
+  LayoutTemplate,
   CalendarDays,
   Play,
   Plus,
@@ -79,6 +80,7 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
             className="text-xs font-medium uppercase tracking-wider text-[var(--color-fg-muted)] mb-1 mt-2 px-2"
           >
             <Item onSelect={() => go("library")}   icon={<Library size={14} />}        label="Sangbibliotek" />
+            <Item onSelect={() => go("decks")}     icon={<LayoutTemplate size={14} />} label="Decks" />
             <Item onSelect={() => go("services")}  icon={<CalendarDays size={14} />}   label="Tjenester" />
             <Item onSelect={() => go("bible")}     icon={<BookOpen size={14} />}       label="Bibel" />
             <Item onSelect={() => go("media")}     icon={<ImageIcon size={14} />}      label="Media" />

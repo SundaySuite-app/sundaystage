@@ -15,15 +15,31 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   AppError,
+  ArrangementItem,
+  ChapterMarker,
+  ClaudeModel,
   CueList,
+  CustomDeck,
+  FormattedSong,
   Library,
   LibraryInput,
+  LiveAction,
+  LiveSessionView,
+  MediaAsset,
+  MediaStatus,
   SearchResult,
+  StageDisplayConfig,
   Service,
   ServiceItem,
+  Slide,
+  SlideDoc,
   Song,
+  SongArrangement,
   SongInput,
   SongSection,
+  Template,
+  Theme,
+  ThemeTokens,
 } from "./bindings";
 
 const DEV = import.meta.env.DEV;
@@ -86,6 +102,31 @@ export const song = {
     call<SongSection[]>("song_sections", { songId }),
   addSection: (songId: string, label: string, lyrics: string) =>
     call<SongSection>("song_add_section", { songId, label, lyrics }),
+  updateSection: (id: string, label: string, lyrics: string) =>
+    call<SongSection>("song_update_section", { id, label, lyrics }),
+  deleteSection: (id: string) => call<void>("song_delete_section", { id }),
+  reorderSections: (songId: string, orderedIds: string[]) =>
+    call<SongSection[]>("song_reorder_sections", { songId, orderedIds }),
+};
+
+// ── Arrangements (Phase 3.3) ───────────────────────────────────────────────────
+
+export const arrangement = {
+  create: (songId: string, name: string) =>
+    call<SongArrangement>("arrangement_create", { songId, name }),
+  list:   (songId: string) => call<SongArrangement[]>("arrangement_list", { songId }),
+  rename: (id: string, name: string) =>
+    call<SongArrangement>("arrangement_rename", { id, name }),
+  delete: (id: string) => call<void>("arrangement_delete", { id }),
+  setDefault: (songId: string, arrangementId: string) =>
+    call<void>("arrangement_set_default", { songId, arrangementId }),
+  duplicate: (id: string) => call<SongArrangement>("arrangement_duplicate", { id }),
+  items: (arrangementId: string) =>
+    call<ArrangementItem[]>("arrangement_items", { arrangementId }),
+  setItems: (arrangementId: string, sectionIds: string[]) =>
+    call<ArrangementItem[]>("arrangement_set_items", { arrangementId, sectionIds }),
+  sections: (arrangementId: string) =>
+    call<SongSection[]>("arrangement_sections", { arrangementId }),
 };
 
 // ── Service ──────────────────────────────────────────────────────────────────
@@ -105,7 +146,89 @@ export const service = {
 export const live = {
   compileCueList: (serviceId: string) =>
     call<CueList>("live_compile_cue_list", { serviceId }),
+  start:    (serviceId: string) => call<LiveSessionView>("live_start", { serviceId }),
+  dispatch: (action: LiveAction) => call<LiveSessionView>("live_dispatch", { action }),
+  state:    () => call<LiveSessionView | null>("live_state"),
+  end:      () => call<void>("live_end"),
+  recover:  () => call<LiveSessionView | null>("live_recover"),
+  stagePresets: () => call<StageDisplayConfig[]>("stage_presets"),
+  // SundayRec bridge (Phase 10)
+  bridgeVersion:  () => call<string>("bridge_protocol_version"),
+  chapterMarkers: () => call<ChapterMarker[]>("bridge_chapter_markers"),
+  exportSrt:      (endedAt?: number) => call<string>("bridge_export_srt", { endedAt: endedAt ?? null }),
+};
+
+// ── Custom decks + slides (Phase 3.1 slide editor) ─────────────────────────────
+
+export const deck = {
+  create: (libraryId: string, name: string) =>
+    call<CustomDeck>("deck_create", { libraryId, name }),
+  get:    (id: string)      => call<CustomDeck>("deck_get", { id }),
+  list:   (libraryId: string) => call<CustomDeck[]>("deck_list", { libraryId }),
+  rename: (id: string, name: string) =>
+    call<CustomDeck>("deck_rename", { id, name }),
+  delete: (id: string) => call<void>("deck_delete", { id }),
+
+  slides:        (deckId: string) => call<Slide[]>("slide_list", { deckId }),
+  createSlide:   (deckId: string, doc: SlideDoc) =>
+    call<Slide>("slide_create", { deckId, doc }),
+  updateSlide:   (id: string, doc: SlideDoc) =>
+    call<Slide>("slide_update_content", { id, doc }),
+  duplicateSlide: (id: string) => call<Slide>("slide_duplicate", { id }),
+  deleteSlide:    (id: string) => call<void>("slide_delete", { id }),
+  reorderSlides:  (deckId: string, orderedIds: string[]) =>
+    call<Slide[]>("slide_reorder", { deckId, orderedIds }),
+  setSlideTheme:    (id: string, themeId: string | null) =>
+    call<Slide>("slide_set_theme", { id, themeId }),
+  setSlideTemplate: (id: string, templateId: string | null) =>
+    call<Slide>("slide_set_template", { id, templateId }),
+};
+
+// ── Themes + templates (Phase 3.2) ─────────────────────────────────────────────
+
+export const theme = {
+  listThemes:    (libraryId: string) => call<Theme[]>("theme_list", { libraryId }),
+  listTemplates: (libraryId: string) => call<Template[]>("template_list", { libraryId }),
+  create: (libraryId: string, name: string, tokens: ThemeTokens) =>
+    call<Theme>("theme_create", { libraryId, name, tokens }),
+  duplicate: (sourceId: string, libraryId: string) =>
+    call<Theme>("theme_duplicate", { sourceId, libraryId }),
+  updateTokens: (id: string, tokens: ThemeTokens) =>
+    call<Theme>("theme_update_tokens", { id, tokens }),
+  rename: (id: string, name: string) => call<Theme>("theme_rename", { id, name }),
+  delete: (id: string) => call<void>("theme_delete", { id }),
+  setLibraryDefaultTheme: (libraryId: string, themeId: string | null) =>
+    call<Library>("library_set_default_theme", { libraryId, themeId }),
+  setLibraryDefaultTemplate: (libraryId: string, templateId: string | null) =>
+    call<Library>("library_set_default_template", { libraryId, templateId }),
+  render: (
+    libraryId: string,
+    templateId: string,
+    themeId: string,
+    slotText: Record<string, string>,
+  ) => call<SlideDoc>("template_render", { libraryId, templateId, themeId, slotText }),
+};
+
+// ── AI (Phase 4) ───────────────────────────────────────────────────────────────
+
+export const ai = {
+  models: () => call<ClaudeModel[]>("ai_models"),
+  formatLyrics: (raw: string, apiKey: string | null, model: string | null) =>
+    call<FormattedSong>("ai_format_lyrics", { raw, apiKey, model }),
+  applyFormat: (songId: string, formatted: FormattedSong) =>
+    call<SongArrangement>("ai_apply_format", { songId, formatted }),
+};
+
+// ── Media (Phase 7.2) ──────────────────────────────────────────────────────────
+
+export const media = {
+  list:   (libraryId: string) => call<MediaStatus[]>("media_list", { libraryId }),
+  import: (libraryId: string, path: string) =>
+    call<MediaAsset>("media_import", { libraryId, path }),
+  delete: (id: string) => call<void>("media_delete", { id }),
+  relink: (id: string, searchDirs: string[]) =>
+    call<MediaAsset | null>("media_relink", { id, searchDirs }),
 };
 
 /** Bundled namespace for ergonomic imports. */
-export const ipc = { library, song, service, live };
+export const ipc = { library, song, service, live, deck, theme, arrangement, ai, media };

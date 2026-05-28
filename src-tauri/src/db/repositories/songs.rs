@@ -218,6 +218,102 @@ impl<'a> SongRepo<'a> {
         .await?;
         Ok(rows)
     }
+
+    pub async fn get_section(&self, id: &str) -> AppResult<SongSection> {
+        sqlx::query_as::<_, SongSection>("SELECT * FROM song_section WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(self.pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound { entity: "song_section", id: id.to_string() })
+    }
+
+    /// Update a section's label + lyrics. The FTS index follows via the
+    /// `trg_section_after_update` trigger (fires on lyrics change).
+    pub async fn update_section(
+        &self,
+        id: &str,
+        label: &str,
+        lyrics: &str,
+    ) -> AppResult<SongSection> {
+        let now = now_ms();
+        let res = sqlx::query(
+            "UPDATE song_section SET label = ?1, lyrics = ?2, updated_at = ?3 WHERE id = ?4",
+        )
+        .bind(label)
+        .bind(lyrics)
+        .bind(now)
+        .bind(id)
+        .execute(self.pool)
+        .await?;
+        if res.rows_affected() == 0 {
+            return Err(AppError::NotFound { entity: "song_section", id: id.to_string() });
+        }
+        self.get_section(id).await
+    }
+
+    /// Delete a section. Because `arrangement_item.section_id` is
+    /// `ON DELETE RESTRICT`, we first drop the section from every arrangement
+    /// that references it (so removing a section can't be blocked by, or
+    /// silently corrupt, an arrangement).
+    pub async fn delete_section(&self, id: &str) -> AppResult<()> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("DELETE FROM arrangement_item WHERE section_id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        let res = sqlx::query("DELETE FROM song_section WHERE id = ?1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        if res.rows_affected() == 0 {
+            return Err(AppError::NotFound { entity: "song_section", id: id.to_string() });
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Reorder a song's sections to match `ordered_ids` (assigns
+    /// `display_order` by index). Validates the id set matches the song.
+    pub async fn reorder_sections(
+        &self,
+        song_id: &str,
+        ordered_ids: &[String],
+    ) -> AppResult<Vec<SongSection>> {
+        let current = self.sections(song_id).await?;
+        if current.len() != ordered_ids.len() {
+            return Err(AppError::Validation(format!(
+                "reorder list has {} ids but song {} has {} sections",
+                ordered_ids.len(),
+                song_id,
+                current.len()
+            )));
+        }
+        let mut have: Vec<&str> = current.iter().map(|s| s.id.as_str()).collect();
+        have.sort_unstable();
+        let mut want: Vec<&str> = ordered_ids.iter().map(|s| s.as_str()).collect();
+        want.sort_unstable();
+        if have != want {
+            return Err(AppError::Validation(format!(
+                "reorder list does not match sections in song {}",
+                song_id
+            )));
+        }
+        let now = now_ms();
+        let mut tx = self.pool.begin().await?;
+        for (idx, sid) in ordered_ids.iter().enumerate() {
+            sqlx::query(
+                "UPDATE song_section SET display_order = ?1, updated_at = ?2 WHERE id = ?3 AND song_id = ?4",
+            )
+            .bind(idx as i64)
+            .bind(now)
+            .bind(sid)
+            .bind(song_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        self.sections(song_id).await
+    }
 }
 
 #[cfg(test)]
@@ -358,5 +454,60 @@ mod tests {
         assert_eq!(sections.len(), 3);
         assert_eq!(sections[0].label, "verse_1");
         assert_eq!(sections[2].label, "verse_2");
+    }
+
+    async fn song_with_one_section(db: &Database, library_id: &str) -> (String, String) {
+        let repo = SongRepo::new(&db.pool);
+        let song = repo
+            .create(SongInput {
+                library_id: library_id.to_string(),
+                title: "Test".into(),
+                language: None, default_key: None, tempo_bpm: None,
+                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+            })
+            .await.unwrap();
+        let section = repo.add_section(&song.id, "verse_1", "old lyrics").await.unwrap();
+        (song.id, section.id)
+    }
+
+    #[tokio::test]
+    async fn update_section_changes_label_and_lyrics() {
+        let (db, library_id) = fixture().await;
+        let (_song, section_id) = song_with_one_section(&db, &library_id).await;
+        let repo = SongRepo::new(&db.pool);
+        let updated = repo.update_section(&section_id, "chorus", "new lyrics").await.unwrap();
+        assert_eq!(updated.label, "chorus");
+        assert_eq!(updated.lyrics, "new lyrics");
+    }
+
+    #[tokio::test]
+    async fn delete_section_removes_it() {
+        let (db, library_id) = fixture().await;
+        let (song_id, section_id) = song_with_one_section(&db, &library_id).await;
+        let repo = SongRepo::new(&db.pool);
+        repo.delete_section(&section_id).await.unwrap();
+        assert!(repo.sections(&song_id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reorder_sections_assigns_display_order_by_index() {
+        let (db, library_id) = fixture().await;
+        let repo = SongRepo::new(&db.pool);
+        let song = repo
+            .create(SongInput {
+                library_id, title: "T".into(),
+                language: None, default_key: None, tempo_bpm: None,
+                ccli_song_id: None, tono_work_id: None, copyright_notice: None,
+            })
+            .await.unwrap();
+        let a = repo.add_section(&song.id, "verse_1", "a").await.unwrap();
+        let b = repo.add_section(&song.id, "chorus", "b").await.unwrap();
+        let c = repo.add_section(&song.id, "verse_2", "c").await.unwrap();
+        let reordered = repo
+            .reorder_sections(&song.id, &[c.id.clone(), a.id.clone(), b.id.clone()])
+            .await.unwrap();
+        assert_eq!(reordered[0].id, c.id);
+        assert_eq!(reordered[1].id, a.id);
+        assert_eq!(reordered[2].id, b.id);
     }
 }

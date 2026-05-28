@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Library,
+  LayoutTemplate,
   CalendarDays,
   BookOpen,
   Image as ImageIcon,
@@ -12,6 +13,7 @@ import { cn } from "@/lib/cn";
 
 type Route =
   | "library"
+  | "decks"
   | "services"
   | "bible"
   | "media"
@@ -27,6 +29,7 @@ interface SidebarProps {
 const NAV_ITEMS: Array<{ id: Route; label: string; icon: typeof Library }> = [
   { id: "dashboard", label: "Dashbord",   icon: LayoutDashboard },
   { id: "library",   label: "Bibliotek",  icon: Library },
+  { id: "decks",     label: "Decks",      icon: LayoutTemplate },
   { id: "services",  label: "Tjenester",  icon: CalendarDays },
   { id: "bible",     label: "Bibel",      icon: BookOpen },
   { id: "media",     label: "Media",      icon: ImageIcon },

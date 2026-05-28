@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::db::models::{Service, ServiceItem, SongSection, BibleReference, Slide};
-use crate::db::repositories::{ServiceRepo, SongRepo, BibleRepo};
+use crate::db::repositories::{ArrangementRepo, ServiceRepo, SongRepo, BibleRepo};
 use crate::error::{AppError, AppResult};
 use sqlx::SqlitePool;
 
@@ -59,7 +59,7 @@ pub enum Cue {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, export_to = "../../src/lib/bindings/SlideContent.ts")]
 pub struct SlideContent {
@@ -171,11 +171,19 @@ impl<'a> CueCompiler<'a> {
         };
         let song_repo = SongRepo::new(self.pool);
         let _song = song_repo.get(song_id).await?;
-        let sections = song_repo.sections(song_id).await?;
 
-        // Phase 1.2 limit: no explicit `SongArrangement.id` resolution yet
-        // — we play sections in their display_order. Phase 3.3 wires the
-        // `arrangement_id` lookup so the user's chosen arrangement is used.
+        // Phase 3.3: if the service item names an arrangement, play its
+        // ordered (possibly repeating) sections; otherwise fall back to the
+        // song's sections in display_order.
+        let sections = match &item.arrangement_id {
+            Some(arrangement_id) => {
+                ArrangementRepo::new(self.pool)
+                    .resolved_sections(arrangement_id)
+                    .await?
+            }
+            None => song_repo.sections(song_id).await?,
+        };
+
         let mut cue_idx: u32 = 0;
         for section in &sections {
             let slides = section_to_slides(section, DEFAULT_LINES_PER_SLIDE);
@@ -347,10 +355,12 @@ pub fn humanize_section_label(label: &str) -> String {
 }
 
 /// Extract `text_lines` from the `slide.content` JSON blob. The full
-/// schema is documented in `docs/ARCHITECTURE.md`; we accept the
-/// minimal `{ "blocks": [{ "type": "text", "text": "..." }] }` here
-/// and fall back to empty.
-fn extract_text_lines_from_content(content: &str) -> Option<Vec<String>> {
+/// schema is documented in `docs/ARCHITECTURE.md` and produced by
+/// `services::slide_doc::SlideDoc`; we accept the minimal
+/// `{ "blocks": [{ "type": "text", "text": "..." }] }` here and fall back
+/// to empty. `pub(crate)` so `slide_doc`'s cross-consistency test can lock
+/// the editor↔engine contract.
+pub(crate) fn extract_text_lines_from_content(content: &str) -> Option<Vec<String>> {
     let v: serde_json::Value = serde_json::from_str(content).ok()?;
     let blocks = v.get("blocks")?.as_array()?;
     let mut out: Vec<String> = Vec::new();
@@ -369,7 +379,7 @@ mod tests {
     use super::*;
     use crate::db::Database;
     use crate::db::models::{LibraryInput, SongInput};
-    use crate::db::repositories::{LibraryRepo, SongRepo, ServiceRepo};
+    use crate::db::repositories::{ArrangementRepo, LibraryRepo, SongRepo, ServiceRepo};
     use crate::db::{new_id, now_ms};
 
     async fn fixture_library_song(db: &Database) -> (String, String) {
@@ -465,6 +475,63 @@ mod tests {
                 assert_eq!(slide_content.text_lines.len(), 2);
             }
             _ => panic!("expected ShowSlide cue"),
+        }
+    }
+
+    #[tokio::test]
+    async fn compile_song_uses_arrangement_when_set() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+
+        let sections = SongRepo::new(&db.pool).sections(&song_id).await.unwrap();
+        let verse = sections.iter().find(|s| s.label == "verse_1").unwrap().id.clone();
+        let chorus = sections.iter().find(|s| s.label == "chorus").unwrap().id.clone();
+
+        let arr_repo = ArrangementRepo::new(&db.pool);
+        let arr = arr_repo.create(&song_id, "Full").await.unwrap();
+        // verse → chorus → chorus (chorus repeats)
+        arr_repo
+            .set_items(&arr.id, &[verse, chorus.clone(), chorus])
+            .await
+            .unwrap();
+
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib_id, "Svc", now_ms())
+            .await
+            .unwrap();
+        let item_id = new_id();
+        let now = now_ms();
+        sqlx::query(
+            r#"
+            INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, 0, 'song', ?3, ?4, NULL, NULL, NULL, NULL, NULL, ?5, ?5)
+            "#,
+        )
+        .bind(&item_id)
+        .bind(&svc.id)
+        .bind(&song_id)
+        .bind(&arr.id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
+        // verse_1 (4 lines → 1 slide) + chorus (2 → 1) + chorus (2 → 1) = 3 cues.
+        assert_eq!(cl.len(), 3);
+        match &cl.cues[0] {
+            Cue::ShowSlide { slide_content, .. } => {
+                assert_eq!(slide_content.section_label.as_deref(), Some("Verse 1"));
+            }
+            _ => panic!("expected ShowSlide"),
+        }
+        match &cl.cues[2] {
+            Cue::ShowSlide { slide_content, .. } => {
+                assert_eq!(slide_content.section_label.as_deref(), Some("Chorus"));
+            }
+            _ => panic!("expected ShowSlide"),
         }
     }
 

@@ -11,6 +11,7 @@ import { Plus, Search } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
 import type { Library, SearchResult, Song } from "@/lib/bindings";
+import { SongEditor } from "./SongEditor";
 
 interface Props {
   library: Library;
@@ -19,6 +20,7 @@ interface Props {
 export function LibraryPage({ library }: Props) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [openSong, setOpenSong] = useState<{ id: string; title: string } | null>(null);
 
   const songsQuery = useQuery({
     queryKey: ["songs", library.id],
@@ -45,6 +47,10 @@ export function LibraryPage({ library }: Props) {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["songs", library.id] }),
   });
+
+  if (openSong) {
+    return <SongEditor songId={openSong.id} title={openSong.title} onBack={() => setOpenSong(null)} />;
+  }
 
   const showingSearch = search.trim().length > 1;
   type Row = Partial<Song> & { id: string; title: string };
@@ -108,7 +114,8 @@ export function LibraryPage({ library }: Props) {
             {songs.map((song: Row) => (
               <li
                 key={song.id}
-                className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3 hover:border-[var(--color-accent)]/40 transition-colors"
+                onClick={() => setOpenSong({ id: song.id, title: song.title })}
+                className="flex cursor-pointer items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3 hover:border-[var(--color-accent)]/40 transition-colors"
               >
                 <span className="font-medium">{song.title}</span>
                 {song.default_key ? (
