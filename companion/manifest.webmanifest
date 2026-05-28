@@ -1,0 +1,11 @@
+{
+  "name": "Følg med — SundayStage",
+  "short_name": "Følg med",
+  "description": "Følg gudstjenesten på din egen telefon.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c1320",
+  "theme_color": "#0c1320"
+}
