@@ -53,13 +53,18 @@ pub struct DemoSummary {
 
 struct DemoSong {
     title: &'static str,
+    lang: &'static str,
     key: &'static str,
     sections: &'static [(&'static str, &'static str)],
 }
 
-const DEMO_SONGS: &[DemoSong] = &[
+/// A public-domain starter library. All texts are pre-1925 hymns whose words
+/// are in the public domain; users are still prompted to confirm their own
+/// licensing. The first three double as the demo Welcome Service.
+const STARTER_SONGS: &[DemoSong] = &[
     DemoSong {
         title: "Amazing Grace",
+        lang: "en",
         key: "G",
         sections: &[
             ("verse_1", "Amazing grace how sweet the sound\nThat saved a wretch like me\nI once was lost but now am found\nWas blind but now I see"),
@@ -68,6 +73,7 @@ const DEMO_SONGS: &[DemoSong] = &[
     },
     DemoSong {
         title: "Holy, Holy, Holy",
+        lang: "en",
         key: "D",
         sections: &[
             ("verse_1", "Holy, holy, holy Lord God Almighty\nEarly in the morning our song shall rise to Thee"),
@@ -76,10 +82,118 @@ const DEMO_SONGS: &[DemoSong] = &[
     },
     DemoSong {
         title: "Be Thou My Vision",
+        lang: "en",
         key: "E",
         sections: &[
             ("verse_1", "Be Thou my vision O Lord of my heart\nNaught be all else to me save that Thou art"),
             ("verse_2", "Be Thou my wisdom and Thou my true word\nI ever with Thee and Thou with me Lord"),
+        ],
+    },
+    DemoSong {
+        title: "Come Thou Fount of Every Blessing",
+        lang: "en",
+        key: "D",
+        sections: &[
+            ("verse_1", "Come Thou Fount of every blessing\nTune my heart to sing Thy grace\nStreams of mercy never ceasing\nCall for songs of loudest praise"),
+        ],
+    },
+    DemoSong {
+        title: "Crown Him with Many Crowns",
+        lang: "en",
+        key: "D",
+        sections: &[
+            ("verse_1", "Crown Him with many crowns\nThe Lamb upon His throne\nHark how the heavenly anthem drowns\nAll music but its own"),
+        ],
+    },
+    DemoSong {
+        title: "O for a Thousand Tongues to Sing",
+        lang: "en",
+        key: "G",
+        sections: &[
+            ("verse_1", "O for a thousand tongues to sing\nMy great Redeemer's praise\nThe glories of my God and King\nThe triumphs of His grace"),
+        ],
+    },
+    DemoSong {
+        title: "Rock of Ages",
+        lang: "en",
+        key: "A",
+        sections: &[
+            ("verse_1", "Rock of Ages, cleft for me\nLet me hide myself in Thee\nLet the water and the blood\nFrom Thy wounded side which flowed\nBe of sin the double cure\nSave from wrath and make me pure"),
+        ],
+    },
+    DemoSong {
+        title: "It Is Well with My Soul",
+        lang: "en",
+        key: "C",
+        sections: &[
+            ("verse_1", "When peace like a river attendeth my way\nWhen sorrows like sea billows roll\nWhatever my lot, Thou hast taught me to say\nIt is well, it is well with my soul"),
+            ("chorus", "It is well with my soul\nIt is well, it is well with my soul"),
+        ],
+    },
+    DemoSong {
+        title: "What a Friend We Have in Jesus",
+        lang: "en",
+        key: "F",
+        sections: &[
+            ("verse_1", "What a friend we have in Jesus\nAll our sins and griefs to bear\nWhat a privilege to carry\nEverything to God in prayer"),
+        ],
+    },
+    DemoSong {
+        title: "Blessed Assurance",
+        lang: "en",
+        key: "D",
+        sections: &[
+            ("verse_1", "Blessed assurance, Jesus is mine\nO what a foretaste of glory divine\nHeir of salvation, purchase of God\nBorn of His Spirit, washed in His blood"),
+            ("chorus", "This is my story, this is my song\nPraising my Savior all the day long"),
+        ],
+    },
+    DemoSong {
+        title: "To God Be the Glory",
+        lang: "en",
+        key: "A",
+        sections: &[
+            ("verse_1", "To God be the glory, great things He hath done\nSo loved He the world that He gave us His Son"),
+            ("chorus", "Praise the Lord, praise the Lord, let the earth hear His voice\nPraise the Lord, praise the Lord, let the people rejoice"),
+        ],
+    },
+    DemoSong {
+        title: "Praise to the Lord, the Almighty",
+        lang: "en",
+        key: "G",
+        sections: &[
+            ("verse_1", "Praise to the Lord, the Almighty, the King of creation\nO my soul, praise Him, for He is thy health and salvation"),
+        ],
+    },
+    DemoSong {
+        title: "All Hail the Power of Jesus' Name",
+        lang: "en",
+        key: "E",
+        sections: &[
+            ("verse_1", "All hail the power of Jesus' name\nLet angels prostrate fall\nBring forth the royal diadem\nAnd crown Him Lord of all"),
+        ],
+    },
+    DemoSong {
+        title: "Immortal, Invisible, God Only Wise",
+        lang: "en",
+        key: "F",
+        sections: &[
+            ("verse_1", "Immortal, invisible, God only wise\nIn light inaccessible hid from our eyes\nMost blessed, most glorious, the Ancient of Days\nAlmighty, victorious, Thy great name we praise"),
+        ],
+    },
+    DemoSong {
+        title: "Deilig er jorden",
+        lang: "no",
+        key: "C",
+        sections: &[
+            ("verse_1", "Deilig er jorden, prektig er Guds himmel\nskjønn er sjelenes pilegrimsgang\nGjennom de fagre riker på jorden\ngår vi til paradis med sang"),
+        ],
+    },
+    DemoSong {
+        title: "Deilig er den himmel blå",
+        lang: "no",
+        key: "D",
+        sections: &[
+            ("verse_1", "Deilig er den himmel blå\nlyst det er å se derpå\nhvor de gylne stjerner blinker\nhvor de smiler, hvor de vinker\noss fra jorden opp til seg"),
         ],
     },
 ];
@@ -94,12 +208,12 @@ pub async fn seed_demo_content(pool: &SqlitePool, library_id: &str) -> AppResult
     // Songs + a default arrangement playing their sections in order.
     let mut song_ids = Vec::new();
     let mut default_arrangements = Vec::new();
-    for ds in DEMO_SONGS {
+    for ds in STARTER_SONGS {
         let song = song_repo
             .create(SongInput {
                 library_id: library_id.to_string(),
                 title: ds.title.to_string(),
-                language: Some("en".into()),
+                language: Some(ds.lang.into()),
                 default_key: Some(ds.key.to_string()),
                 tempo_bpm: None,
                 ccli_song_id: None,
@@ -160,7 +274,8 @@ pub async fn seed_demo_content(pool: &SqlitePool, library_id: &str) -> AppResult
         )
         .await?;
     pos += 1;
-    for (song_id, arr_id) in song_ids.iter().zip(default_arrangements.iter()) {
+    // The Welcome Service stays short: the first three starter songs.
+    for (song_id, arr_id) in song_ids.iter().zip(default_arrangements.iter()).take(3) {
         svc_repo
             .add_item(
                 &service.id,
@@ -223,11 +338,11 @@ mod tests {
             .unwrap();
 
         let summary = seed_demo_content(&db.pool, &lib.id).await.unwrap();
-        assert_eq!(summary.songs, 3);
+        assert_eq!(summary.songs, STARTER_SONGS.len() as u32);
 
-        // Library has the three songs.
+        // The full starter library is installed.
         let songs = SongRepo::new(&db.pool).list(&lib.id, 50, 0).await.unwrap();
-        assert_eq!(songs.len(), 3);
+        assert_eq!(songs.len(), STARTER_SONGS.len());
 
         // The welcome service compiles into a non-empty, playable cue list.
         let cl = CueCompiler::new(&db.pool)
