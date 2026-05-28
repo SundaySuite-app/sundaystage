@@ -40,6 +40,7 @@ import type {
   SongArrangement,
   SongInput,
   SongSection,
+  SyncStatus,
   Template,
   Theme,
   ThemeTokens,
@@ -244,5 +245,11 @@ export const onboarding = {
   seedDemo: (libraryId: string) => call<DemoSummary>("onboarding_seed_demo", { libraryId }),
 };
 
+// ── Cloud sync (Phase 9) ───────────────────────────────────────────────────────
+
+export const sync = {
+  status: () => call<SyncStatus>("sync_status"),
+};
+
 /** Bundled namespace for ergonomic imports. */
-export const ipc = { library, song, service, live, deck, theme, arrangement, ai, media, onboarding };
+export const ipc = { library, song, service, live, deck, theme, arrangement, ai, media, onboarding, sync };

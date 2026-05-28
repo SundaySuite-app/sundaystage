@@ -14,3 +14,4 @@ pub mod arrangements;
 pub mod ai;
 pub mod media;
 pub mod onboarding;
+pub mod sync;

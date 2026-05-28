@@ -9,6 +9,10 @@ import {
   Play,
 } from "lucide-react";
 
+import { useQuery } from "@tanstack/react-query";
+
+import { ipc } from "@/lib/ipc";
+import type { SyncStatus } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 
@@ -80,6 +84,7 @@ export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
 
       {/* Bottom */}
       <div className="space-y-2 border-t border-[var(--color-border)] p-3">
+        <SyncBadge />
         <button
           type="button"
           onClick={() => onNavigate("settings")}
@@ -98,6 +103,35 @@ export function Sidebar({ current, onNavigate, onGoLive }: SidebarProps) {
         </button>
       </div>
     </nav>
+  );
+}
+
+const SYNC_KEY: Record<SyncStatus, TKey> = {
+  local_only: "syncLocalOnly",
+  synced: "syncSynced",
+  syncing: "syncSyncing",
+  offline: "syncOffline",
+  conflict: "syncConflict",
+  paused_live: "syncPausedLive",
+};
+const SYNC_DOT: Record<SyncStatus, string> = {
+  local_only: "bg-[var(--color-fg-muted)]",
+  synced: "bg-[var(--color-success)]",
+  syncing: "bg-[var(--color-info)]",
+  offline: "bg-[var(--color-fg-muted)]",
+  conflict: "bg-[var(--color-danger)]",
+  paused_live: "bg-[var(--color-warning)]",
+};
+
+function SyncBadge() {
+  const t = useT();
+  const { data } = useQuery({ queryKey: ["syncStatus"], queryFn: () => ipc.sync.status() });
+  const status: SyncStatus = data ?? "local_only";
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--color-fg-muted)]">
+      <span className={cn("h-2 w-2 rounded-full", SYNC_DOT[status])} />
+      <span>{t(SYNC_KEY[status])}</span>
+    </div>
   );
 }
 

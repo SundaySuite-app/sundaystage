@@ -36,6 +36,12 @@ const en: Catalog = {
   seedDemo: "Add demo content",
   skip: "Start empty",
   seeding: "Preparing…",
+  syncLocalOnly: "Local",
+  syncSynced: "Synced",
+  syncSyncing: "Syncing…",
+  syncOffline: "Offline",
+  syncConflict: "Conflict",
+  syncPausedLive: "Paused (live)",
 };
 
 const no: Catalog = {
@@ -55,6 +61,12 @@ const no: Catalog = {
   seedDemo: "Legg til demo-innhold",
   skip: "Start tomt",
   seeding: "Forbereder…",
+  syncLocalOnly: "Lokal",
+  syncSynced: "Synkronisert",
+  syncSyncing: "Synkroniserer…",
+  syncOffline: "Frakoblet",
+  syncConflict: "Konflikt",
+  syncPausedLive: "Pauset (live)",
 };
 
 // Scandinavian + de/fr/pl: nav/chrome only; everything else falls back to en.

@@ -15,4 +15,5 @@ pub mod session_store;
 pub mod slide_doc;
 pub mod stage_display;
 pub mod sundayrec_bridge;
+pub mod sync;
 pub mod theme;

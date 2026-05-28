@@ -107,6 +107,8 @@ pub fn run() {
             // Onboarding + i18n (Phase 13.1)
             commands::onboarding::app_locales,
             commands::onboarding::onboarding_seed_demo,
+            // Cloud sync (Phase 9)
+            commands::sync::sync_status,
             // Service
             commands::services::service_create,
             commands::services::service_get,
