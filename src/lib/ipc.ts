@@ -14,6 +14,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  AiKeyStatus,
+  AiTestResult,
   AppError,
   ArrangementItem,
   ChapterMarker,
@@ -246,6 +248,12 @@ export const ai = {
     call<ServicePlan>("ai_plan_service", { libraryId, prompt, apiKey, model }),
   applyPlan: (libraryId: string, plan: ServicePlan) =>
     call<Service>("ai_apply_plan", { libraryId, plan }),
+  // API-key management (Phase 4.1) — key lives in the OS keychain.
+  keyStatus: () => call<AiKeyStatus>("ai_key_status"),
+  keySet: (key: string) => call<void>("ai_key_set", { key }),
+  keyClear: () => call<void>("ai_key_clear"),
+  testConnection: (model: string | null) =>
+    call<AiTestResult>("ai_test_connection", { model }),
 };
 
 // ── Media (Phase 7.2) ──────────────────────────────────────────────────────────

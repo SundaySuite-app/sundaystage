@@ -2,10 +2,10 @@
  * PasteFormatModal — Phase 4.2 "Paste & Format with AI".
  *
  * Paste raw lyrics → format into structured sections + a proposed arrangement
- * → review → apply. Uses Claude when an API key is provided (BYOK; the key is
- * passed per-call and not stored — keychain storage is a follow-up) and falls
- * back to the local heuristic formatter otherwise. The backend always returns
- * a usable draft with warnings rather than failing.
+ * → review → apply. Uses Claude when a key is available (a one-off pasted key,
+ * or the key stored in the OS keychain via Settings) and falls back to the
+ * local heuristic formatter otherwise. Cloud use is gated by a one-time consent
+ * dialog. The backend always returns a usable draft with warnings, never fails.
  */
 
 import { useState } from "react";
@@ -15,6 +15,8 @@ import { Sparkles, X } from "lucide-react";
 import type { FormattedSong } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { cn } from "@/lib/cn";
+import { hasAiConsent, grantAiConsent, preferredModel } from "@/lib/aiConsent";
+import { ConsentDialog } from "@/components/ConsentDialog";
 
 function humanize(label: string): string {
   return label
@@ -36,18 +38,34 @@ export function PasteFormatModal({
 }: PasteFormatModalProps) {
   const [raw, setRaw] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("claude-sonnet-4-6");
+  const [model, setModel] = useState(preferredModel() ?? "claude-sonnet-4-6");
   const [draft, setDraft] = useState<FormattedSong | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   const modelsQuery = useQuery({
     queryKey: ["aiModels"],
     queryFn: () => ipc.ai.models(),
+  });
+  const keyStatusQuery = useQuery({
+    queryKey: ["aiKeyStatus"],
+    queryFn: () => ipc.ai.keyStatus(),
   });
 
   const formatMut = useMutation({
     mutationFn: () => ipc.ai.formatLyrics(raw, apiKey.trim() || null, model),
     onSuccess: (f) => setDraft(f),
   });
+
+  // Will this run actually hit the cloud? (a pasted key, or a stored/env key)
+  const willUseAi =
+    apiKey.trim() !== "" ||
+    !!keyStatusQuery.data?.stored ||
+    !!keyStatusQuery.data?.env;
+
+  function attemptFormat() {
+    if (willUseAi && !hasAiConsent()) setConsentOpen(true);
+    else formatMut.mutate();
+  }
 
   const applyMut = useMutation({
     mutationFn: (f: FormattedSong) => ipc.ai.applyFormat(songId, f),
@@ -109,7 +127,7 @@ export function PasteFormatModal({
                 </select>
                 <button
                   type="button"
-                  onClick={() => formatMut.mutate()}
+                  onClick={attemptFormat}
                   disabled={raw.trim().length === 0 || formatMut.isPending}
                   className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
@@ -118,7 +136,9 @@ export function PasteFormatModal({
                 </button>
               </div>
               <p className="text-[10px] text-[var(--color-fg-muted)]">
-                Nøkkelen lagres ikke — den sendes kun med denne forespørselen.
+                {keyStatusQuery.data?.stored
+                  ? "Bruker den lagrede nøkkelen fra Innstillinger hvis feltet er tomt."
+                  : "Uten nøkkel formateres det lokalt. Lagre en nøkkel i Innstillinger for AI."}
               </p>
             </div>
           </div>
@@ -199,6 +219,16 @@ export function PasteFormatModal({
           </button>
         </footer>
       </div>
+
+      <ConsentDialog
+        open={consentOpen}
+        onClose={() => setConsentOpen(false)}
+        onAccept={() => {
+          grantAiConsent();
+          setConsentOpen(false);
+          formatMut.mutate();
+        }}
+      />
     </div>
   );
 }

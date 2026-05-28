@@ -7,7 +7,9 @@
 
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
 use tauri::State;
+use ts_rs::TS;
 
 use crate::db::models::{Service, SongArrangement};
 use crate::db::repositories::SongRepo;
@@ -21,14 +23,92 @@ use crate::services::ai::plan::{
     tool_schema as plan_tool_schema, LibrarySong, ServicePlan, PLAN_TOOL_NAME,
 };
 use crate::services::ai::{
-    claude_models, AiProvider, AiPurpose, AnthropicProvider, ClaudeModel, StructuredRequest,
-    DEFAULT_MODEL,
+    claude_models, keystore, AiProvider, AiPurpose, AnthropicProvider, ClaudeModel,
+    StructuredRequest, DEFAULT_MODEL,
 };
 use crate::AppState;
 
 #[tauri::command]
 pub fn ai_models() -> Vec<ClaudeModel> {
     claude_models()
+}
+
+/// Where (if anywhere) an Anthropic key is available.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/AiKeyStatus.ts")]
+pub struct AiKeyStatus {
+    /// A key is stored in the OS keychain.
+    pub stored: bool,
+    /// The `ANTHROPIC_API_KEY` env var is set.
+    pub env: bool,
+}
+
+/// Result of a "test connection" probe.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/AiTestResult.ts")]
+pub struct AiTestResult {
+    pub ok: bool,
+    pub message: String,
+}
+
+/// Store the Anthropic API key in the OS keychain.
+#[tauri::command]
+pub fn ai_key_set(key: String) -> AppResult<()> {
+    if key.trim().is_empty() {
+        return Err(AppError::Validation("Tom nøkkel.".into()));
+    }
+    keystore::set_key(key.trim())
+}
+
+/// Remove the stored key.
+#[tauri::command]
+pub fn ai_key_clear() -> AppResult<()> {
+    keystore::clear_key()
+}
+
+/// Whether a key is available (keychain and/or env).
+#[tauri::command]
+pub fn ai_key_status() -> AiKeyStatus {
+    AiKeyStatus {
+        stored: keystore::has_key(),
+        env: keystore::has_env_key(),
+    }
+}
+
+/// Probe the Anthropic API with a tiny forced-tool call to confirm the key +
+/// network work. Returns a friendly result rather than erroring.
+#[tauri::command]
+pub async fn ai_test_connection(model: Option<String>) -> AiTestResult {
+    let Some(key) = keystore::resolve(None) else {
+        return AiTestResult {
+            ok: false,
+            message: "Ingen API-nøkkel lagret.".into(),
+        };
+    };
+    let provider = AnthropicProvider::new(key);
+    let req = StructuredRequest {
+        model: model.unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+        system: "You are a connectivity probe.".into(),
+        user: "Call the tool with ok=true.".into(),
+        tool_name: "probe".into(),
+        tool_schema: serde_json::json!({
+            "type": "object",
+            "properties": { "ok": { "type": "boolean" } },
+            "required": ["ok"]
+        }),
+        max_tokens: 64,
+        purpose: AiPurpose::LyricFormat,
+    };
+    match provider.complete_structured(req).await {
+        Ok(_) => AiTestResult {
+            ok: true,
+            message: "Tilkobling OK.".into(),
+        },
+        Err(e) => AiTestResult {
+            ok: false,
+            message: e.to_string(),
+        },
+    }
 }
 
 #[tauri::command]
@@ -38,11 +118,7 @@ pub async fn ai_format_lyrics(
     model: Option<String>,
 ) -> AppResult<FormattedSong> {
     let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
-    let key = api_key
-        .filter(|k| !k.trim().is_empty())
-        .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok());
-
-    let Some(key) = key else {
+    let Some(key) = keystore::resolve(api_key) else {
         let mut f = heuristic_format(&raw);
         f.warnings
             .push("Ingen API-nøkkel — formaterte lokalt uten AI.".into());
@@ -100,12 +176,9 @@ pub async fn ai_plan_service(
     model: Option<String>,
 ) -> AppResult<ServicePlan> {
     let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
-    let key = api_key
-        .filter(|k| !k.trim().is_empty())
-        .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
-        .ok_or_else(|| {
-            AppError::Validation("Tjenesteplanlegging krever en Anthropic API-nøkkel.".into())
-        })?;
+    let key = keystore::resolve(api_key).ok_or_else(|| {
+        AppError::Validation("Tjenesteplanlegging krever en Anthropic API-nøkkel.".into())
+    })?;
 
     let songs = SongRepo::new(&state.db.pool)
         .list(&library_id, 300, 0)

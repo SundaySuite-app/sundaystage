@@ -7,7 +7,9 @@
  *   import type { Song, Library } from "@/lib/bindings";
  */
 
+export type { AiKeyStatus }       from "./AiKeyStatus";
 export type { AiPurpose }         from "./AiPurpose";
+export type { AiTestResult }      from "./AiTestResult";
 export type { ArrangementItem }   from "./ArrangementItem";
 export type { BackgroundKind }    from "./BackgroundKind";
 export type { BibleReference }    from "./BibleReference";

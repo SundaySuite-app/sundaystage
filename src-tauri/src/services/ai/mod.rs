@@ -9,11 +9,11 @@
 //!
 //! Build the real client with `cargo build --features ai`.
 //!
-//! Key handling: the provider takes the API key as a value (BYOK). Reading it
-//! from the system keychain (keyring crate) + a consent dialog + a settings
-//! screen are follow-ups; for now the command resolves a caller-supplied key or
-//! the `ANTHROPIC_API_KEY` env var.
+//! Key handling: the provider takes the API key as a value (BYOK). The command
+//! layer resolves it via [`keystore::resolve`] — an explicit pasted key, then
+//! the OS keychain, then the `ANTHROPIC_API_KEY` env var.
 
+pub mod keystore;
 pub mod lyric_format;
 pub mod plan;
 

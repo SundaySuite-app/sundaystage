@@ -10,6 +10,7 @@ import { MediaPage } from "@/features/media/MediaPage";
 import { LivePreview } from "@/features/live/LivePreview";
 import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
 import { DesignPage } from "@/features/design/DesignPage";
+import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ipc } from "@/lib/ipc";
 import { useT } from "@/lib/i18n";
 import type { Library, LiveSessionView, Service } from "@/lib/bindings";
@@ -129,6 +130,8 @@ function App() {
       <main className="flex-1 overflow-hidden">
         {route === "design" ? (
           <DesignPage />
+        ) : route === "settings" ? (
+          <SettingsPage />
         ) : !activeLibrary ? (
           <div className="grid h-full place-items-center text-[var(--color-fg-muted)]">
             <p>{t("loadingLibrary")}</p>

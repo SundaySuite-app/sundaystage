@@ -14,6 +14,8 @@ import { Music, Sparkles, X } from "lucide-react";
 
 import type { Library, PlanItem, ServicePlan } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
+import { hasAiConsent, grantAiConsent, preferredModel } from "@/lib/aiConsent";
+import { ConsentDialog } from "@/components/ConsentDialog";
 
 interface PlanModalProps {
   library: Library;
@@ -24,8 +26,9 @@ interface PlanModalProps {
 export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
   const [brief, setBrief] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("claude-sonnet-4-6");
+  const [model, setModel] = useState(preferredModel() ?? "claude-sonnet-4-6");
   const [plan, setPlan] = useState<ServicePlan | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   const modelsQuery = useQuery({
     queryKey: ["aiModels"],
@@ -37,6 +40,12 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
       ipc.ai.planService(library.id, brief, apiKey.trim() || null, model),
     onSuccess: setPlan,
   });
+
+  // Planning always hits the cloud, so always gate on consent.
+  function attemptPlan() {
+    if (!hasAiConsent()) setConsentOpen(true);
+    else planMut.mutate();
+  }
   const applyMut = useMutation({
     mutationFn: (p: ServicePlan) => ipc.ai.applyPlan(library.id, p),
     onSuccess: (svc) => {
@@ -95,7 +104,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
             </select>
             <button
               type="button"
-              onClick={() => planMut.mutate()}
+              onClick={attemptPlan}
               disabled={brief.trim().length === 0 || planMut.isPending}
               className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
             >
@@ -165,6 +174,16 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
           </button>
         </footer>
       </div>
+
+      <ConsentDialog
+        open={consentOpen}
+        onClose={() => setConsentOpen(false)}
+        onAccept={() => {
+          grantAiConsent();
+          setConsentOpen(false);
+          planMut.mutate();
+        }}
+      />
     </div>
   );
 }
