@@ -108,6 +108,46 @@ pub fn should_sync(cloud_enabled: bool, online: bool, is_live: bool) -> bool {
     cloud_enabled && online && !is_live
 }
 
+/// A locally-queued mutation awaiting push to the cloud (the outbox). One per
+/// edit; the engine collapses them before pushing. Pure data.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutboxEntry {
+    /// Table name, e.g. "song".
+    pub entity: String,
+    pub entity_id: String,
+    /// The local `updated_at` when this mutation was enqueued.
+    pub updated_at: i64,
+    /// A delete supersedes earlier edits to the same entity.
+    pub deleted: bool,
+}
+
+/// Collapse an outbox so only the newest mutation per (entity, id) survives —
+/// no point pushing five intermediate edits of one song. Order of the result
+/// is by `updated_at` ascending (stable push order). A delete always wins for
+/// its key regardless of timestamp ordering of edits before it.
+pub fn coalesce_outbox(entries: &[OutboxEntry]) -> Vec<OutboxEntry> {
+    use std::collections::HashMap;
+    let mut latest: HashMap<(&str, &str), OutboxEntry> = HashMap::new();
+    for e in entries {
+        let key = (e.entity.as_str(), e.entity_id.as_str());
+        match latest.get(&key) {
+            Some(existing) if existing.deleted => {} // a delete already wins
+            Some(existing) if e.updated_at < existing.updated_at && !e.deleted => {}
+            _ => {
+                latest.insert(key, e.clone());
+            }
+        }
+    }
+    let mut out: Vec<OutboxEntry> = latest.into_values().collect();
+    out.sort_by(|a, b| {
+        a.updated_at
+            .cmp(&b.updated_at)
+            .then_with(|| a.entity.cmp(&b.entity))
+            .then_with(|| a.entity_id.cmp(&b.entity_id))
+    });
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,5 +219,47 @@ mod tests {
         );
         assert!(!should_sync(false, true, false), "no sync without cloud");
         assert!(!should_sync(true, false, false), "no sync while offline");
+    }
+
+    fn ob(entity: &str, id: &str, updated_at: i64, deleted: bool) -> OutboxEntry {
+        OutboxEntry {
+            entity: entity.into(),
+            entity_id: id.into(),
+            updated_at,
+            deleted,
+        }
+    }
+
+    #[test]
+    fn coalesce_keeps_only_latest_per_entity() {
+        let entries = vec![
+            ob("song", "a", 100, false),
+            ob("song", "a", 200, false),
+            ob("song", "b", 150, false),
+        ];
+        let out = coalesce_outbox(&entries);
+        assert_eq!(out.len(), 2);
+        let song_a = out.iter().find(|e| e.entity_id == "a").unwrap();
+        assert_eq!(song_a.updated_at, 200);
+    }
+
+    #[test]
+    fn coalesce_delete_wins() {
+        let entries = vec![
+            ob("song", "a", 100, false),
+            ob("song", "a", 200, true),  // deleted later
+            ob("song", "a", 300, false), // a stray edit after delete
+        ];
+        let out = coalesce_outbox(&entries);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].deleted, "delete supersedes later edits");
+    }
+
+    #[test]
+    fn coalesce_orders_by_updated_at() {
+        let entries = vec![ob("b", "x", 300, false), ob("a", "y", 100, false)];
+        let out = coalesce_outbox(&entries);
+        assert_eq!(out[0].updated_at, 100);
+        assert_eq!(out[1].updated_at, 300);
     }
 }
