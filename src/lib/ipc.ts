@@ -293,6 +293,15 @@ export const output = {
   isOpen: () => call<boolean>("output_is_open"),
 };
 
+// ── Crash reporting (Phase 6.1) ─────────────────────────────────────────────────
+
+export const crash = {
+  status: () => call<boolean>("crash_reporting_status"),
+  set: (enabled: boolean) => call<void>("crash_reporting_set", { enabled }),
+  count: () => call<number>("crash_reports_count"),
+  clear: () => call<void>("crash_reports_clear"),
+};
+
 /** Bundled namespace for ergonomic imports. */
 export const ipc = {
   library,
@@ -307,4 +316,5 @@ export const ipc = {
   onboarding,
   sync,
   output,
+  crash,
 };

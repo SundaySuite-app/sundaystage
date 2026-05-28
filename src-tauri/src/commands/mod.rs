@@ -6,6 +6,7 @@
 
 pub mod ai;
 pub mod arrangements;
+pub mod crash;
 pub mod decks;
 pub mod libraries;
 pub mod live;

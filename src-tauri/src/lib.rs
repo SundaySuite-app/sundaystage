@@ -60,6 +60,11 @@ pub fn run() {
                 .app_local_data_dir()
                 .expect("app_local_data_dir resolves on supported platforms");
             std::fs::create_dir_all(&data_dir).ok();
+
+            // Opt-in crash capture (Phase 6.1): the hook checks the user's
+            // choice at panic time, so installing it always is safe.
+            crate::services::crash::install_panic_hook(data_dir.clone());
+
             let db_path: PathBuf = data_dir.join("sundaystage.db");
 
             // Open the database synchronously — Tauri's setup is not async.
@@ -120,6 +125,11 @@ pub fn run() {
             commands::onboarding::onboarding_seed_demo,
             // Cloud sync (Phase 9)
             commands::sync::sync_status,
+            // Crash reporting (Phase 6.1)
+            commands::crash::crash_reporting_status,
+            commands::crash::crash_reporting_set,
+            commands::crash::crash_reports_count,
+            commands::crash::crash_reports_clear,
             // Output displays (Phase 5.2)
             commands::output::output_monitors,
             commands::output::output_config,

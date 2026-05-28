@@ -63,6 +63,23 @@ export function SettingsPage() {
     onSuccess: setTest,
   });
 
+  const crashStatus = useQuery({
+    queryKey: ["crashStatus"],
+    queryFn: () => ipc.crash.status(),
+  });
+  const crashCount = useQuery({
+    queryKey: ["crashCount"],
+    queryFn: () => ipc.crash.count(),
+  });
+  const setCrash = useMutation({
+    mutationFn: (enabled: boolean) => ipc.crash.set(enabled),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["crashStatus"] }),
+  });
+  const clearCrashes = useMutation({
+    mutationFn: () => ipc.crash.clear(),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["crashCount"] }),
+  });
+
   const status = statusQuery.data;
 
   return (
@@ -207,6 +224,49 @@ export function SettingsPage() {
                 Gi samtykke
               </Button>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Feilrapportering</CardTitle>
+            <CardDescription>
+              Lagre krasj-rapporter lokalt på maskinen — ingenting sendes
+              automatisk. Av som standard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-[var(--color-fg-muted)]">Status:</span>
+              {crashStatus.data ? (
+                <Badge variant="success">På</Badge>
+              ) : (
+                <Badge variant="neutral">Av</Badge>
+              )}
+              {(crashCount.data ?? 0) > 0 && (
+                <span className="text-xs text-[var(--color-fg-muted)]">
+                  {crashCount.data} rapport(er) lagret
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {(crashCount.data ?? 0) > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => clearCrashes.mutate()}
+                >
+                  Tøm
+                </Button>
+              )}
+              <Button
+                variant={crashStatus.data ? "outline" : "primary"}
+                size="sm"
+                onClick={() => setCrash.mutate(!crashStatus.data)}
+              >
+                {crashStatus.data ? "Slå av" : "Slå på"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

@@ -7,6 +7,7 @@
 
 pub mod ai;
 pub mod bible;
+pub mod crash;
 pub mod cue_list;
 pub mod demo;
 pub mod display;
