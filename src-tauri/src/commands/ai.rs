@@ -22,6 +22,11 @@ use crate::services::ai::plan::{
     apply_plan, parse_plan_response, system_prompt as plan_system_prompt,
     tool_schema as plan_tool_schema, LibrarySong, ServicePlan, PLAN_TOOL_NAME,
 };
+use crate::services::ai::translate::{
+    is_supported_target, parse_translation, system_prompt as tr_system_prompt,
+    tool_schema as tr_tool_schema, user_content as tr_user_content, TranslationResult,
+    TRANSLATE_TOOL_NAME,
+};
 use crate::services::ai::{
     claude_models, keystore, AiProvider, AiPurpose, AnthropicProvider, ClaudeModel,
     StructuredRequest, DEFAULT_MODEL,
@@ -205,6 +210,39 @@ pub async fn ai_plan_service(
     };
     let input = provider.complete_structured(req).await?;
     Ok(parse_plan_response(&input, &valid))
+}
+
+/// Translate a block of lyric lines to a target language (Phase 11.2). Needs a
+/// key — no offline fallback. Returns one translated line per source line.
+#[tauri::command]
+pub async fn ai_translate(
+    lines: Vec<String>,
+    target: String,
+    api_key: Option<String>,
+    model: Option<String>,
+) -> AppResult<TranslationResult> {
+    if !is_supported_target(&target) {
+        return Err(AppError::Validation(format!(
+            "Språk '{target}' støttes ikke for oversettelse."
+        )));
+    }
+    let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
+    let key = keystore::resolve(api_key).ok_or_else(|| {
+        AppError::Validation("Oversettelse krever en Anthropic API-nøkkel.".into())
+    })?;
+
+    let provider = AnthropicProvider::new(key);
+    let req = StructuredRequest {
+        model,
+        system: tr_system_prompt(&target),
+        user: tr_user_content(&lines),
+        tool_name: TRANSLATE_TOOL_NAME.to_string(),
+        tool_schema: tr_tool_schema(),
+        max_tokens: 2048,
+        purpose: AiPurpose::LyricFormat,
+    };
+    let input = provider.complete_structured(req).await?;
+    parse_translation(&input, &lines, &target)
 }
 
 #[tauri::command]

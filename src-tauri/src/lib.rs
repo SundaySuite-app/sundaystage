@@ -118,6 +118,7 @@ pub fn run() {
             commands::ai::ai_apply_format,
             commands::ai::ai_plan_service,
             commands::ai::ai_apply_plan,
+            commands::ai::ai_translate,
             commands::ai::ai_key_set,
             commands::ai::ai_key_clear,
             commands::ai::ai_key_status,

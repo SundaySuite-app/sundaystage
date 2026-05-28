@@ -52,6 +52,7 @@ import type {
   Template,
   Theme,
   ThemeTokens,
+  TranslationResult,
   UniversalHit,
 } from "./bindings";
 
@@ -253,6 +254,13 @@ export const ai = {
     call<ServicePlan>("ai_plan_service", { libraryId, prompt, apiKey, model }),
   applyPlan: (libraryId: string, plan: ServicePlan) =>
     call<Service>("ai_apply_plan", { libraryId, plan }),
+  translate: (
+    lines: string[],
+    target: string,
+    apiKey: string | null,
+    model: string | null,
+  ) =>
+    call<TranslationResult>("ai_translate", { lines, target, apiKey, model }),
   // API-key management (Phase 4.1) — key lives in the OS keychain.
   keyStatus: () => call<AiKeyStatus>("ai_key_status"),
   keySet: (key: string) => call<void>("ai_key_set", { key }),

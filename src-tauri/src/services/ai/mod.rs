@@ -13,9 +13,11 @@
 //! layer resolves it via [`keystore::resolve`] — an explicit pasted key, then
 //! the OS keychain, then the `ANTHROPIC_API_KEY` env var.
 
+pub mod embed;
 pub mod keystore;
 pub mod lyric_format;
 pub mod plan;
+pub mod translate;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

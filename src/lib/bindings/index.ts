@@ -66,6 +66,8 @@ export type { TemplateSlot }      from "./TemplateSlot";
 export type { TextStyle }         from "./TextStyle";
 export type { Theme }             from "./Theme";
 export type { ThemeTokens }       from "./ThemeTokens";
+export type { TonoEntry }         from "./TonoEntry";
+export type { TranslationResult } from "./TranslationResult";
 export type { UniversalHit }      from "./UniversalHit";
 export type { VAlign }            from "./VAlign";
 
