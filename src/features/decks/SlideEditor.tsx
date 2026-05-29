@@ -40,6 +40,7 @@ import {
   useEditorHistory,
   type Command,
 } from "@/lib/slideEditor/history";
+import { useT } from "@/lib/i18n";
 import { SlideCanvas } from "./SlideCanvas";
 import { Inspector } from "./Inspector";
 import { SlideList } from "./SlideList";
@@ -54,6 +55,7 @@ interface SlideEditorProps {
 }
 
 export function SlideEditor({ deck, onBack }: SlideEditorProps) {
+  const t = useT();
   const qc = useQueryClient();
   const slidesKey = ["slides", deck.id] as const;
 
@@ -195,12 +197,12 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement | null;
+      const tgt = e.target as HTMLElement | null;
       if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT")
+        tgt &&
+        (tgt.tagName === "INPUT" ||
+          tgt.tagName === "TEXTAREA" ||
+          tgt.tagName === "SELECT")
       ) {
         return;
       }
@@ -255,7 +257,7 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   // ── Slide operations ─────────────────────────────────────────────────────────
   const addSlideMutation = useMutation({
     mutationFn: () =>
-      ipc.deck.createSlide(deck.id, docWithText("Nytt lysbilde")),
+      ipc.deck.createSlide(deck.id, docWithText(t("slideNewContent"))),
     onSuccess: (slide) => {
       qc.setQueryData<Slide[]>(slidesKey, (old) => [...(old ?? []), slide]);
       loadSlide(slide);
@@ -316,9 +318,9 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   const canvasH = Math.floor(canvasW / STAGE_ASPECT);
 
   const saveStatus = saveMutation.isPending
-    ? "Lagrer…"
+    ? t("deckSaving")
     : activeId
-      ? "Lagret"
+      ? t("deckSaved")
       : "";
 
   return (
@@ -330,7 +332,7 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
           onClick={onBack}
           className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
-          <ArrowLeft size={15} /> Decks
+          <ArrowLeft size={15} /> {t("navDecks")}
         </button>
         <span className="font-semibold">{deck.name}</span>
 
@@ -339,18 +341,18 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
         <ToolbarButton
           onClick={addText}
           icon={<Type size={15} />}
-          label="Tekst"
+          label={t("deckText")}
         />
         <ToolbarButton
           onClick={duplicateSelected}
           icon={<Copy size={15} />}
-          label="Dupliser"
+          label={t("actionDuplicate")}
           disabled={selectedIds.size === 0}
         />
         <ToolbarButton
           onClick={deleteSelected}
           icon={<Trash2 size={15} />}
-          label="Slett"
+          label={t("actionDelete")}
           disabled={selectedIds.size === 0}
         />
 
@@ -359,13 +361,13 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
         <ToolbarButton
           onClick={history.undo}
           icon={<Undo2 size={15} />}
-          label="Angre"
+          label={t("deckUndo")}
           disabled={!history.canUndo}
         />
         <ToolbarButton
           onClick={history.redo}
           icon={<Redo2 size={15} />}
-          label="Gjør om"
+          label={t("deckRedo")}
           disabled={!history.canRedo}
         />
 
@@ -379,7 +381,7 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
             onClick={() => deleteSlideMutation.mutate(activeId)}
             className="ml-2 rounded-md px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-danger)]"
           >
-            Slett lysbilde
+            {t("deckDeleteSlide")}
           </button>
         )}
       </header>
@@ -480,12 +482,11 @@ function EmptyCanvas({
   onAdd: () => void;
   hasSlides: boolean;
 }) {
+  const t = useT();
   return (
     <div className="text-center">
       <p className="mb-3 text-sm text-[var(--color-fg-muted)]">
-        {hasSlides
-          ? "Velg et lysbilde til venstre."
-          : "Dette decket har ingen lysbilder enda."}
+        {hasSlides ? t("deckSelectSlide") : t("deckNoSlides")}
       </p>
       {!hasSlides && (
         <button
@@ -493,7 +494,7 @@ function EmptyCanvas({
           onClick={onAdd}
           className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110"
         >
-          <Plus size={15} /> Legg til lysbilde
+          <Plus size={15} /> {t("deckAddSlide")}
         </button>
       )}
     </div>

@@ -32,6 +32,7 @@ import {
   parseTokens,
 } from "@/lib/slideEditor/theme";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 import { SlideCanvas } from "./SlideCanvas";
 
 interface ThemeControlsProps {
@@ -51,6 +52,7 @@ export function ThemeControls({
   onSetSlideTheme,
   onSetSlideTemplate,
 }: ThemeControlsProps) {
+  const t = useT();
   const qc = useQueryClient();
 
   const themesQuery = useQuery({
@@ -78,7 +80,7 @@ export function ThemeControls({
   const themeId = pickedTheme ?? activeSlide?.theme_id ?? themes[0]?.id ?? null;
   const templateId =
     pickedTemplate ?? activeSlide?.template_id ?? templates[0]?.id ?? null;
-  const selectedTheme = themes.find((t) => t.id === themeId) ?? null;
+  const selectedTheme = themes.find((th) => th.id === themeId) ?? null;
   const editable = !!selectedTheme && Number(selectedTheme.is_builtin) === 0;
 
   // ── Apply actions ──────────────────────────────────────────────────────────
@@ -133,7 +135,7 @@ export function ThemeControls({
       ipc.theme.updateTokens(id, tokens),
     onSuccess: (saved) => {
       qc.setQueryData<Theme[]>(["themes", libraryId], (old) =>
-        (old ?? []).map((t) => (t.id === saved.id ? saved : t)),
+        (old ?? []).map((th) => (th.id === saved.id ? saved : th)),
       );
     },
   });
@@ -161,46 +163,46 @@ export function ThemeControls({
     if (!editTokens) return null;
     const sample: SlideDoc = {
       background: editTokens.background,
-      blocks: [newTextBlock("Forhåndsvisning", { y: 0.35, h: 0.3 })],
+      blocks: [newTextBlock(t("previewLabel"), { y: 0.35, h: 0.3 })],
     };
     return applyThemeToDoc(sample, editTokens);
-  }, [editTokens]);
+  }, [editTokens, t]);
 
   return (
     <div className="space-y-4 border-b border-[var(--color-border)] p-4 text-sm">
       <section className="space-y-2">
-        <Header>Mal</Header>
+        <Header>{t("tcTemplate")}</Header>
         <select
           value={templateId ?? ""}
           onChange={(e) => {
-            const tpl = templates.find((t) => t.id === e.target.value);
+            const tpl = templates.find((x) => x.id === e.target.value);
             if (tpl) applyTemplate(tpl);
           }}
           className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
         >
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-              {Number(t.is_builtin) === 0 ? " ★" : ""}
+          {templates.map((tpl) => (
+            <option key={tpl.id} value={tpl.id}>
+              {tpl.name}
+              {Number(tpl.is_builtin) === 0 ? " ★" : ""}
             </option>
           ))}
         </select>
       </section>
 
       <section className="space-y-2">
-        <Header>Tema</Header>
+        <Header>{t("themeLabel")}</Header>
         <select
           value={themeId ?? ""}
           onChange={(e) => {
-            const th = themes.find((t) => t.id === e.target.value);
+            const th = themes.find((x) => x.id === e.target.value);
             if (th) applyTheme(th);
           }}
           className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
         >
-          {themes.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-              {Number(t.is_builtin) === 0 ? " ★" : ""}
+          {themes.map((th) => (
+            <option key={th.id} value={th.id}>
+              {th.name}
+              {Number(th.is_builtin) === 0 ? " ★" : ""}
             </option>
           ))}
         </select>
@@ -212,29 +214,29 @@ export function ThemeControls({
             disabled={!themeId}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-40"
           >
-            <CopyPlus size={13} /> Dupliser
+            <CopyPlus size={13} /> {t("actionDuplicate")}
           </button>
           <button
             type="button"
             onClick={() => themeId && setDefaultThemeMut.mutate(themeId)}
             disabled={!themeId}
-            title="Sett som bibliotekets standardtema"
+            title={t("tcSetDefaultTitle")}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-40"
           >
-            <Star size={13} /> Standard
+            <Star size={13} /> {t("arrSetDefault")}
           </button>
         </div>
       </section>
 
       {editable && editTokens ? (
         <section className="space-y-2.5">
-          <Header>Rediger tema</Header>
+          <Header>{t("tcEditTheme")}</Header>
           {previewDoc && (
             <div className="overflow-hidden rounded-md ring-1 ring-[var(--color-border)]">
               <SlideCanvas doc={previewDoc} width={240} height={135} />
             </div>
           )}
-          <TokenRow label="Bakgrunn">
+          <TokenRow label={t("inspBackground")}>
             <ColorInput
               value={editTokens.background.value}
               onChange={(value) =>
@@ -242,19 +244,21 @@ export function ThemeControls({
               }
             />
           </TokenRow>
-          <TokenRow label="Tekstfarge">
+          <TokenRow label={t("tcTextColor")}>
             <ColorInput
               value={editTokens.text_color}
               onChange={(text_color) => editToken({ text_color })}
             />
           </TokenRow>
-          <TokenRow label="Aksent">
+          <TokenRow label={t("tcAccent")}>
             <ColorInput
               value={editTokens.accent_color}
               onChange={(accent_color) => editToken({ accent_color })}
             />
           </TokenRow>
-          <TokenRow label={`Størrelse (${Math.round(editTokens.body_size)})`}>
+          <TokenRow
+            label={`${t("inspSize")} (${Math.round(editTokens.body_size)})`}
+          >
             <input
               type="range"
               min={24}
@@ -264,7 +268,7 @@ export function ThemeControls({
               className="w-28 accent-[var(--color-accent)]"
             />
           </TokenRow>
-          <TokenRow label="Vekt">
+          <TokenRow label={t("inspWeight")}>
             <select
               value={editTokens.heading_weight}
               onChange={(e) =>
@@ -279,7 +283,7 @@ export function ThemeControls({
               ))}
             </select>
           </TokenRow>
-          <TokenRow label="Skygge">
+          <TokenRow label={t("inspShadow")}>
             <input
               type="checkbox"
               checked={editTokens.shadow !== null}
@@ -294,7 +298,7 @@ export function ThemeControls({
         </section>
       ) : (
         <p className="text-[11px] text-[var(--color-fg-muted)]">
-          Dupliser et innebygd tema for å redigere fargene og typografien.
+          {t("tcDuplicateHint")}
         </p>
       )}
     </div>

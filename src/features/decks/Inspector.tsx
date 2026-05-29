@@ -23,6 +23,7 @@ import {
   updateBlockCommand,
 } from "@/lib/slideEditor/history";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 
 interface InspectorProps {
   doc: SlideDoc;
@@ -39,6 +40,7 @@ export function Inspector({
   onCommit,
   onPreview,
 }: InspectorProps) {
+  const t = useT();
   const single =
     selectedIds.size === 1
       ? doc.blocks.find((b) => selectedIds.has(b.id))
@@ -59,8 +61,8 @@ export function Inspector({
       ) : (
         <p className="text-xs text-[var(--color-fg-muted)]">
           {selectedIds.size > 1
-            ? `${selectedIds.size} elementer valgt. Dra for å flytte, eller velg ett for å redigere.`
-            : "Velg et tekstelement for å redigere det."}
+            ? t("inspMultiSelected", { n: selectedIds.size })
+            : t("inspSelectText")}
         </p>
       )}
     </div>
@@ -136,6 +138,7 @@ function BackgroundSection({
   doc: SlideDoc;
   onCommit: (c: Command) => void;
 }) {
+  const t = useT();
   const bg = doc.background;
   const setKind = (kind: BackgroundKind) => {
     const value =
@@ -150,17 +153,17 @@ function BackgroundSection({
     onCommit(setBackgroundCommand(bg, { ...bg, value }));
 
   return (
-    <Section title="Bakgrunn">
+    <Section title={t("inspBackground")}>
       <SegmentedButtons
         value={bg.type === "gradient" ? "gradient" : "color"}
         options={[
-          { value: "color" as BackgroundKind, label: "Farge" },
-          { value: "gradient" as BackgroundKind, label: "Gradient" },
+          { value: "color" as BackgroundKind, label: t("inspColor") },
+          { value: "gradient" as BackgroundKind, label: t("inspGradient") },
         ]}
         onChange={setKind}
       />
       {bg.type === "color" ? (
-        <Row label="Farge">
+        <Row label={t("inspColor")}>
           <ColorField value={bg.value} onChange={setValue} />
         </Row>
       ) : (
@@ -213,6 +216,7 @@ function TextBlockSection({
   onCommit: (c: Command) => void;
   onPreview: (d: SlideDoc) => void;
 }) {
+  const t = useT();
   // Captured when the textarea gains focus so the whole edit is one undo step.
   const editStart = useRef<TextBlock | null>(null);
 
@@ -220,7 +224,7 @@ function TextBlockSection({
     onCommit(updateBlockCommand(block, after));
 
   return (
-    <Section title="Tekst">
+    <Section title={t("deckText")}>
       <textarea
         value={block.text}
         rows={3}
@@ -247,30 +251,30 @@ function TextBlockSection({
         className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
       />
 
-      <Row label="Justering">
+      <Row label={t("inspAlign")}>
         <SegmentedButtons
           value={block.align}
           options={[
-            { value: "left", label: "V" },
-            { value: "center", label: "M" },
-            { value: "right", label: "H" },
+            { value: "left", label: t("inspAlignLeft") },
+            { value: "center", label: t("inspAlignCenter") },
+            { value: "right", label: t("inspAlignRight") },
           ]}
           onChange={(align) => commitPatch(patchTextBlock(block, { align }))}
         />
       </Row>
-      <Row label="Vertikalt">
+      <Row label={t("inspVertical")}>
         <SegmentedButtons
           value={block.valign}
           options={[
-            { value: "top", label: "Topp" },
-            { value: "middle", label: "Midt" },
-            { value: "bottom", label: "Bunn" },
+            { value: "top", label: t("inspTop") },
+            { value: "middle", label: t("inspMiddle") },
+            { value: "bottom", label: t("inspBottom") },
           ]}
           onChange={(valign) => commitPatch(patchTextBlock(block, { valign }))}
         />
       </Row>
 
-      <Row label={`Størrelse (${Math.round(block.style.size)})`}>
+      <Row label={`${t("inspSize")} (${Math.round(block.style.size)})`}>
         <input
           type="range"
           min={16}
@@ -283,7 +287,7 @@ function TextBlockSection({
           className="w-32 accent-[var(--color-accent)]"
         />
       </Row>
-      <Row label="Vekt">
+      <Row label={t("inspWeight")}>
         <select
           value={block.style.weight}
           onChange={(e) =>
@@ -298,13 +302,13 @@ function TextBlockSection({
           ))}
         </select>
       </Row>
-      <Row label="Farge">
+      <Row label={t("inspColor")}>
         <ColorField
           value={block.style.color}
           onChange={(color) => commitPatch(patchStyle(block, { color }))}
         />
       </Row>
-      <Row label="Kursiv">
+      <Row label={t("inspItalic")}>
         <input
           type="checkbox"
           checked={block.style.italic}
@@ -314,7 +318,7 @@ function TextBlockSection({
           className="h-4 w-4 accent-[var(--color-accent)]"
         />
       </Row>
-      <Row label="Skygge">
+      <Row label={t("inspShadow")}>
         <input
           type="checkbox"
           checked={block.style.shadow !== null}

@@ -12,6 +12,7 @@ import { LayoutTemplate, Plus, Trash2 } from "lucide-react";
 
 import type { CustomDeck, Library } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
+import { useT } from "@/lib/i18n";
 import { SlideEditor } from "./SlideEditor";
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function DecksPage({ library }: Props) {
+  const t = useT();
   const qc = useQueryClient();
   const [openDeck, setOpenDeck] = useState<CustomDeck | null>(null);
 
@@ -31,7 +33,7 @@ export function DecksPage({ library }: Props) {
     mutationFn: () =>
       ipc.deck.create(
         library.id,
-        `Nytt deck ${new Date().toLocaleDateString("no")}`,
+        t("deckNewDefaultTitle", { date: new Date().toLocaleDateString() }),
       ),
     onSuccess: (deck) => {
       void qc.invalidateQueries({ queryKey: ["decks", library.id] });
@@ -53,7 +55,9 @@ export function DecksPage({ library }: Props) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
-        <h1 className="text-[var(--text-ui-xl)] font-semibold">Decks</h1>
+        <h1 className="text-[var(--text-ui-xl)] font-semibold">
+          {t("navDecks")}
+        </h1>
         <span className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
           {library.name}
         </span>
@@ -64,13 +68,15 @@ export function DecksPage({ library }: Props) {
           disabled={createDeck.isPending}
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          <Plus size={14} /> Nytt deck
+          <Plus size={14} /> {t("deckNew")}
         </button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
         {decksQuery.isLoading && (
-          <p className="text-sm text-[var(--color-fg-muted)]">Laster decks…</p>
+          <p className="text-sm text-[var(--color-fg-muted)]">
+            {t("deckLoading")}
+          </p>
         )}
         {!decksQuery.isLoading && decks.length === 0 && (
           <EmptyState onCreate={() => createDeck.mutate()} />
@@ -93,7 +99,7 @@ export function DecksPage({ library }: Props) {
                   <button
                     type="button"
                     onClick={() => deleteDeck.mutate(deck.id)}
-                    title="Slett deck"
+                    title={t("deckDelete")}
                     className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md text-[var(--color-fg-muted)] opacity-0 transition-opacity hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-danger)] group-hover:opacity-100"
                   >
                     <Trash2 size={14} />
@@ -109,24 +115,24 @@ export function DecksPage({ library }: Props) {
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const t = useT();
   return (
     <div className="mx-auto max-w-md py-16 text-center">
       <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-[var(--color-bg-surface)] text-[var(--color-fg-muted)]">
         <LayoutTemplate size={20} />
       </div>
       <h2 className="text-[var(--text-ui-lg)] font-semibold">
-        Ingen decks enda
+        {t("deckEmptyTitle")}
       </h2>
       <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-        Et deck er en samling lysbilder du designer selv — kunngjøringer,
-        velkomstskjerm, prekenpunkter.
+        {t("deckEmptyBody")}
       </p>
       <button
         type="button"
         onClick={onCreate}
         className="mt-5 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110"
       >
-        <Plus size={14} /> Lag ditt første deck
+        <Plus size={14} /> {t("deckCreateFirst")}
       </button>
     </div>
   );

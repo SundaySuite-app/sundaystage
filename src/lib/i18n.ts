@@ -332,6 +332,57 @@ const en: Catalog = {
   liveNoMatches: "No matches.",
   liveShowLogo: "Show logo",
   livePausePrefix: "Break: {label}",
+
+  // ── Decks page + slide editor ───────────────────────────────────────────
+  deckNewDefaultTitle: "New deck {date}",
+  deckNew: "New deck",
+  deckLoading: "Loading decks…",
+  deckDelete: "Delete deck",
+  deckEmptyTitle: "No decks yet",
+  deckEmptyBody:
+    "A deck is a collection of slides you design yourself — announcements, welcome screen, sermon points.",
+  deckCreateFirst: "Create your first deck",
+  slideNew: "New slide",
+  slideNewContent: "New slide",
+  slideListEmpty: "No slides yet. Press + to add one.",
+  deckText: "Text",
+  deckUndo: "Undo",
+  deckRedo: "Redo",
+  deckSaving: "Saving…",
+  deckSaved: "Saved",
+  deckDeleteSlide: "Delete slide",
+  deckSelectSlide: "Select a slide on the left.",
+  deckNoSlides: "This deck has no slides yet.",
+  deckAddSlide: "Add slide",
+
+  // ── Inspector ───────────────────────────────────────────────────────────
+  inspMultiSelected:
+    "{n} elements selected. Drag to move, or select one to edit.",
+  inspSelectText: "Select a text element to edit it.",
+  inspBackground: "Background",
+  inspColor: "Colour",
+  inspGradient: "Gradient",
+  inspAlign: "Alignment",
+  inspAlignLeft: "L",
+  inspAlignCenter: "C",
+  inspAlignRight: "R",
+  inspVertical: "Vertical",
+  inspTop: "Top",
+  inspMiddle: "Middle",
+  inspBottom: "Bottom",
+  inspSize: "Size",
+  inspWeight: "Weight",
+  inspItalic: "Italic",
+  inspShadow: "Shadow",
+
+  // ── Theme controls ──────────────────────────────────────────────────────
+  tcTemplate: "Template",
+  tcSetDefaultTitle: "Set as the library's default theme",
+  tcEditTheme: "Edit theme",
+  tcTextColor: "Text colour",
+  tcAccent: "Accent",
+  tcDuplicateHint:
+    "Duplicate a built-in theme to edit its colours and typography.",
 };
 
 const no: Catalog = {
@@ -650,6 +701,57 @@ const no: Catalog = {
   liveNoMatches: "Ingen treff.",
   liveShowLogo: "Vis logo",
   livePausePrefix: "Pause: {label}",
+
+  // ── Decks page + slide editor ───────────────────────────────────────────
+  deckNewDefaultTitle: "Nytt deck {date}",
+  deckNew: "Nytt deck",
+  deckLoading: "Laster decks…",
+  deckDelete: "Slett deck",
+  deckEmptyTitle: "Ingen decks enda",
+  deckEmptyBody:
+    "Et deck er en samling lysbilder du designer selv — kunngjøringer, velkomstskjerm, prekenpunkter.",
+  deckCreateFirst: "Lag ditt første deck",
+  slideNew: "Nytt lysbilde",
+  slideNewContent: "Nytt lysbilde",
+  slideListEmpty: "Ingen lysbilder enda. Trykk + for å legge til.",
+  deckText: "Tekst",
+  deckUndo: "Angre",
+  deckRedo: "Gjør om",
+  deckSaving: "Lagrer…",
+  deckSaved: "Lagret",
+  deckDeleteSlide: "Slett lysbilde",
+  deckSelectSlide: "Velg et lysbilde til venstre.",
+  deckNoSlides: "Dette decket har ingen lysbilder enda.",
+  deckAddSlide: "Legg til lysbilde",
+
+  // ── Inspector ───────────────────────────────────────────────────────────
+  inspMultiSelected:
+    "{n} elementer valgt. Dra for å flytte, eller velg ett for å redigere.",
+  inspSelectText: "Velg et tekstelement for å redigere det.",
+  inspBackground: "Bakgrunn",
+  inspColor: "Farge",
+  inspGradient: "Gradient",
+  inspAlign: "Justering",
+  inspAlignLeft: "V",
+  inspAlignCenter: "M",
+  inspAlignRight: "H",
+  inspVertical: "Vertikalt",
+  inspTop: "Topp",
+  inspMiddle: "Midt",
+  inspBottom: "Bunn",
+  inspSize: "Størrelse",
+  inspWeight: "Vekt",
+  inspItalic: "Kursiv",
+  inspShadow: "Skygge",
+
+  // ── Theme controls ──────────────────────────────────────────────────────
+  tcTemplate: "Mal",
+  tcSetDefaultTitle: "Sett som bibliotekets standardtema",
+  tcEditTheme: "Rediger tema",
+  tcTextColor: "Tekstfarge",
+  tcAccent: "Aksent",
+  tcDuplicateHint:
+    "Dupliser et innebygd tema for å redigere fargene og typografien.",
 };
 
 // Scandinavian + de/fr/pl: nav/chrome only; everything else falls back to en.

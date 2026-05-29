@@ -12,6 +12,7 @@ import { Plus } from "lucide-react";
 import type { Slide } from "@/lib/bindings";
 import { parseDoc } from "@/lib/slideEditor/doc";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 import { SlideCanvas } from "./SlideCanvas";
 
 const THUMB_W = 168;
@@ -32,6 +33,7 @@ export function SlideList({
   onAdd,
   onReorder,
 }: SlideListProps) {
+  const t = useT();
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
@@ -53,12 +55,14 @@ export function SlideList({
     <div className="flex h-full w-[200px] flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       <div className="flex items-center justify-between px-3 py-2.5">
         <span className="text-xs font-semibold text-[var(--color-fg-muted)]">
-          {slides.length} {slides.length === 1 ? "lysbilde" : "lysbilder"}
+          {t(slides.length === 1 ? "slideCountOne" : "slideCountMany", {
+            n: slides.length,
+          })}
         </span>
         <button
           type="button"
           onClick={onAdd}
-          title="Nytt lysbilde"
+          title={t("slideNew")}
           className="grid h-6 w-6 place-items-center rounded-md text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
           <Plus size={15} />
@@ -108,10 +112,7 @@ export function SlideList({
         })}
         {slides.length === 0 && (
           <li className="px-1 py-6 text-center text-xs text-[var(--color-fg-muted)]">
-            Ingen lysbilder enda.
-            <br />
-            Trykk <span className="text-[var(--color-fg)]">+</span> for å legge
-            til.
+            {t("slideListEmpty")}
           </li>
         )}
       </ol>
