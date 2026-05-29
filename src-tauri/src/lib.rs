@@ -165,6 +165,7 @@ pub fn run() {
             commands::services::service_remove_item,
             commands::services::service_reorder_items,
             commands::services::service_cue_summary,
+            commands::services::service_import_sundayplan,
             // Live engine
             commands::live::live_compile_cue_list,
             commands::live::live_start,

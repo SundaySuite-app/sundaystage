@@ -1,0 +1,13 @@
+{
+  "name": "Søndag 14. juni",
+  "starts_at": 1718352000000,
+  "notes": "Pinse — tema: Den hellige ånd",
+  "items": [
+    { "kind": "song", "title": "Amazing Grace", "key": "G" },
+    { "kind": "song", "title": "10,000 Reasons", "key": "C" },
+    { "kind": "scripture", "reference": "Apg 2:1-4" },
+    { "kind": "gap", "label": "Velkommen og kunngjøringer" },
+    { "kind": "song", "title": "Oceans (Where Feet May Fail)" },
+    { "kind": "gap", "label": "Kollekt" }
+  ]
+}

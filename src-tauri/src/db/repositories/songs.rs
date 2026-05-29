@@ -59,6 +59,21 @@ impl<'a> SongRepo<'a> {
             })
     }
 
+    /// First non-deleted song in the library whose title matches
+    /// case-insensitively. Used to map an imported plan's songs onto the local
+    /// library before falling back to a stub.
+    pub async fn by_title(&self, library_id: &str, title: &str) -> AppResult<Option<Song>> {
+        sqlx::query_as::<_, Song>(
+            "SELECT * FROM song WHERE library_id = ?1 AND deleted_at IS NULL
+             AND title = ?2 COLLATE NOCASE ORDER BY created_at LIMIT 1",
+        )
+        .bind(library_id)
+        .bind(title)
+        .fetch_optional(self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
     /// List songs in a library, most-recently-used first then alphabetical.
     pub async fn list(&self, library_id: &str, limit: i64, offset: i64) -> AppResult<Vec<Song>> {
         let rows = sqlx::query_as::<_, Song>(

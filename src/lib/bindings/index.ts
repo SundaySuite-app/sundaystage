@@ -45,6 +45,7 @@ export type { MediaAsset }        from "./MediaAsset";
 export type { MediaStatus }       from "./MediaStatus";
 export type { Person }            from "./Person";
 export type { PlanItem }          from "./PlanItem";
+export type { PlanImportResult }  from "./PlanImportResult";
 export type { SearchResult }      from "./SearchResult";
 export type { ServicePlan }       from "./ServicePlan";
 export type { Service }           from "./Service";

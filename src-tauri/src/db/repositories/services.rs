@@ -135,6 +135,17 @@ impl<'a> ServiceRepo<'a> {
         self.get(id).await
     }
 
+    /// Set the service's planner notes.
+    pub async fn set_notes(&self, id: &str, notes: &str) -> AppResult<Service> {
+        sqlx::query("UPDATE service SET notes = ?1, updated_at = ?2 WHERE id = ?3")
+            .bind(notes)
+            .bind(now_ms())
+            .bind(id)
+            .execute(self.pool)
+            .await?;
+        self.get(id).await
+    }
+
     /// The position to append the next item at (current item count). Items use
     /// dense 0-based positions; appending at the count keeps them contiguous.
     pub async fn next_position(&self, service_id: &str) -> AppResult<i64> {

@@ -6,6 +6,7 @@ use crate::db::models::{Service, ServiceItem};
 use crate::db::repositories::ServiceRepo;
 use crate::error::AppResult;
 use crate::services::cue_list::{CueCompiler, CueSummary};
+use crate::services::sundayplan::{self, PlanImportResult};
 use crate::AppState;
 
 #[tauri::command]
@@ -105,4 +106,16 @@ pub async fn service_cue_summary(
     CueCompiler::new(&state.db.pool)
         .summarize(&service_id)
         .await
+}
+
+/// Import a SundayPlan plan (JSON) into a new service: songs are matched to the
+/// library by title, unmatched titles become stubs, scripture lands as a
+/// placeholder. Returns the new service plus what needs follow-up.
+#[tauri::command]
+pub async fn service_import_sundayplan(
+    state: State<'_, AppState>,
+    library_id: String,
+    json: String,
+) -> AppResult<PlanImportResult> {
+    sundayplan::import_plan(&state.db.pool, &library_id, &json).await
 }

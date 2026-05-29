@@ -38,6 +38,7 @@ import type {
   MediaStatus,
   MonitorInfo,
   OutputConfig,
+  PlanImportResult,
   SearchResult,
   StageDisplayConfig,
   Service,
@@ -176,6 +177,8 @@ export const service = {
     call<ServiceItem[]>("service_reorder_items", { serviceId, orderedIds }),
   cueSummary: (serviceId: string) =>
     call<CueSummary>("service_cue_summary", { serviceId }),
+  importSundayPlan: (libraryId: string, json: string) =>
+    call<PlanImportResult>("service_import_sundayplan", { libraryId, json }),
 };
 
 // ── Live engine ──────────────────────────────────────────────────────────────
