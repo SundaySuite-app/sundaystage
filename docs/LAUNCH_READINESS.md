@@ -17,21 +17,26 @@ Phase 13.1 onward.
 
 ## i18n status per language
 
-| Lang | Nav/chrome | Full app strings    |
-| ---- | ---------- | ------------------- |
-| en   | ✅         | ✅ (base)           |
-| no   | ✅         | ✅                  |
-| sv   | ✅         | ⛔ falls back to en |
-| da   | ✅         | ⛔ falls back to en |
-| de   | ✅         | ⛔ falls back to en |
-| fr   | ✅         | ⛔ falls back to en |
-| pl   | ✅         | ⛔ falls back to en |
+| Lang | Nav/chrome | Full app strings         |
+| ---- | ---------- | ------------------------ |
+| en   | ✅         | ✅ (base)                |
+| no   | ✅         | ✅                       |
+| sv   | ✅         | ✅ (machine, unreviewed) |
+| da   | ✅         | ✅ (machine, unreviewed) |
+| de   | ✅         | ✅ (machine, unreviewed) |
+| fr   | ✅         | ✅ (machine, unreviewed) |
+| pl   | ✅         | ✅ (machine, unreviewed) |
 
-- [ ] Route **every** user-visible string through `t()` (large mechanical pass;
-      currently the shell/nav is done, feature pages are still mostly Norwegian
-      literals).
-- [ ] Machine-translate sv/da/de/fr/pl catalogs (via Claude) **and human-review
-      each** before public release.
+- [x] Route **every** user-visible string through `t()`. Done across every
+      feature page (library, services/queue, live console, decks/slide editor,
+      bible, media, settings) and shared chrome. ~290 keys; `t()` supports
+      `{name}`-interpolation. **Exception:** the dev-only `/design` style guide
+      (DEV-gated route) is left untranslated.
+- [x] Machine-translate sv/da/de/fr/pl catalogs (full, via Claude — all 357
+      keys per language). **Still needs human review** before public release,
+      especially Polish; Scandinavian/German/French are high-confidence.
+- [ ] Localise section-type labels (`verse_1` → "Verse 1") — currently derived
+      from data via `humanize()`, so they read in English-ish regardless of locale.
 
 ## Remaining before 1.0 (deferred / needs infra this environment can't provide)
 
