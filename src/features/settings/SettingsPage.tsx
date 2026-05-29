@@ -1,15 +1,25 @@
 /**
- * Settings — Phase 4.1 (AI provider config) + appearance.
+ * Settings — tabbed.
  *
- * Manage the Anthropic API key (stored in the OS keychain, never in plaintext),
- * pick a default model, test the connection, and review/revoke AI consent.
+ * Generelt (theme), Output (congregation-output appearance with live preview),
+ * AI (Anthropic key/model/consent), Avansert (local crash reporting).
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, Loader2, Trash2 } from "lucide-react";
+import {
+  Check,
+  KeyRound,
+  Loader2,
+  Monitor,
+  Settings2,
+  ShieldAlert,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
+import { emit } from "@tauri-apps/api/event";
 
 import { ipc } from "@/lib/ipc";
-import type { AiTestResult } from "@/lib/bindings";
+import type { AiTestResult, LiveFrame, OutputAppearance } from "@/lib/bindings";
 import {
   hasAiConsent,
   grantAiConsent,
@@ -17,6 +27,11 @@ import {
   preferredModel,
   setPreferredModel,
 } from "@/lib/aiConsent";
+import {
+  OUTPUT_APPEARANCE,
+  DEFAULT_OUTPUT_APPEARANCE,
+} from "@/lib/outputBridge";
+import { SlideView } from "@/components/SlideView";
 import {
   Badge,
   Button,
@@ -27,11 +42,339 @@ import {
   CardTitle,
   Input,
   Select,
-  Separator,
 } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { cn } from "@/lib/cn";
+
+type Tab = "general" | "output" | "ai" | "advanced";
+
+const TABS: Array<{ id: Tab; label: string; icon: typeof Settings2 }> = [
+  { id: "general", label: "Generelt", icon: Settings2 },
+  { id: "output", label: "Output", icon: Monitor },
+  { id: "ai", label: "AI", icon: Sparkles },
+  { id: "advanced", label: "Avansert", icon: ShieldAlert },
+];
 
 export function SettingsPage() {
+  const [tab, setTab] = useState<Tab>("general");
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="border-b border-[var(--color-border)] px-8 pt-8">
+        <h1 className="text-[var(--text-ui-3xl)] font-bold">Innstillinger</h1>
+        <div className="mt-4 flex gap-1">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-t-md border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+                  tab === t.id
+                    ? "border-[var(--color-accent)] text-[var(--color-fg)]"
+                    : "border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+                )}
+              >
+                <Icon size={15} aria-hidden />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-8 py-8">
+          {tab === "general" && <GeneralSettings />}
+          {tab === "output" && <OutputSettings />}
+          {tab === "ai" && <AiSettings />}
+          {tab === "advanced" && <AdvancedSettings />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GeneralSettings() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Utseende</CardTitle>
+        <CardDescription>
+          Tema for selve programmet (ikke output).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-[var(--color-fg-muted)]">Tema</span>
+          <ThemeToggle />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+const SAMPLE_FRAME: LiveFrame = {
+  kind: "slide",
+  slide_content: {
+    section_label: "Vers 1",
+    text_lines: ["Stor er din trofasthet", "morgen for morgen ny"],
+    translation_lines: null,
+    reference: null,
+  },
+};
+
+function OutputSettings() {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState<OutputAppearance>(
+    DEFAULT_OUTPUT_APPEARANCE,
+  );
+  const loaded = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  const appearanceQuery = useQuery({
+    queryKey: ["outputAppearance"],
+    queryFn: () => ipc.output.appearance(),
+  });
+
+  // Seed the editor once the saved appearance arrives.
+  useEffect(() => {
+    if (appearanceQuery.data && !loaded.current) {
+      loaded.current = true;
+      setDraft(appearanceQuery.data);
+    }
+  }, [appearanceQuery.data]);
+
+  // Persist + broadcast (debounced) so sliders feel instant but don't thrash
+  // the disk; the open output windows restyle live via the emitted event.
+  function update(patch: Partial<OutputAppearance>) {
+    const next = { ...draft, ...patch };
+    setDraft(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void ipc.output
+        .setAppearance(next)
+        .then((saved) => {
+          void emit(OUTPUT_APPEARANCE, saved);
+          qc.setQueryData(["outputAppearance"], saved);
+        })
+        .catch(() => {});
+    }, 150);
+  }
+
+  function reset() {
+    update(DEFAULT_OUTPUT_APPEARANCE);
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Monitor size={18} className="text-[var(--color-accent)]" />
+            Utseende på output
+          </CardTitle>
+          <CardDescription>
+            Hvordan tekst vises på hovedutgangen (projektor/TV). Endringer slår
+            inn med en gang på åpne skjermer.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Live preview */}
+          <div className="overflow-hidden rounded-lg ring-1 ring-[var(--color-border)]">
+            <div className="aspect-video w-full">
+              <SlideView frame={SAMPLE_FRAME} appearance={draft} />
+            </div>
+          </div>
+
+          <RangeRow
+            label="Tekststørrelse"
+            min={0.5}
+            max={2.5}
+            step={0.05}
+            value={draft.text_scale}
+            format={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => update({ text_scale: v })}
+          />
+          <RangeRow
+            label="Linjehøyde"
+            min={0.9}
+            max={2.5}
+            step={0.05}
+            value={draft.line_height}
+            format={(v) => v.toFixed(2)}
+            onChange={(v) => update({ line_height: v })}
+          />
+
+          <div className="flex flex-wrap gap-6">
+            <ColorRow
+              label="Tekstfarge"
+              value={draft.text_color}
+              onChange={(v) => update({ text_color: v })}
+            />
+            <ColorRow
+              label="Bakgrunn"
+              value={draft.bg_color}
+              onChange={(v) => update({ bg_color: v })}
+            />
+            <div>
+              <label className="mb-1 block text-xs text-[var(--color-fg-muted)]">
+                Justering
+              </label>
+              <Select
+                className="w-32"
+                value={draft.h_align}
+                onChange={(e) =>
+                  update({
+                    h_align: e.target.value as OutputAppearance["h_align"],
+                  })
+                }
+              >
+                <option value="left">Venstre</option>
+                <option value="center">Midtstilt</option>
+                <option value="right">Høyre</option>
+              </Select>
+            </div>
+          </div>
+
+          <ToggleRow
+            label="Vis seksjonsetikett"
+            description="«Vers 1», «Refreng» på hovedutgangen (sceneskjermen viser den uansett)."
+            checked={draft.show_section_label}
+            onChange={(v) => update({ show_section_label: v })}
+          />
+          <ToggleRow
+            label="STORE BOKSTAVER"
+            description="Vis all tekst med store bokstaver."
+            checked={draft.uppercase}
+            onChange={(v) => update({ uppercase: v })}
+          />
+
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={reset}>
+              Tilbakestill til standard
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function RangeRow({
+  label,
+  min,
+  max,
+  step,
+  value,
+  format,
+  onChange,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-sm">
+        <span className="text-[var(--color-fg-muted)]">{label}</span>
+        <span className="font-mono text-xs text-[var(--color-fg)]">
+          {format(value)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-[var(--color-accent)]"
+      />
+    </div>
+  );
+}
+
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-[var(--color-fg-muted)]">
+        {label}
+      </label>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 w-12 cursor-pointer rounded border border-[var(--color-border)] bg-transparent"
+        />
+        <span className="font-mono text-xs text-[var(--color-fg-muted)]">
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <div className="text-sm">{label}</div>
+        <div className="text-xs text-[var(--color-fg-muted)]">
+          {description}
+        </div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+          checked
+            ? "bg-[var(--color-accent)]"
+            : "bg-[var(--color-bg-surface)] ring-1 ring-[var(--color-border)]",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+            checked && "translate-x-5",
+          )}
+        />
+      </button>
+    </div>
+  );
+}
+
+function AiSettings() {
   const qc = useQueryClient();
   const [keyInput, setKeyInput] = useState("");
   const [model, setModel] = useState(preferredModel() ?? "claude-sonnet-4-6");
@@ -46,7 +389,6 @@ export function SettingsPage() {
     queryKey: ["aiModels"],
     queryFn: () => ipc.ai.models(),
   });
-
   const saveKey = useMutation({
     mutationFn: () => ipc.ai.keySet(keyInput.trim()),
     onSuccess: () => {
@@ -63,6 +405,149 @@ export function SettingsPage() {
     onSuccess: setTest,
   });
 
+  const status = statusQuery.data;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound size={18} className="text-[var(--color-accent)]" />
+            AI — Anthropic
+          </CardTitle>
+          <CardDescription>
+            Nøkkelen lagres i systemets nøkkelring, aldri i klartekst.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[var(--color-fg-muted)]">Status:</span>
+            {status?.stored ? (
+              <Badge variant="success">Lagret i nøkkelring</Badge>
+            ) : status?.env ? (
+              <Badge variant="neutral">Fra miljøvariabel</Badge>
+            ) : (
+              <Badge variant="warning">Ingen nøkkel</Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Input
+              type="password"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder="sk-ant-…"
+            />
+            <Button
+              onClick={() => saveKey.mutate()}
+              disabled={keyInput.trim().length === 0 || saveKey.isPending}
+            >
+              Lagre
+            </Button>
+            {status?.stored && (
+              <Button
+                variant="outline"
+                size="icon"
+                title="Fjern lagret nøkkel"
+                onClick={() => clearKey.mutate()}
+                disabled={clearKey.isPending}
+              >
+                <Trash2 size={15} />
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-[var(--color-fg-muted)]">
+              Standardmodell
+            </label>
+            <Select
+              className="max-w-xs"
+              value={model}
+              onChange={(e) => {
+                setModel(e.target.value);
+                setPreferredModel(e.target.value);
+              }}
+            >
+              {(modelsQuery.data ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => testConn.mutate()}
+              disabled={testConn.isPending}
+            >
+              {testConn.isPending && (
+                <Loader2 size={14} className="animate-spin" />
+              )}
+              Test tilkobling
+            </Button>
+            {test && (
+              <span
+                className={
+                  test.ok
+                    ? "flex items-center gap-1 text-sm text-[var(--color-success)]"
+                    : "text-sm text-[var(--color-danger)]"
+                }
+              >
+                {test.ok && <Check size={14} />}
+                {test.message}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Personvern for AI</CardTitle>
+          <CardDescription>
+            AI-funksjoner er valgfrie og sender innhold til Anthropic.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[var(--color-fg-muted)]">Samtykke:</span>
+            {consent ? (
+              <Badge variant="success">Gitt</Badge>
+            ) : (
+              <Badge variant="neutral">Ikke gitt</Badge>
+            )}
+          </div>
+          {consent ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                revokeAiConsent();
+                setConsent(false);
+              }}
+            >
+              Trekk tilbake
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                grantAiConsent();
+                setConsent(true);
+              }}
+            >
+              Gi samtykke
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AdvancedSettings() {
+  const qc = useQueryClient();
   const crashStatus = useQuery({
     queryKey: ["crashStatus"],
     queryFn: () => ipc.crash.status(),
@@ -80,210 +565,48 @@ export function SettingsPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["crashCount"] }),
   });
 
-  const status = statusQuery.data;
-
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl px-8 py-10">
-        <header className="mb-8">
-          <h1 className="text-[var(--text-ui-3xl)] font-bold">Innstillinger</h1>
-        </header>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <KeyRound size={18} className="text-[var(--color-accent)]" />
-              AI — Anthropic
-            </CardTitle>
-            <CardDescription>
-              Nøkkelen lagres i systemets nøkkelring, aldri i klartekst.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-[var(--color-fg-muted)]">Status:</span>
-              {status?.stored ? (
-                <Badge variant="success">Lagret i nøkkelring</Badge>
-              ) : status?.env ? (
-                <Badge variant="neutral">Fra miljøvariabel</Badge>
-              ) : (
-                <Badge variant="warning">Ingen nøkkel</Badge>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Input
-                type="password"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="sk-ant-…"
-              />
-              <Button
-                onClick={() => saveKey.mutate()}
-                disabled={keyInput.trim().length === 0 || saveKey.isPending}
-              >
-                Lagre
-              </Button>
-              {status?.stored && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Fjern lagret nøkkel"
-                  onClick={() => clearKey.mutate()}
-                  disabled={clearKey.isPending}
-                >
-                  <Trash2 size={15} />
-                </Button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-[var(--color-fg-muted)]">
-                Standardmodell
-              </label>
-              <Select
-                className="max-w-xs"
-                value={model}
-                onChange={(e) => {
-                  setModel(e.target.value);
-                  setPreferredModel(e.target.value);
-                }}
-              >
-                {(modelsQuery.data ?? []).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.display}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => testConn.mutate()}
-                disabled={testConn.isPending}
-              >
-                {testConn.isPending && (
-                  <Loader2 size={14} className="animate-spin" />
-                )}
-                Test tilkobling
-              </Button>
-              {test && (
-                <span
-                  className={
-                    test.ok
-                      ? "flex items-center gap-1 text-sm text-[var(--color-success)]"
-                      : "text-sm text-[var(--color-danger)]"
-                  }
-                >
-                  {test.ok && <Check size={14} />}
-                  {test.message}
-                </span>
-              )}
-            </div>
-
-            <p className="text-xs text-[var(--color-fg-muted)]">
-              Bruksmåling per måned kommer i en senere versjon.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Personvern for AI</CardTitle>
-            <CardDescription>
-              AI-funksjoner er valgfrie og sender innhold til Anthropic.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-[var(--color-fg-muted)]">Samtykke:</span>
-              {consent ? (
-                <Badge variant="success">Gitt</Badge>
-              ) : (
-                <Badge variant="neutral">Ikke gitt</Badge>
-              )}
-            </div>
-            {consent ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  revokeAiConsent();
-                  setConsent(false);
-                }}
-              >
-                Trekk tilbake
-              </Button>
-            ) : (
-              <Button
-                onClick={() => {
-                  grantAiConsent();
-                  setConsent(true);
-                }}
-              >
-                Gi samtykke
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Feilrapportering</CardTitle>
-            <CardDescription>
-              Lagre krasj-rapporter lokalt på maskinen — ingenting sendes
-              automatisk. Av som standard.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-[var(--color-fg-muted)]">Status:</span>
-              {crashStatus.data ? (
-                <Badge variant="success">På</Badge>
-              ) : (
-                <Badge variant="neutral">Av</Badge>
-              )}
-              {(crashCount.data ?? 0) > 0 && (
-                <span className="text-xs text-[var(--color-fg-muted)]">
-                  {crashCount.data} rapport(er) lagret
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {(crashCount.data ?? 0) > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => clearCrashes.mutate()}
-                >
-                  Tøm
-                </Button>
-              )}
-              <Button
-                variant={crashStatus.data ? "outline" : "primary"}
-                size="sm"
-                onClick={() => setCrash.mutate(!crashStatus.data)}
-              >
-                {crashStatus.data ? "Slå av" : "Slå på"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Separator className="my-6" />
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Utseende</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--color-fg-muted)]">Tema</span>
-              <ThemeToggle />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Feilrapportering</CardTitle>
+        <CardDescription>
+          Lagre krasj-rapporter lokalt på maskinen — ingenting sendes
+          automatisk. Av som standard.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-[var(--color-fg-muted)]">Status:</span>
+          {crashStatus.data ? (
+            <Badge variant="success">På</Badge>
+          ) : (
+            <Badge variant="neutral">Av</Badge>
+          )}
+          {(crashCount.data ?? 0) > 0 && (
+            <span className="text-xs text-[var(--color-fg-muted)]">
+              {crashCount.data} rapport(er) lagret
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {(crashCount.data ?? 0) > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => clearCrashes.mutate()}
+            >
+              Tøm
+            </Button>
+          )}
+          <Button
+            variant={crashStatus.data ? "outline" : "primary"}
+            size="sm"
+            onClick={() => setCrash.mutate(!crashStatus.data)}
+          >
+            {crashStatus.data ? "Slå av" : "Slå på"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
