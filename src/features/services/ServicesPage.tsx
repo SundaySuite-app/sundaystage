@@ -1,16 +1,15 @@
 /**
  * Service / Queue editor — Phase 5.
  *
- * The "Kø" (queue) the operator goes live with. A service is an ordered list of
- * items (songs, scripture, gaps); going live compiles them into cues. This page
- * is where you build that queue: add songs, reorder, remove — and crucially see
- * *what each song contributes* (how many slides per section) before you're live,
- * via `service_cue_summary` (the same compilation the live engine runs).
- *
- * It also imports a plan from SundayPlan (a JSON file), and can hand the
- * selected service straight to the live console.
+ * The "Kø" (queue) the operator goes live with. A gudstjeneste is an ordered
+ * list of items (songs, scripture, gaps); going live compiles them into cues.
+ * This page builds that queue: add songs (with arrangement + key), reorder,
+ * remove — and shows *what each song contributes* (slides per section) before
+ * going live, via `service_cue_summary` (the same compilation the live engine
+ * runs). It also renames/dates/deletes the service and imports a plan from
+ * SundayPlan, and can hand the selected service straight to the live console.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -20,6 +19,7 @@ import {
   Play,
   Plus,
   Search,
+  StickyNote,
   Trash2,
   X,
 } from "lucide-react";
@@ -30,9 +30,10 @@ import type {
   SearchResult,
   Service,
   ServiceItemCues,
+  SongArrangement,
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 
 interface Props {
   library: Library;
@@ -174,10 +175,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
                         {svc.name}
                       </span>
                       <span className="block text-[11px] text-[var(--color-fg-muted)]">
-                        {new Date(Number(svc.starts_at)).toLocaleDateString(
-                          "no",
-                          { weekday: "short", day: "numeric", month: "short" },
-                        )}
+                        {formatDate(Number(svc.starts_at))}
                       </span>
                     </span>
                   </button>
@@ -194,6 +192,12 @@ export function ServicesPage({ library, onGoLive }: Props) {
             service={selected}
             library={library}
             onGoLive={onGoLive}
+            onChanged={() => servicesQuery.refetch()}
+            onDeleted={async () => {
+              setSelectedId(null);
+              await servicesQuery.refetch();
+              setToast("Gudstjeneste slettet");
+            }}
           />
         ) : (
           <div className="grid place-items-center text-sm text-[var(--color-fg-muted)]">
@@ -209,27 +213,50 @@ function QueueEditor({
   service,
   library,
   onGoLive,
+  onChanged,
+  onDeleted,
 }: {
   service: Service;
   library: Library;
   onGoLive?: (service: Service) => void;
+  onChanged: () => void;
+  onDeleted: () => void;
 }) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const summaryQuery = useQuery({
     queryKey: ["cueSummary", service.id],
     queryFn: () => ipc.service.cueSummary(service.id),
   });
+  const itemsQuery = useQuery({
+    queryKey: ["serviceItems", service.id],
+    queryFn: () => ipc.service.items(service.id),
+  });
   const summary = summaryQuery.data;
   const items = summary?.items ?? [];
 
+  // Map service_item_id → key override, to show the key on each row.
+  const keyById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const it of itemsQuery.data ?? [])
+      if (it.key_override) m.set(it.id, it.key_override);
+    return m;
+  }, [itemsQuery.data]);
+
   function refresh() {
-    return qc.invalidateQueries({ queryKey: ["cueSummary", service.id] });
+    void qc.invalidateQueries({ queryKey: ["cueSummary", service.id] });
+    void qc.invalidateQueries({ queryKey: ["serviceItems", service.id] });
   }
 
   const addSong = useMutation({
-    mutationFn: (songId: string) => ipc.service.addSong(service.id, songId),
+    mutationFn: (a: {
+      songId: string;
+      arrangementId: string | null;
+      key: string | null;
+    }) => ipc.service.addSong(service.id, a.songId, a.arrangementId, a.key),
     onSuccess: () => refresh(),
   });
   const removeItem = useMutation({
@@ -240,6 +267,22 @@ function QueueEditor({
     mutationFn: (orderedIds: string[]) =>
       ipc.service.reorderItems(service.id, orderedIds),
     onSuccess: () => refresh(),
+  });
+  const rename = useMutation({
+    mutationFn: (name: string) => ipc.service.rename(service.id, name),
+    onSuccess: () => onChanged(),
+  });
+  const setDate = useMutation({
+    mutationFn: (ms: number) => ipc.service.setStartsAt(service.id, ms),
+    onSuccess: () => onChanged(),
+  });
+  const setNotes = useMutation({
+    mutationFn: (notes: string) => ipc.service.setNotes(service.id, notes),
+    onSuccess: () => onChanged(),
+  });
+  const del = useMutation({
+    mutationFn: () => ipc.service.delete(service.id),
+    onSuccess: () => onDeleted(),
   });
 
   function move(index: number, dir: -1 | 1) {
@@ -253,16 +296,49 @@ function QueueEditor({
   return (
     <section className="flex min-h-0 flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-3">
-        <div className="min-w-0">
-          <h2 className="truncate font-semibold">{service.name}</h2>
-          <p className="text-xs text-[var(--color-fg-muted)]">
-            {summary
-              ? `${items.length} element${items.length === 1 ? "" : "er"} · ${summary.total_cues} cues i køen`
-              : "Laster kø…"}
-          </p>
+      <div className="flex items-start gap-3 border-b border-[var(--color-border)] px-6 py-3">
+        <div className="min-w-0 flex-1">
+          <EditableName
+            value={service.name}
+            onCommit={(name) => name !== service.name && rename.mutate(name)}
+          />
+          <div className="mt-1 flex items-center gap-3 text-xs text-[var(--color-fg-muted)]">
+            <input
+              type="date"
+              value={toDateInput(Number(service.starts_at))}
+              onChange={(e) => {
+                const ms = fromDateInput(e.target.value);
+                if (ms != null) setDate.mutate(ms);
+              }}
+              className="rounded border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
+            />
+            <span>
+              {summary
+                ? `${items.length} element${items.length === 1 ? "" : "er"} · ${summary.total_cues} cues i køen`
+                : "Laster kø…"}
+            </span>
+          </div>
         </div>
-        <div className="flex-1" />
+
+        <button
+          type="button"
+          onClick={() => setNotesOpen((v) => !v)}
+          title="Notater"
+          className={cn(
+            "rounded-md p-2 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]",
+            notesOpen && "bg-[var(--color-bg-surface)] text-[var(--color-fg)]",
+          )}
+        >
+          <StickyNote size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          title="Slett gudstjeneste"
+          className="rounded-md p-2 text-[var(--color-fg-muted)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+        >
+          <Trash2 size={16} />
+        </button>
         <Button
           size="sm"
           variant="outline"
@@ -289,10 +365,24 @@ function QueueEditor({
         )}
       </div>
 
+      {notesOpen && (
+        <NotesEditor
+          initial={service.notes ?? ""}
+          onSave={(n) => {
+            setNotes.mutate(n);
+            setNotesOpen(false);
+          }}
+          onClose={() => setNotesOpen(false)}
+        />
+      )}
+
       {adding && (
         <AddSongPanel
           library={library}
-          onAdd={(songId) => addSong.mutate(songId)}
+          onAdd={(songId, arrangementId, key) => {
+            addSong.mutate({ songId, arrangementId, key });
+            setAdding(false);
+          }}
           onClose={() => setAdding(false)}
         />
       )}
@@ -326,6 +416,7 @@ function QueueEditor({
                 index={i}
                 count={items.length}
                 item={item}
+                keyOverride={keyById.get(item.service_item_id) ?? null}
                 onUp={() => move(i, -1)}
                 onDown={() => move(i, 1)}
                 onRemove={() => removeItem.mutate(item.service_item_id)}
@@ -334,6 +425,19 @@ function QueueEditor({
           </ol>
         )}
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Slette denne gudstjenesten?"
+          body={`«${service.name}» fjernes fra listen. Sangene i biblioteket beholdes.`}
+          confirmLabel="Slett"
+          onConfirm={() => {
+            setConfirmDelete(false);
+            del.mutate();
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </section>
   );
 }
@@ -351,6 +455,7 @@ function QueueItemRow({
   index,
   count,
   item,
+  keyOverride,
   onUp,
   onDown,
   onRemove,
@@ -358,17 +463,16 @@ function QueueItemRow({
   index: number;
   count: number;
   item: ServiceItemCues;
+  keyOverride: string | null;
   onUp: () => void;
   onDown: () => void;
   onRemove: () => void;
 }) {
   return (
     <li className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
-      <div className="flex w-6 shrink-0 flex-col items-center pt-0.5">
-        <span className="font-mono text-xs tabular-nums text-[var(--color-fg-muted)]">
-          {index + 1}
-        </span>
-      </div>
+      <span className="w-6 shrink-0 pt-0.5 text-center font-mono text-xs tabular-nums text-[var(--color-fg-muted)]">
+        {index + 1}
+      </span>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -376,6 +480,11 @@ function QueueItemRow({
             {KIND_LABEL[item.kind] ?? item.kind}
           </span>
           <span className="truncate font-medium">{item.title}</span>
+          {keyOverride && (
+            <span className="rounded bg-[var(--color-accent)]/15 px-1.5 py-0.5 font-mono text-[11px] text-[var(--color-accent-fg)]">
+              {keyOverride}
+            </span>
+          )}
           <span className="ml-auto shrink-0 text-xs text-[var(--color-fg-muted)]">
             {item.cue_count} {item.cue_count === 1 ? "lysbilde" : "lysbilder"}
           </span>
@@ -428,26 +537,111 @@ function QueueItemRow({
   );
 }
 
+/** Click-to-edit service name; commits on blur or Enter, reverts on Escape. */
+function EditableName({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        title="Klikk for å gi nytt navn"
+        className="max-w-full truncate rounded px-1 text-left font-semibold hover:bg-[var(--color-bg-surface)]"
+      >
+        {value}
+      </button>
+    );
+  }
+  return (
+    <input
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        if (draft.trim()) onCommit(draft.trim());
+        else setDraft(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          setDraft(value);
+          setEditing(false);
+        }
+      }}
+      className="w-full rounded border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-1 font-semibold focus:border-[var(--color-accent)] focus:outline-none"
+    />
+  );
+}
+
+function NotesEditor({
+  initial,
+  onSave,
+  onClose,
+}: {
+  initial: string;
+  onSave: (notes: string) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+  return (
+    <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
+      <textarea
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={3}
+        placeholder="Notater for denne gudstjenesten (vises i live-konsollen)…"
+        className="w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+      />
+      <div className="mt-2 flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Avbryt
+        </Button>
+        <Button size="sm" onClick={() => onSave(draft)}>
+          Lagre notater
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AddSongPanel({
   library,
   onAdd,
   onClose,
 }: {
   library: Library;
-  onAdd: (songId: string) => void;
+  onAdd: (
+    songId: string,
+    arrangementId: string | null,
+    key: string | null,
+  ) => void;
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<{ id: string; title: string } | null>(
+    null,
+  );
   const searching = q.trim().length > 1;
   const searchQuery = useQuery({
     queryKey: ["songs", library.id, "search", q],
     queryFn: () => ipc.song.search(library.id, q, 50),
-    enabled: searching,
+    enabled: searching && !picked,
   });
   const listQuery = useQuery({
     queryKey: ["songs", library.id],
     queryFn: () => ipc.song.list(library.id, 10000),
-    enabled: !searching,
+    enabled: !searching && !picked,
   });
 
   const rows: Array<{ id: string; title: string; snippet?: string }> = searching
@@ -457,6 +651,16 @@ function AddSongPanel({
         snippet: r.snippet,
       }))
     : (listQuery.data ?? []).map((s) => ({ id: s.id, title: s.title }));
+
+  if (picked) {
+    return (
+      <SongConfig
+        song={picked}
+        onBack={() => setPicked(null)}
+        onAdd={(arrId, key) => onAdd(picked.id, arrId, key)}
+      />
+    );
+  }
 
   return (
     <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
@@ -496,7 +700,7 @@ function AddSongPanel({
             <li key={row.id}>
               <button
                 type="button"
-                onClick={() => onAdd(row.id)}
+                onClick={() => setPicked({ id: row.id, title: row.title })}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-[var(--color-bg-surface)]"
               >
                 <Plus
@@ -519,4 +723,146 @@ function AddSongPanel({
       </ul>
     </div>
   );
+}
+
+/** Step 2 of add-song: choose arrangement + key before it enters the queue. */
+function SongConfig({
+  song,
+  onAdd,
+  onBack,
+}: {
+  song: { id: string; title: string };
+  onAdd: (arrangementId: string | null, key: string | null) => void;
+  onBack: () => void;
+}) {
+  const [arrangementId, setArrangementId] = useState<string>("");
+  const [key, setKey] = useState("");
+
+  const arrangementsQuery = useQuery({
+    queryKey: ["arrangements", song.id],
+    queryFn: () => ipc.arrangement.list(song.id),
+  });
+  const arrangements: SongArrangement[] = arrangementsQuery.data ?? [];
+
+  return (
+    <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+          title="Tilbake til søk"
+        >
+          <ArrowUp size={14} className="-rotate-90" />
+        </button>
+        <span className="truncate font-medium">{song.title}</span>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-[var(--color-fg-muted)]">
+          <span className="mb-1 block">Arrangement</span>
+          <Select
+            className="w-48"
+            value={arrangementId}
+            onChange={(e) => setArrangementId(e.target.value)}
+          >
+            <option value="">Standard (alle seksjoner)</option>
+            {arrangements.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+                {a.is_default ? " ★" : ""}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="text-xs text-[var(--color-fg-muted)]">
+          <span className="mb-1 block">Toneart (valgfri)</span>
+          <input
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="f.eks. G"
+            className="w-24 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+          />
+        </label>
+        <Button
+          className="ml-auto"
+          onClick={() =>
+            onAdd(arrangementId || null, key.trim() ? key.trim() : null)
+          }
+        >
+          <Plus size={14} aria-hidden />
+          Legg til i kø
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center">
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onCancel}
+        aria-hidden
+      />
+      <div className="relative w-[min(90vw,420px)] rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-5 shadow-[var(--shadow-elevated)]">
+        <h2 className="font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{body}</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel}>
+            Avbryt
+          </Button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-md bg-[var(--color-danger)] px-4 py-1.5 text-sm font-semibold text-white hover:brightness-110"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatDate(ms: number): string {
+  return new Date(ms).toLocaleDateString("no", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** millis → yyyy-mm-dd in local time, for <input type="date">. */
+function toDateInput(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** yyyy-mm-dd → millis at local noon (avoids timezone day-shift). */
+function fromDateInput(v: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return null;
+  return new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    12,
+    0,
+  ).getTime();
 }
