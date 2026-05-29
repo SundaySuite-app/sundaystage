@@ -103,6 +103,40 @@ impl CueList {
     }
 }
 
+/// A planning-time breakdown of what each service item contributes to the
+/// queue. Produced by [`CueCompiler::summarize`] from the *same* per-item
+/// compilation the live engine runs, so the numbers shown while planning match
+/// the cues that actually play. Drives the "what goes into the queue for which
+/// song" view in the service/queue editor.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/CueSummary.ts")]
+pub struct CueSummary {
+    pub service_id: String,
+    pub total_cues: u32,
+    pub items: Vec<ServiceItemCues>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/ServiceItemCues.ts")]
+pub struct ServiceItemCues {
+    pub service_item_id: String,
+    /// Schema kind: "song" | "scripture" | "custom_deck" | "gap" | …
+    pub kind: String,
+    /// Human title: song title, scripture reference, deck name, or the
+    /// humanized kind for placeholders.
+    pub title: String,
+    pub cue_count: u32,
+    /// Slide count per section in play order (e.g. Verse 1 → 2, Chorus → 1).
+    pub sections: Vec<SectionCueCount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/SectionCueCount.ts")]
+pub struct SectionCueCount {
+    pub label: String,
+    pub slide_count: u32,
+}
+
 /// Lines-per-slide budget — defaults are conservative; user can override
 /// in song-section settings. AI auto-break in Phase 4 produces a better
 /// breakdown than this naïve splitter.
@@ -127,37 +161,105 @@ impl<'a> CueCompiler<'a> {
         let mut cues: Vec<Cue> = Vec::with_capacity(items.len() * 4);
 
         for item in &items {
-            match item.kind.as_str() {
-                "song" => self.compile_song_item(&service, item, &mut cues).await?,
-                "scripture" => {
-                    self.compile_scripture_item(&service, item, &mut cues)
-                        .await?
-                }
-                "custom_deck" => {
-                    self.compile_custom_deck_item(&service, item, &mut cues)
-                        .await?
-                }
-                "announcement" | "video" | "gap" => {
-                    // Phase placeholders — we'll surface these as Pause
-                    // cues so the operator can advance manually.
-                    cues.push(Cue::Pause {
-                        cue_id: format!("svc:{}:item:{}:pause", service.id, item.id),
-                        label: format!("{} — {}", item.kind, item.id),
-                    });
-                }
-                other => {
-                    return Err(AppError::Internal(format!(
-                        "unknown service_item.kind '{}' for item {}",
-                        other, item.id
-                    )));
-                }
-            }
+            self.compile_item(&service, item, &mut cues).await?;
         }
 
         Ok(CueList {
             service_id: service.id.clone(),
             compiled_at: crate::db::now_ms(),
             cues,
+        })
+    }
+
+    /// Compile a single service item, appending its cues. The single source of
+    /// truth for "what one item becomes" — both [`compile`](Self::compile) and
+    /// [`summarize`](Self::summarize) go through here so the planning preview
+    /// can never drift from what actually plays.
+    async fn compile_item(
+        &self,
+        service: &Service,
+        item: &ServiceItem,
+        cues: &mut Vec<Cue>,
+    ) -> AppResult<()> {
+        match item.kind.as_str() {
+            "song" => self.compile_song_item(service, item, cues).await,
+            "scripture" => self.compile_scripture_item(service, item, cues).await,
+            "custom_deck" => self.compile_custom_deck_item(service, item, cues).await,
+            "announcement" | "video" | "gap" => {
+                // Phase placeholders — surfaced as a Pause cue so the operator
+                // advances manually. Label from the item's note when present.
+                cues.push(Cue::Pause {
+                    cue_id: format!("svc:{}:item:{}:pause", service.id, item.id),
+                    label: item
+                        .notes
+                        .clone()
+                        .filter(|n| !n.trim().is_empty())
+                        .unwrap_or_else(|| humanize_section_label(&item.kind)),
+                });
+                Ok(())
+            }
+            other => Err(AppError::Internal(format!(
+                "unknown service_item.kind '{}' for item {}",
+                other, item.id
+            ))),
+        }
+    }
+
+    /// Per-item / per-section cue breakdown for the queue editor. Compiles each
+    /// item exactly as [`compile`](Self::compile) would, then groups the
+    /// resulting cues so the operator sees how many slides each song/section
+    /// produces before going live.
+    pub async fn summarize(&self, service_id: &str) -> AppResult<CueSummary> {
+        let svc_repo = ServiceRepo::new(self.pool);
+        let service = svc_repo.get(service_id).await?;
+        let items = svc_repo.items(&service.id).await?;
+
+        let mut all: Vec<Cue> = Vec::new();
+        let mut out_items = Vec::with_capacity(items.len());
+        for item in &items {
+            let before = all.len();
+            self.compile_item(&service, item, &mut all).await?;
+            let slice = &all[before..];
+            out_items.push(ServiceItemCues {
+                service_item_id: item.id.clone(),
+                kind: item.kind.clone(),
+                title: self.item_title(item, slice).await?,
+                cue_count: slice.len() as u32,
+                sections: group_sections(slice),
+            });
+        }
+
+        Ok(CueSummary {
+            service_id: service.id.clone(),
+            total_cues: all.len() as u32,
+            items: out_items,
+        })
+    }
+
+    /// Resolve a human title for a service item, reusing its compiled cues
+    /// where that's the cheapest source (e.g. the scripture reference).
+    async fn item_title(&self, item: &ServiceItem, cues: &[Cue]) -> AppResult<String> {
+        Ok(match item.kind.as_str() {
+            "song" => match &item.song_id {
+                Some(id) => SongRepo::new(self.pool)
+                    .get(id)
+                    .await
+                    .map(|s| s.title)
+                    .unwrap_or_else(|_| "Sang".into()),
+                None => "Sang".into(),
+            },
+            "scripture" => first_reference(cues).unwrap_or_else(|| "Skrift".into()),
+            "custom_deck" => match &item.custom_deck_id {
+                Some(id) => {
+                    sqlx::query_scalar::<_, String>("SELECT name FROM custom_deck WHERE id = ?1")
+                        .bind(id)
+                        .fetch_optional(self.pool)
+                        .await?
+                        .unwrap_or_else(|| "Lysbilder".into())
+                }
+                None => "Lysbilder".into(),
+            },
+            other => humanize_section_label(other),
         })
     }
 
@@ -384,6 +486,41 @@ pub(crate) fn extract_text_lines_from_content(content: &str) -> Option<Vec<Strin
     } else {
         Some(out)
     }
+}
+
+/// Collapse a run of cues into per-section slide counts, in play order. A
+/// section label comes from the slide's `section_label`, falling back to its
+/// `reference` (scripture) or a label for non-slide cues.
+fn group_sections(cues: &[Cue]) -> Vec<SectionCueCount> {
+    let mut out: Vec<SectionCueCount> = Vec::new();
+    for cue in cues {
+        let label = match cue {
+            Cue::ShowSlide { slide_content, .. } => slide_content
+                .section_label
+                .clone()
+                .or_else(|| slide_content.reference.clone())
+                .unwrap_or_else(|| "—".into()),
+            Cue::Pause { label, .. } => label.clone(),
+            Cue::BlackOut { .. } => "Blackout".into(),
+            Cue::ShowLogo { .. } => "Logo".into(),
+        };
+        match out.last_mut() {
+            Some(last) if last.label == label => last.slide_count += 1,
+            _ => out.push(SectionCueCount {
+                label,
+                slide_count: 1,
+            }),
+        }
+    }
+    out
+}
+
+/// The first slide reference in a run of cues (used to title scripture items).
+fn first_reference(cues: &[Cue]) -> Option<String> {
+    cues.iter().find_map(|c| match c {
+        Cue::ShowSlide { slide_content, .. } => slide_content.reference.clone(),
+        _ => None,
+    })
 }
 
 #[cfg(test)]
@@ -636,6 +773,37 @@ mod tests {
             }
             _ => panic!("expected ShowSlide"),
         }
+    }
+
+    #[tokio::test]
+    async fn summarize_groups_cues_per_item_and_section() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib_id, "Test service", now_ms())
+            .await
+            .unwrap();
+        ServiceRepo::new(&db.pool)
+            .add_item(&svc.id, 0, "song", Some(&song_id), None, None, None, None)
+            .await
+            .unwrap();
+
+        let summary = CueCompiler::new(&db.pool).summarize(&svc.id).await.unwrap();
+        // verse_1 (4 lines → 1 slide) + chorus (2 → 1) = 2 cues for the one song.
+        assert_eq!(summary.total_cues, 2);
+        assert_eq!(summary.items.len(), 1);
+        let item = &summary.items[0];
+        assert_eq!(item.kind, "song");
+        assert_eq!(item.title, "Amazing Grace");
+        assert_eq!(item.cue_count, 2);
+        assert_eq!(
+            item.sections
+                .iter()
+                .map(|s| (s.label.as_str(), s.slide_count))
+                .collect::<Vec<_>>(),
+            vec![("Verse 1", 1), ("Chorus", 1)],
+        );
     }
 
     #[tokio::test]

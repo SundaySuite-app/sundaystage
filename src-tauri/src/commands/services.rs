@@ -5,6 +5,7 @@ use tauri::State;
 use crate::db::models::{Service, ServiceItem};
 use crate::db::repositories::ServiceRepo;
 use crate::error::AppResult;
+use crate::services::cue_list::{CueCompiler, CueSummary};
 use crate::AppState;
 
 #[tauri::command]
@@ -91,5 +92,17 @@ pub async fn service_reorder_items(
 ) -> AppResult<Vec<ServiceItem>> {
     ServiceRepo::new(&state.db.pool)
         .reorder_items(&service_id, &ordered_ids)
+        .await
+}
+
+/// Per-item / per-section breakdown of the cues this service will produce —
+/// powers the queue editor's "what goes into the queue" view.
+#[tauri::command]
+pub async fn service_cue_summary(
+    state: State<'_, AppState>,
+    service_id: String,
+) -> AppResult<CueSummary> {
+    CueCompiler::new(&state.db.pool)
+        .summarize(&service_id)
         .await
 }

@@ -25,6 +25,7 @@ import type {
   ChapterMarker,
   ClaudeModel,
   CueList,
+  CueSummary,
   CustomDeck,
   DemoSummary,
   FormattedSong,
@@ -173,6 +174,8 @@ export const service = {
   removeItem: (itemId: string) => call<void>("service_remove_item", { itemId }),
   reorderItems: (serviceId: string, orderedIds: string[]) =>
     call<ServiceItem[]>("service_reorder_items", { serviceId, orderedIds }),
+  cueSummary: (serviceId: string) =>
+    call<CueSummary>("service_cue_summary", { serviceId }),
 };
 
 // ── Live engine ──────────────────────────────────────────────────────────────
