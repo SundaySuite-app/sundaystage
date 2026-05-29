@@ -1,6 +1,6 @@
 [package]
 name = "sundaystage"
-version = "0.1.1"
+version = "0.1.2"
 description = "Live presentation app for churches — companion to SundayRec"
 authors = ["Richard Fossland"]
 edition = "2021"
