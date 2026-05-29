@@ -6,7 +6,7 @@
  * calm corner card with Next/Skip that survives layout changes — so it never
  * points at the wrong thing.
  */
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   Library,
   Pencil,
@@ -17,42 +17,24 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui";
+import { useT, type TKey } from "@/lib/i18n";
 
 interface Step {
   icon: LucideIcon;
-  title: string;
-  body: ReactNode;
+  titleKey: TKey;
+  bodyKey: TKey;
 }
 
 const STEPS: Step[] = [
-  {
-    icon: Library,
-    title: "Sangbiblioteket",
-    body: "Alle sangene dine bor her. Søk i tekstlinjer, filtrer på språk eller lisens, og se forhåndsvisning til høyre. Vi har lagt inn et lite startbibliotek du kan leke med.",
-  },
-  {
-    icon: Pencil,
-    title: "Rediger en sang",
-    body: "Dobbeltklikk en sang for å åpne editoren — del opp i vers/refreng og bygg arrangementer. Lysbildene genereres automatisk fra seksjonene.",
-  },
-  {
-    icon: Sparkles,
-    title: "La AI gjøre det kjedelige",
-    body: "Lim inn rå lyrikk og trykk «Formater» — AI strukturerer vers, refreng og arrangement. Uten API-nøkkel formateres det lokalt. Legg inn nøkkel under Innstillinger.",
-  },
-  {
-    icon: Play,
-    title: "Gå live",
-    body: "Trykk «Gå live» nede til venstre. Cue-listen kjøres med piltastene; Esc = blackout, L = logo. Koble til en projektor under «Skjermer».",
-  },
-  {
-    icon: CommandIcon,
-    title: "Søk overalt med ⌘K",
-    body: "Trykk ⌘K hvor som helst for å hoppe mellom sider eller søke på tvers av sanger, bibelvers og tjenester.",
-  },
+  { icon: Library, titleKey: "tutLibraryTitle", bodyKey: "tutLibraryBody" },
+  { icon: Pencil, titleKey: "tutEditTitle", bodyKey: "tutEditBody" },
+  { icon: Sparkles, titleKey: "tutAiTitle", bodyKey: "tutAiBody" },
+  { icon: Play, titleKey: "tutLiveTitle", bodyKey: "tutLiveBody" },
+  { icon: CommandIcon, titleKey: "tutSearchTitle", bodyKey: "tutSearchBody" },
 ];
 
 export function TutorialOverlay({ onDone }: { onDone: () => void }) {
+  const t = useT();
   const [step, setStep] = useState(0);
   const s = STEPS[step];
   const Icon = s.icon;
@@ -64,10 +46,10 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--color-accent)]/15 text-[var(--color-accent)]">
           <Icon size={16} />
         </div>
-        <h2 className="font-semibold">{s.title}</h2>
+        <h2 className="font-semibold">{t(s.titleKey)}</h2>
       </div>
       <p className="text-sm leading-relaxed text-[var(--color-fg-muted)]">
-        {s.body}
+        {t(s.bodyKey)}
       </p>
 
       <div className="mt-4 flex items-center justify-between">
@@ -89,13 +71,13 @@ export function TutorialOverlay({ onDone }: { onDone: () => void }) {
             onClick={onDone}
             className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
           >
-            Hopp over
+            {t("actionSkip")}
           </button>
           <Button
             size="sm"
             onClick={() => (last ? onDone() : setStep((n) => n + 1))}
           >
-            {last ? "Ferdig" : "Neste"}
+            {last ? t("actionDone") : t("actionNext")}
           </Button>
         </div>
       </div>

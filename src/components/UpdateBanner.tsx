@@ -9,8 +9,10 @@ import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 
 import { checkForUpdate, installAndRelaunch, type Update } from "@/lib/updater";
+import { useT } from "@/lib/i18n";
 
 export function UpdateBanner() {
+  const t = useT();
   const [update, setUpdate] = useState<Update | null>(null);
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -28,16 +30,16 @@ export function UpdateBanner() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">
-            Ny versjon tilgjengelig
+            {t("updateAvailable")}
             {update.version ? ` (${update.version})` : ""}
           </p>
           <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-            Last ned og start på nytt for å oppdatere SundayStage.
+            {t("updateBody")}
           </p>
         </div>
         <button
           type="button"
-          aria-label="Lukk"
+          aria-label={t("actionClose")}
           onClick={() => setDismissed(true)}
           className="rounded-md p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
@@ -55,7 +57,7 @@ export function UpdateBanner() {
           className="flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-bold text-[var(--color-accent-fg)] hover:brightness-110 disabled:opacity-60"
         >
           <Download size={14} />
-          {busy ? "Oppdaterer…" : "Last ned og start på nytt"}
+          {busy ? t("updateInProgress") : t("updateDownload")}
         </button>
       </div>
     </div>

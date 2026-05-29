@@ -6,6 +6,7 @@
  */
 import { Dialog } from "@/components/ui";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   open: boolean;
@@ -14,38 +15,29 @@ interface Props {
 }
 
 export function ConsentDialog({ open, onAccept, onClose }: Props) {
+  const t = useT();
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title="Bruke AI-funksjoner?"
-      description="AI-funksjoner sender innhold til Anthropic (Claude) for behandling."
+      title={t("consentTitle")}
+      description={t("consentDescription")}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Avbryt
+            {t("actionCancel")}
           </Button>
-          <Button onClick={onAccept}>Godta og fortsett</Button>
+          <Button onClick={onAccept}>{t("consentAccept")}</Button>
         </>
       }
     >
       <div className="space-y-3 text-sm text-[var(--color-fg-muted)]">
-        <p>Når du bruker en AI-funksjon, sendes følgende til Anthropic:</p>
+        <p>{t("consentIntro")}</p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>
-            teksten du ber om å få behandlet (f.eks. limt-inn lyrikk eller en
-            planleggings-beskrivelse)
-          </li>
-          <li>
-            ingen sanger, tjenester eller medier utover det den enkelte
-            handlingen trenger
-          </li>
+          <li>{t("consentBullet1")}</li>
+          <li>{t("consentBullet2")}</li>
         </ul>
-        <p>
-          API-nøkkelen din lagres i systemets nøkkelring, aldri i klartekst.
-          Funksjoner med lokal fallback (som lyrikkformatering) virker uten AI.
-          Du kan trekke samtykket tilbake i Innstillinger.
-        </p>
+        <p>{t("consentNote")}</p>
       </div>
     </Dialog>
   );

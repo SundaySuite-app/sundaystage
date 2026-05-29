@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
+import { useT } from "@/lib/i18n";
 import type { Route } from "./Sidebar";
 
 interface CommandPaletteProps {
@@ -37,6 +38,7 @@ const KIND_ROUTE: Record<string, Route> = {
 };
 
 export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
 
@@ -79,7 +81,7 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
     <Command.Dialog
       open
       onOpenChange={(o) => (o ? setOpen(true) : close())}
-      label="Kommandopalett"
+      label={t("cmdPaletteLabel")}
       shouldFilter={!searching}
       className="fixed inset-0 z-50 grid place-items-start pt-[12vh]"
     >
@@ -94,7 +96,7 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
           autoFocus
           value={q}
           onValueChange={setQ}
-          placeholder="Søk etter sanger, bibelvers, tjenester — eller skriv en kommando…"
+          placeholder={t("cmdSearchPlaceholder")}
           className="w-full border-b border-[var(--color-border)] bg-transparent px-4 py-3 text-[var(--text-ui-md)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none"
         />
         <Command.List className="max-h-[60vh] overflow-y-auto p-2">
@@ -102,16 +104,16 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
             <>
               {results.isLoading && (
                 <div className="px-3 py-6 text-center text-sm text-[var(--color-fg-muted)]">
-                  Søker…
+                  {t("cmdSearching")}
                 </div>
               )}
               {!results.isLoading && hits.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-[var(--color-fg-muted)]">
-                  Ingen treff på «{q}».
+                  {t("cmdNoHits", { q })}
                 </div>
               )}
               {songs.length > 0 && (
-                <Group heading="Sanger">
+                <Group heading={t("groupSongs")}>
                   {songs.map((h) => (
                     <ResultItem
                       key={h.id}
@@ -124,7 +126,7 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
                 </Group>
               )}
               {bible.length > 0 && (
-                <Group heading="Bibel">
+                <Group heading={t("groupBible")}>
                   {bible.map((h) => (
                     <ResultItem
                       key={h.id}
@@ -137,7 +139,7 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
                 </Group>
               )}
               {services.length > 0 && (
-                <Group heading="Tjenester">
+                <Group heading={t("groupServices")}>
                   {services.map((h) => (
                     <ResultItem
                       key={h.id}
@@ -152,66 +154,66 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
             </>
           ) : (
             <>
-              <Group heading="Naviger">
+              <Group heading={t("cmdGroupNavigate")}>
                 <Item
                   onSelect={() => go("library")}
                   icon={<Library size={14} />}
-                  label="Sangbibliotek"
+                  label={t("cmdSongLibrary")}
                 />
                 <Item
                   onSelect={() => go("decks")}
                   icon={<LayoutTemplate size={14} />}
-                  label="Decks"
+                  label={t("navDecks")}
                 />
                 <Item
                   onSelect={() => go("services")}
                   icon={<CalendarDays size={14} />}
-                  label="Tjenester"
+                  label={t("navServices")}
                 />
                 <Item
                   onSelect={() => go("bible")}
                   icon={<BookOpen size={14} />}
-                  label="Bibel"
+                  label={t("navBible")}
                 />
                 <Item
                   onSelect={() => go("media")}
                   icon={<ImageIcon size={14} />}
-                  label="Media"
+                  label={t("navMedia")}
                 />
                 <Item
                   onSelect={() => go("settings")}
                   icon={<Settings size={14} />}
-                  label="Innstillinger"
+                  label={t("navSettings")}
                 />
               </Group>
 
-              <Group heading="Handlinger">
+              <Group heading={t("cmdGroupActions")}>
                 <Item
                   onSelect={() => {}}
                   icon={<Plus size={14} />}
-                  label="Ny sang…"
+                  label={t("cmdNewSong")}
                   shortcut="N"
                 />
                 <Item
                   onSelect={() => {}}
                   icon={<Plus size={14} />}
-                  label="Ny tjeneste…"
+                  label={t("cmdNewService")}
                   shortcut="⌘N"
                 />
                 <Item
                   onSelect={() => {}}
                   icon={<Play size={14} fill="currentColor" />}
-                  label="Gå live"
+                  label={t("goLive")}
                   shortcut="⌘L"
                 />
               </Group>
 
               {import.meta.env.DEV && (
-                <Group heading="Utvikler">
+                <Group heading={t("cmdGroupDeveloper")}>
                   <Item
                     onSelect={() => go("design")}
                     icon={<Palette size={14} />}
-                    label="Designsystem"
+                    label={t("cmdDesignSystem")}
                   />
                 </Group>
               )}
