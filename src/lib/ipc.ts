@@ -156,6 +156,23 @@ export const service = {
     call<Service[]>("service_upcoming", { libraryId, from, limit }),
   items: (serviceId: string) =>
     call<ServiceItem[]>("service_items", { serviceId }),
+  rename: (id: string, name: string) =>
+    call<Service>("service_rename", { id, name }),
+  addSong: (
+    serviceId: string,
+    songId: string,
+    arrangementId: string | null = null,
+    keyOverride: string | null = null,
+  ) =>
+    call<ServiceItem>("service_add_song", {
+      serviceId,
+      songId,
+      arrangementId,
+      keyOverride,
+    }),
+  removeItem: (itemId: string) => call<void>("service_remove_item", { itemId }),
+  reorderItems: (serviceId: string, orderedIds: string[]) =>
+    call<ServiceItem[]>("service_reorder_items", { serviceId, orderedIds }),
 };
 
 // ── Live engine ──────────────────────────────────────────────────────────────

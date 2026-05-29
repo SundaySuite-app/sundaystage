@@ -160,6 +160,10 @@ pub fn run() {
             commands::services::service_get,
             commands::services::service_upcoming,
             commands::services::service_items,
+            commands::services::service_rename,
+            commands::services::service_add_song,
+            commands::services::service_remove_item,
+            commands::services::service_reorder_items,
             // Live engine
             commands::live::live_compile_cue_list,
             commands::live::live_start,
