@@ -10,11 +10,15 @@ use tauri::{AppHandle, State};
 
 use crate::error::{AppError, AppResult};
 use crate::output::window;
-use crate::services::display::{self, MonitorInfo, OutputConfig};
+use crate::services::display::{self, MonitorInfo, OutputAppearance, OutputConfig};
 use crate::AppState;
 
 fn config_path(state: &AppState) -> PathBuf {
     state.data_dir.join("output_config.json")
+}
+
+fn appearance_path(state: &AppState) -> PathBuf {
+    state.data_dir.join("output_appearance.json")
 }
 
 fn load_config(state: &AppState) -> OutputConfig {
@@ -82,4 +86,28 @@ pub fn output_close(app: AppHandle) {
 #[tauri::command]
 pub fn output_is_open(app: AppHandle) -> bool {
     window::outputs_open(&app)
+}
+
+/// The saved congregation-output appearance (or defaults on a fresh machine).
+#[tauri::command]
+pub fn output_appearance(state: State<'_, AppState>) -> OutputAppearance {
+    std::fs::read_to_string(appearance_path(&state))
+        .ok()
+        .and_then(|s| serde_json::from_str::<OutputAppearance>(&s).ok())
+        .unwrap_or_default()
+        .sanitized()
+}
+
+/// Persist the output appearance. The output windows pick this up live by
+/// listening for the `ss://appearance` event the operator UI emits on save.
+#[tauri::command]
+pub fn output_set_appearance(
+    state: State<'_, AppState>,
+    appearance: OutputAppearance,
+) -> AppResult<OutputAppearance> {
+    let clean = appearance.sanitized();
+    let s =
+        serde_json::to_string_pretty(&clean).map_err(|e| AppError::Validation(e.to_string()))?;
+    std::fs::write(appearance_path(&state), s).map_err(|e| AppError::Validation(e.to_string()))?;
+    Ok(clean)
 }

@@ -16,6 +16,61 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::services::slide_doc::HAlign;
+
+/// How the congregation output renders slides — independent of *which* screen
+/// shows them (that's [`OutputConfig`]). Persisted per machine; the output
+/// windows read it on open and update live when it changes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/OutputAppearance.ts")]
+pub struct OutputAppearance {
+    /// Multiplier on the base slide font size. 1.0 = default.
+    pub text_scale: f32,
+    /// Lyric/text colour (hex, e.g. "#ffffff").
+    pub text_color: String,
+    /// Background colour (hex).
+    pub bg_color: String,
+    /// Horizontal alignment of the lyric block.
+    pub h_align: HAlign,
+    /// Show the section label ("Verse 1") on the congregation output. Many
+    /// churches want this off for the audience and on for the stage.
+    pub show_section_label: bool,
+    /// Render lyric lines in UPPERCASE.
+    pub uppercase: bool,
+    /// Line-height multiplier.
+    pub line_height: f32,
+}
+
+impl Default for OutputAppearance {
+    fn default() -> Self {
+        Self {
+            text_scale: 1.0,
+            text_color: "#ffffff".into(),
+            bg_color: "#0a1730".into(),
+            h_align: HAlign::Center,
+            show_section_label: true,
+            uppercase: false,
+            line_height: 1.1,
+        }
+    }
+}
+
+impl OutputAppearance {
+    /// Clamp numeric fields to sane ranges so a hand-edited config (or a buggy
+    /// slider) can never make the output unreadable.
+    pub fn sanitized(mut self) -> Self {
+        self.text_scale = self.text_scale.clamp(0.5, 2.5);
+        self.line_height = self.line_height.clamp(0.9, 2.5);
+        if self.text_color.trim().is_empty() {
+            self.text_color = "#ffffff".into();
+        }
+        if self.bg_color.trim().is_empty() {
+            self.bg_color = "#0a1730".into();
+        }
+        self
+    }
+}
+
 /// What a given physical screen is used for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -247,5 +302,34 @@ mod tests {
         let json = serde_json::to_string(&cfg).unwrap();
         let back: OutputConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(cfg, back);
+    }
+
+    #[test]
+    fn appearance_default_and_clamping() {
+        let d = OutputAppearance::default();
+        assert_eq!(d.text_scale, 1.0);
+        assert_eq!(d.h_align, HAlign::Center);
+        assert!(d.show_section_label);
+
+        let wild = OutputAppearance {
+            text_scale: 9.0,
+            line_height: 0.1,
+            text_color: "".into(),
+            bg_color: "   ".into(),
+            ..OutputAppearance::default()
+        }
+        .sanitized();
+        assert_eq!(wild.text_scale, 2.5);
+        assert_eq!(wild.line_height, 0.9);
+        assert_eq!(wild.text_color, "#ffffff");
+        assert_eq!(wild.bg_color, "#0a1730");
+    }
+
+    #[test]
+    fn appearance_round_trips() {
+        let a = OutputAppearance::default();
+        let json = serde_json::to_string(&a).unwrap();
+        let back: OutputAppearance = serde_json::from_str(&json).unwrap();
+        assert_eq!(a, back);
     }
 }

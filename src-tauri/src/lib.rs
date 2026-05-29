@@ -155,6 +155,8 @@ pub fn run() {
             commands::output::output_open,
             commands::output::output_close,
             commands::output::output_is_open,
+            commands::output::output_appearance,
+            commands::output::output_set_appearance,
             // Service
             commands::services::service_create,
             commands::services::service_get,

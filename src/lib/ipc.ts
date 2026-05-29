@@ -37,6 +37,7 @@ import type {
   MediaAsset,
   MediaStatus,
   MonitorInfo,
+  OutputAppearance,
   OutputConfig,
   PlanImportResult,
   SearchResult,
@@ -346,6 +347,9 @@ export const output = {
   open: () => call<void>("output_open"),
   close: () => call<void>("output_close"),
   isOpen: () => call<boolean>("output_is_open"),
+  appearance: () => call<OutputAppearance>("output_appearance"),
+  setAppearance: (appearance: OutputAppearance) =>
+    call<OutputAppearance>("output_set_appearance", { appearance }),
 };
 
 // ── Universal search (Phase 2.3) ─────────────────────────────────────────────

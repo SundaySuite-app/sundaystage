@@ -40,6 +40,7 @@ export type { LiveSessionView }   from "./LiveSessionView";
 export type { LocaleInfo }        from "./LocaleInfo";
 export type { MonitorInfo }       from "./MonitorInfo";
 export type { OutputConfig }      from "./OutputConfig";
+export type { OutputAppearance }  from "./OutputAppearance";
 export type { OutputState }       from "./OutputState";
 export type { MediaAsset }        from "./MediaAsset";
 export type { MediaStatus }       from "./MediaStatus";
