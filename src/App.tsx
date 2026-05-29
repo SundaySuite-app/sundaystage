@@ -10,6 +10,7 @@ import { LibraryPage } from "@/features/library/LibraryPage";
 import { DecksPage } from "@/features/decks/DecksPage";
 import { MediaPage } from "@/features/media/MediaPage";
 import { BiblePage } from "@/features/bible/BiblePage";
+import { ServicesPage } from "@/features/services/ServicesPage";
 import { LivePreview } from "@/features/live/LivePreview";
 import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
 import { DesignPage } from "@/features/design/DesignPage";
@@ -148,6 +149,11 @@ function App() {
           <MediaPage library={activeLibrary} />
         ) : route === "bible" ? (
           <BiblePage library={activeLibrary} />
+        ) : route === "services" ? (
+          <ServicesPage
+            library={activeLibrary}
+            onGoLive={(svc) => setLiveService(svc)}
+          />
         ) : (
           <Placeholder route={route} />
         )}
