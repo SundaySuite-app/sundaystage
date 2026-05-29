@@ -112,6 +112,55 @@ pub async fn service_remove_item(state: State<'_, AppState>, item_id: String) ->
     ServiceRepo::new(&state.db.pool).remove_item(&item_id).await
 }
 
+/// Update a song item's arrangement / key / notes in place. Each field is set
+/// to exactly the value given (null clears it).
+#[tauri::command]
+pub async fn service_update_item(
+    state: State<'_, AppState>,
+    item_id: String,
+    arrangement_id: Option<String>,
+    key_override: Option<String>,
+    notes: Option<String>,
+) -> AppResult<ServiceItem> {
+    ServiceRepo::new(&state.db.pool)
+        .update_item(
+            &item_id,
+            arrangement_id.as_deref(),
+            key_override.as_deref(),
+            notes.as_deref(),
+        )
+        .await
+}
+
+/// Append a non-song item to the queue (a pause/announcement/video). Songs go
+/// through `service_add_song`; scripture/decks need their own ids.
+#[tauri::command]
+pub async fn service_add_item(
+    state: State<'_, AppState>,
+    service_id: String,
+    kind: String,
+    label: Option<String>,
+) -> AppResult<ServiceItem> {
+    if !matches!(kind.as_str(), "gap" | "announcement" | "video") {
+        return Err(crate::error::AppError::Validation(format!(
+            "service_add_item støtter kun gap/announcement/video, ikke '{kind}'"
+        )));
+    }
+    let repo = ServiceRepo::new(&state.db.pool);
+    let position = repo.next_position(&service_id).await?;
+    repo.add_item(
+        &service_id,
+        position,
+        &kind,
+        None,
+        None,
+        None,
+        None,
+        label.as_deref(),
+    )
+    .await
+}
+
 #[tauri::command]
 pub async fn service_reorder_items(
     state: State<'_, AppState>,

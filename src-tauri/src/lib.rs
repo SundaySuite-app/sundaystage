@@ -165,6 +165,8 @@ pub fn run() {
             commands::services::service_set_starts_at,
             commands::services::service_delete,
             commands::services::service_add_song,
+            commands::services::service_add_item,
+            commands::services::service_update_item,
             commands::services::service_remove_item,
             commands::services::service_reorder_items,
             commands::services::service_cue_summary,

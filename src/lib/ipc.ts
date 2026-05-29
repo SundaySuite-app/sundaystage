@@ -177,6 +177,20 @@ export const service = {
       arrangementId,
       keyOverride,
     }),
+  addItem: (serviceId: string, kind: string, label: string | null = null) =>
+    call<ServiceItem>("service_add_item", { serviceId, kind, label }),
+  updateItem: (
+    itemId: string,
+    arrangementId: string | null,
+    keyOverride: string | null,
+    notes: string | null,
+  ) =>
+    call<ServiceItem>("service_update_item", {
+      itemId,
+      arrangementId,
+      keyOverride,
+      notes,
+    }),
   removeItem: (itemId: string) => call<void>("service_remove_item", { itemId }),
   reorderItems: (serviceId: string, orderedIds: string[]) =>
     call<ServiceItem[]>("service_reorder_items", { serviceId, orderedIds }),

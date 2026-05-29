@@ -124,6 +124,41 @@ impl<'a> ServiceRepo<'a> {
             .map_err(Into::into)
     }
 
+    /// Update an existing item's arrangement / key / notes. Each field is set to
+    /// exactly the value given (None → NULL), so callers submit the full desired
+    /// state of those fields.
+    pub async fn update_item(
+        &self,
+        item_id: &str,
+        arrangement_id: Option<&str>,
+        key_override: Option<&str>,
+        notes: Option<&str>,
+    ) -> AppResult<ServiceItem> {
+        let affected = sqlx::query(
+            "UPDATE service_item SET arrangement_id = ?1, key_override = ?2, notes = ?3,
+             updated_at = ?4 WHERE id = ?5",
+        )
+        .bind(arrangement_id)
+        .bind(key_override)
+        .bind(notes)
+        .bind(now_ms())
+        .bind(item_id)
+        .execute(self.pool)
+        .await?
+        .rows_affected();
+        if affected == 0 {
+            return Err(AppError::NotFound {
+                entity: "service_item",
+                id: item_id.to_string(),
+            });
+        }
+        sqlx::query_as::<_, ServiceItem>("SELECT * FROM service_item WHERE id = ?1")
+            .bind(item_id)
+            .fetch_one(self.pool)
+            .await
+            .map_err(Into::into)
+    }
+
     /// Rename a service.
     pub async fn rename(&self, id: &str, name: &str) -> AppResult<Service> {
         sqlx::query("UPDATE service SET name = ?1, updated_at = ?2 WHERE id = ?3")
@@ -367,6 +402,39 @@ mod tests {
         let db = Database::open_in_memory().await.unwrap();
         let repo = ServiceRepo::new(&db.pool);
         assert!(repo.remove_item("does-not-exist").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn update_item_sets_arrangement_key_notes() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let repo = ServiceRepo::new(&db.pool);
+        let svc = repo.create(&lib.id, "Svc", now_ms()).await.unwrap();
+        let song_id = song_in(&db, &lib.id, "Song").await;
+        let item = repo
+            .add_item(&svc.id, 0, "song", Some(&song_id), None, None, None, None)
+            .await
+            .unwrap();
+
+        let updated = repo
+            .update_item(&item.id, None, Some("D"), Some("kapo 2"))
+            .await
+            .unwrap();
+        assert_eq!(updated.key_override.as_deref(), Some("D"));
+        assert_eq!(updated.notes.as_deref(), Some("kapo 2"));
+
+        // None clears a previously-set field.
+        let cleared = repo.update_item(&item.id, None, None, None).await.unwrap();
+        assert_eq!(cleared.key_override, None);
+        assert_eq!(cleared.notes, None);
+
+        assert!(repo.update_item("missing", None, None, None).await.is_err());
     }
 
     #[tokio::test]
