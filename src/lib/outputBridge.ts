@@ -10,11 +10,26 @@
 import { useEffect, useRef } from "react";
 import { emit } from "@tauri-apps/api/event";
 
-import type { LiveFrame } from "@/lib/bindings";
+import type { LiveFrame, OutputAppearance } from "@/lib/bindings";
 
 export const OUTPUT_RENDER = "ss://render";
 export const OUTPUT_HEARTBEAT = "ss://heartbeat";
+/** Broadcast when the operator changes output appearance in Settings, so the
+ *  open output windows restyle live without reopening. */
+export const OUTPUT_APPEARANCE = "ss://appearance";
 const HEARTBEAT_MS = 250;
+
+/** Mirror of Rust `OutputAppearance::default()` — used before the saved config
+ *  loads and as the preview/fallback baseline. */
+export const DEFAULT_OUTPUT_APPEARANCE: OutputAppearance = {
+  text_scale: 1.0,
+  text_color: "#ffffff",
+  bg_color: "#0a1730",
+  h_align: "center",
+  show_section_label: true,
+  uppercase: false,
+  line_height: 1.1,
+};
 
 function safeEmit(event: string, payload?: unknown) {
   // Fire-and-forget; outside Tauri (browser tests) emit rejects — ignore it.

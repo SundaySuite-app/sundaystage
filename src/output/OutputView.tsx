@@ -11,8 +11,14 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 import { ipc } from "@/lib/ipc";
-import type { LiveFrame } from "@/lib/bindings";
-import { OUTPUT_RENDER, OUTPUT_HEARTBEAT } from "@/lib/outputBridge";
+import type { LiveFrame, OutputAppearance } from "@/lib/bindings";
+import {
+  OUTPUT_RENDER,
+  OUTPUT_HEARTBEAT,
+  OUTPUT_APPEARANCE,
+  DEFAULT_OUTPUT_APPEARANCE,
+} from "@/lib/outputBridge";
+import { SlideView } from "@/components/SlideView";
 
 const TIMEOUT_MS = 2000;
 
@@ -26,6 +32,9 @@ function roleFromLabel(label: string): Role {
 
 export function OutputView() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
+  const [appearance, setAppearance] = useState<OutputAppearance>(
+    DEFAULT_OUTPUT_APPEARANCE,
+  );
   const [disconnected, setDisconnected] = useState(false);
   const [role, setRole] = useState<Role>("main");
   const lastBeat = useRef<number>(Date.now());
@@ -39,12 +48,26 @@ export function OutputView() {
     }
   }, []);
 
-  // Late-join: the window may open mid-service — pull the current frame once.
+  // Late-join: the window may open mid-service — pull the current frame once,
+  // plus the saved appearance.
   useEffect(() => {
     ipc.live
       .state()
       .then((v) => v && setFrame(v.frame))
       .catch(() => {});
+    ipc.output
+      .appearance()
+      .then(setAppearance)
+      .catch(() => {});
+  }, []);
+
+  // Restyle live when the operator changes appearance in Settings.
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    void listen<OutputAppearance>(OUTPUT_APPEARANCE, (e) =>
+      setAppearance(e.payload),
+    ).then((u) => (un = u));
+    return () => un?.();
   }, []);
 
   useEffect(() => {
@@ -75,64 +98,17 @@ export function OutputView() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white">
-      <OutputFrame frame={frame} />
+      <SlideView
+        frame={frame}
+        appearance={appearance}
+        forceSectionLabel={chrome}
+      />
       {chrome && <Clock />}
       {disconnected && chrome && (
         <div className="absolute top-4 right-4 rounded-md bg-[var(--color-warning)] px-3 py-1.5 text-sm font-semibold text-black shadow-lg">
           Mistet forbindelse — holder siste bilde
         </div>
       )}
-    </div>
-  );
-}
-
-function OutputFrame({ frame }: { frame: LiveFrame | null }) {
-  if (!frame || frame.kind === "black") {
-    return <div className="h-full w-full bg-black" />;
-  }
-  if (frame.kind === "logo") {
-    return (
-      <div className="grid h-full w-full place-items-center bg-[var(--color-sunday-blue-950)] font-bold text-[var(--color-accent)] [font-size:8vw]">
-        SundayStage
-      </div>
-    );
-  }
-  if (frame.kind === "message") {
-    return (
-      <div className="grid h-full w-full place-items-center bg-[var(--color-sunday-blue-950)] px-[8vw] text-center [font-size:4vw]">
-        {frame.text}
-      </div>
-    );
-  }
-  const c = frame.slide_content;
-  return (
-    <div className="grid h-full w-full place-items-center bg-[var(--color-sunday-blue-950)] px-[6vw] text-center">
-      <div className="w-full">
-        {c.section_label && (
-          <div className="mb-[3vh] font-semibold tracking-[0.3em] text-[var(--color-accent)] uppercase [font-size:1.6vw]">
-            {c.section_label}
-          </div>
-        )}
-        {c.text_lines.map((line, i) => (
-          <p key={i} className="font-semibold leading-tight [font-size:5.5vw]">
-            {line}
-          </p>
-        ))}
-        {c.translation_lines &&
-          c.translation_lines.map((line, i) => (
-            <p
-              key={`t-${i}`}
-              className="mt-[1vh] text-white/70 [font-size:3.2vw]"
-            >
-              {line}
-            </p>
-          ))}
-        {c.reference && (
-          <div className="mt-[4vh] text-white/60 [font-size:2vw]">
-            — {c.reference}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
