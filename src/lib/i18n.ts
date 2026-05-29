@@ -265,6 +265,73 @@ const en: Catalog = {
   svcAll: "all",
   svcCompiling: "Compiling…",
   svcNoSlidesToShow: "No slides to show.",
+
+  // ── Display roles / output controls ─────────────────────────────────────
+  roleOff: "Off",
+  roleMainOutput: "Main output",
+  roleStageDisplay: "Stage display",
+  roleConfidence: "Confidence",
+  ocScreensAndOutputs: "Screens and outputs",
+  ocOutputOn: "Output: {name}",
+  ocOutputActive: "Output active",
+  screenCountOne: "{n} screen",
+  screenCountMany: "{n} screens",
+  ocScreens: "Screens",
+  ocOpenOutput: "Open output",
+  ocCloseOutput: "Close output",
+  ocNoScreens: "No screens found.",
+  ocOperator: "operator",
+  ocFooterNote:
+    "The main output shows cleanly; the stage display gets a clock and a warning if the connection drops.",
+
+  // ── Export modal ────────────────────────────────────────────────────────
+  exTitle: "Export to SundayRec",
+  exTabChapters: "Chapter markers",
+  exTabSrt: "SRT subtitles",
+  actionCopy: "Copy",
+  exCopied: "Copied",
+  exGenerating: "Generating…",
+  exNoSlidesShown: "No slides shown yet.",
+  exFooterNote:
+    "Generated from the live session log. File saving + automatic hand-off to SundayRec is coming via the bridge (Phase 10.1).",
+  exComputing: "Computing…",
+  exNoChapters: "No chapters yet — navigate through a few cues first.",
+
+  // ── Stage display ───────────────────────────────────────────────────────
+  sdTimeSinceStart: "Time since start",
+  sdCloseEsc: "Close (Esc)",
+  sdNoNotes: "No notes.",
+  liveStageScreen: "Stage display",
+  liveEndOfList: "End of the list",
+
+  // ── Operator console ────────────────────────────────────────────────────
+  lpStartError: "Could not start live",
+  lpExit: "Exit",
+  lpExitTooltip: "Exit (⌘Q)",
+  lpStarting: "Starting live…",
+  lpNoCuesTitle: "No cues to show",
+  lpNoCuesBody:
+    "«{name}» has no songs or scripture in the queue yet. Add content to the service and the queue compiles automatically.",
+  lpToQueue: "To the queue",
+  lpCuesCount: "{n} cues",
+  liveNext: "next",
+  lpComingUp: "Coming up",
+  lpNextCues: "Next cues",
+  lpNoNotes: "No notes for this service.",
+  lpPrevious: "Previous",
+  liveBlackout: "Blackout",
+  liveLogo: "Logo",
+  lpJumpTo: "Jump to",
+  lpExport: "Export",
+  lpNoOutputTitle: "No screen is showing the main output",
+  lpNoOutputBody:
+    "No external screen is assigned to the main output. Connect a projector/TV, or open the «Screens» panel at the bottom right and pick a screen.",
+  lpGotIt: "Got it",
+  lpOutputOpened: "Main output opened on the external screen",
+  lpJumpPlaceholder: "Jump to cue… (e.g. «verse 2» or «amazing»)",
+  liveNoMatches: "No matches.",
+  liveShowLogo: "Show logo",
+  livePausePrefix: "Break: {label}",
 };
 
 const no: Catalog = {
@@ -516,6 +583,73 @@ const no: Catalog = {
   svcAll: "alle",
   svcCompiling: "Kompilerer…",
   svcNoSlidesToShow: "Ingen lysbilder å vise.",
+
+  // ── Display roles / output controls ─────────────────────────────────────
+  roleOff: "Av",
+  roleMainOutput: "Hovedutgang",
+  roleStageDisplay: "Sceneskjerm",
+  roleConfidence: "Confidence",
+  ocScreensAndOutputs: "Skjermer og utganger",
+  ocOutputOn: "Utgang: {name}",
+  ocOutputActive: "Utgang aktiv",
+  screenCountOne: "{n} skjerm",
+  screenCountMany: "{n} skjermer",
+  ocScreens: "Skjermer",
+  ocOpenOutput: "Åpne utgang",
+  ocCloseOutput: "Lukk utgang",
+  ocNoScreens: "Ingen skjermer funnet.",
+  ocOperator: "operatør",
+  ocFooterNote:
+    "Hovedutgang vises rent; sceneskjerm får klokke og varsel ved tap av forbindelse.",
+
+  // ── Export modal ────────────────────────────────────────────────────────
+  exTitle: "Eksport til SundayRec",
+  exTabChapters: "Kapittelmarkører",
+  exTabSrt: "SRT-undertekster",
+  actionCopy: "Kopier",
+  exCopied: "Kopiert",
+  exGenerating: "Genererer…",
+  exNoSlidesShown: "Ingen lysbilder vist enda.",
+  exFooterNote:
+    "Genereres fra live-sesjonens logg. Fillagring + automatisk overlevering til SundayRec kommer via broen (Phase 10.1).",
+  exComputing: "Beregner…",
+  exNoChapters: "Ingen kapitler enda — naviger gjennom noen cues først.",
+
+  // ── Stage display ───────────────────────────────────────────────────────
+  sdTimeSinceStart: "Tid siden start",
+  sdCloseEsc: "Lukk (Esc)",
+  sdNoNotes: "Ingen notater.",
+  liveStageScreen: "Sceneskjerm",
+  liveEndOfList: "Slutt på listen",
+
+  // ── Operator console ────────────────────────────────────────────────────
+  lpStartError: "Kunne ikke starte live",
+  lpExit: "Avslutt",
+  lpExitTooltip: "Avslutt (⌘Q)",
+  lpStarting: "Starter live…",
+  lpNoCuesTitle: "Ingen cues å vise",
+  lpNoCuesBody:
+    "«{name}» har ingen sanger eller skrift i køen enda. Legg til innhold i gudstjenesten, så kompileres køen automatisk.",
+  lpToQueue: "Til køen",
+  lpCuesCount: "{n} cues",
+  liveNext: "neste",
+  lpComingUp: "Kommer nå",
+  lpNextCues: "Neste cues",
+  lpNoNotes: "Ingen notater for denne gudstjenesten.",
+  lpPrevious: "Forrige",
+  liveBlackout: "Blackout",
+  liveLogo: "Logo",
+  lpJumpTo: "Hopp til",
+  lpExport: "Eksport",
+  lpNoOutputTitle: "Ingen skjerm viser hovedutgangen",
+  lpNoOutputBody:
+    "Ingen ekstern skjerm er tilordnet hovedutgang. Koble til en projektor/TV, eller åpne «Skjermer»-panelet nederst til høyre og velg en skjerm.",
+  lpGotIt: "Skjønner",
+  lpOutputOpened: "Hovedutgang åpnet på ekstern skjerm",
+  lpJumpPlaceholder: "Hopp til cue… (f.eks. «vers 2» eller «amazing»)",
+  liveNoMatches: "Ingen treff.",
+  liveShowLogo: "Vis logo",
+  livePausePrefix: "Pause: {label}",
 };
 
 // Scandinavian + de/fr/pl: nav/chrome only; everything else falls back to en.

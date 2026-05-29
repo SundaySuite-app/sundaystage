@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 import type { Cue, LiveSessionView, StageDisplayConfig } from "@/lib/bindings";
+import { useT, useLocale } from "@/lib/i18n";
 
 function fmtDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -59,6 +60,8 @@ export function StageDisplay({
   onPreset,
   onClose,
 }: StageDisplayProps) {
+  const t = useT();
+  const lang = useLocale((s) => s.lang);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -98,14 +101,14 @@ export function StageDisplay({
         {preset.show_service_timer && (
           <span
             className="font-mono text-lg tabular-nums text-white/70"
-            title="Tid siden start"
+            title={t("sdTimeSinceStart")}
           >
             ⏱ {fmtDuration(now - Number(session.started_at))}
           </span>
         )}
         {preset.show_clock && (
           <span className="font-mono text-lg tabular-nums text-white/90">
-            {new Date(now).toLocaleTimeString("no", {
+            {new Date(now).toLocaleTimeString(lang, {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -125,7 +128,7 @@ export function StageDisplay({
         <button
           type="button"
           onClick={onClose}
-          title="Lukk (Esc)"
+          title={t("sdCloseEsc")}
           className="grid h-8 w-8 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white"
         >
           <X size={18} />
@@ -163,7 +166,7 @@ export function StageDisplay({
             {preset.show_next_slide && (
               <div>
                 <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">
-                  Neste
+                  {t("actionNext")}
                 </h3>
                 {next.section && (
                   <p className="text-sm font-bold text-[var(--color-accent)]">
@@ -171,17 +174,17 @@ export function StageDisplay({
                   </p>
                 )}
                 <p className="line-clamp-4 text-lg leading-snug text-white/70">
-                  {next.lines.join(" / ") || "Slutt på listen"}
+                  {next.lines.join(" / ") || t("liveEndOfList")}
                 </p>
               </div>
             )}
             {preset.show_notes && (
               <div className="flex-1">
                 <h3 className="mb-1 text-xs font-semibold uppercase tracking-widest text-white/40">
-                  Notater
+                  {t("svcNotes")}
                 </h3>
                 <p className="whitespace-pre-wrap text-sm text-white/60">
-                  {notes?.trim() ? notes : "Ingen notater."}
+                  {notes?.trim() ? notes : t("sdNoNotes")}
                 </p>
               </div>
             )}
@@ -190,7 +193,8 @@ export function StageDisplay({
       </div>
 
       <footer className="border-t border-white/10 px-6 py-2 text-center text-xs text-white/30">
-        Cue {session.index + 1} / {session.total} · Sceneskjerm: {preset.name}
+        Cue {session.index + 1} / {session.total} · {t("liveStageScreen")}:{" "}
+        {preset.name}
       </footer>
     </div>
   );

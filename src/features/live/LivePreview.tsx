@@ -32,6 +32,7 @@ import type {
   Service,
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { useT, type TKey } from "@/lib/i18n";
 import { useOutputBridge } from "@/lib/outputBridge";
 import { StageDisplay } from "./StageDisplay";
 import { ExportModal } from "./ExportModal";
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export function LivePreview({ service, onExit, resume = false }: Props) {
+  const t = useT();
   const [session, setSession] = useState<LiveSessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -193,14 +195,14 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
       <div className="grid h-full place-items-center bg-[var(--color-bg)]">
         <div className="max-w-md text-center">
           <p className="mb-2 font-semibold text-[var(--color-danger)]">
-            Kunne ikke starte live
+            {t("lpStartError")}
           </p>
           <p className="text-sm text-[var(--color-fg-muted)]">{error}</p>
           <button
             onClick={exit}
             className="mt-4 rounded-md bg-[var(--color-bg-surface)] px-4 py-2 text-sm hover:brightness-110"
           >
-            Avslutt
+            {t("lpExit")}
           </button>
         </div>
       </div>
@@ -210,7 +212,9 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
   if (!session || cueListQuery.isLoading) {
     return (
       <div className="grid h-full place-items-center bg-[var(--color-bg)]">
-        <p className="text-sm text-[var(--color-fg-muted)]">Starter live…</p>
+        <p className="text-sm text-[var(--color-fg-muted)]">
+          {t("lpStarting")}
+        </p>
       </div>
     );
   }
@@ -219,16 +223,15 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
     return (
       <div className="grid h-full place-items-center bg-[var(--color-bg)]">
         <div className="max-w-md text-center">
-          <p className="mb-1 font-semibold">Ingen cues å vise</p>
+          <p className="mb-1 font-semibold">{t("lpNoCuesTitle")}</p>
           <p className="text-sm text-[var(--color-fg-muted)]">
-            «{service.name}» har ingen sanger eller skrift i køen enda. Legg til
-            innhold i gudstjenesten, så kompileres køen automatisk.
+            {t("lpNoCuesBody", { name: service.name })}
           </p>
           <button
             onClick={exit}
             className="mt-4 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110"
           >
-            Til køen
+            {t("lpToQueue")}
           </button>
         </div>
       </div>
@@ -247,13 +250,13 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
           <div>
             <h2 className="text-sm font-semibold">{service.name}</h2>
             <p className="text-xs text-[var(--color-fg-muted)]">
-              {cues.length} cues
+              {t("lpCuesCount", { n: cues.length })}
             </p>
           </div>
           <button
             type="button"
             onClick={exit}
-            title="Avslutt (⌘Q)"
+            title={t("lpExitTooltip")}
             className="rounded-md p-1.5 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
           >
             <Square size={14} fill="currentColor" />
@@ -277,10 +280,12 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
                 <span className="w-6 font-mono text-[10px] tabular-nums text-[var(--color-fg-muted)]">
                   {String(i + 1).padStart(3, " ")}
                 </span>
-                <span className="flex-1 truncate">{cueDisplayLabel(cue)}</span>
+                <span className="flex-1 truncate">
+                  {cueDisplayLabel(cue, t)}
+                </span>
                 {i === index + 1 && (
                   <span className="text-[9px] uppercase text-[var(--color-fg-muted)]">
-                    neste
+                    {t("liveNext")}
                   </span>
                 )}
               </button>
@@ -299,18 +304,18 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
       {/* Right: next + notes */}
       <aside className="row-span-1 flex flex-col gap-3 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
         <div>
-          <Subhead>Kommer nå</Subhead>
+          <Subhead>{t("lpComingUp")}</Subhead>
           <div className="aspect-video overflow-hidden rounded-md ring-1 ring-[var(--color-border)]">
             {nextCue ? (
               <CueMini cue={nextCue} />
             ) : (
-              <Empty label="Slutt på listen" />
+              <Empty label={t("liveEndOfList")} />
             )}
           </div>
         </div>
 
         <div>
-          <Subhead>Neste cues</Subhead>
+          <Subhead>{t("lpNextCues")}</Subhead>
           <div className="space-y-1">
             {filmstrip.length === 0 && (
               <p className="text-xs text-[var(--color-fg-muted)]">—</p>
@@ -324,7 +329,7 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
                   {index + 2 + i}
                 </span>
                 <span className="flex-1 truncate text-[var(--color-fg-muted)]">
-                  {cueDisplayLabel(cue)}
+                  {cueDisplayLabel(cue, t)}
                 </span>
               </div>
             ))}
@@ -332,11 +337,9 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
         </div>
 
         <div className="flex-1">
-          <Subhead>Notater</Subhead>
+          <Subhead>{t("svcNotes")}</Subhead>
           <p className="whitespace-pre-wrap text-xs text-[var(--color-fg-muted)]">
-            {service.notes?.trim()
-              ? service.notes
-              : "Ingen notater for denne gudstjenesten."}
+            {service.notes?.trim() ? service.notes : t("lpNoNotes")}
           </p>
         </div>
       </aside>
@@ -348,14 +351,14 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
           disabled={index === 0}
           className="flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--color-bg-surface)] disabled:opacity-40"
         >
-          <ChevronLeft size={14} /> Forrige
+          <ChevronLeft size={14} /> {t("lpPrevious")}
         </button>
         <button
           onClick={() => dispatch({ type: "next" })}
           disabled={index >= cues.length - 1}
           className="flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--color-bg-surface)] disabled:opacity-40"
         >
-          Neste <ChevronRight size={14} />
+          {t("actionNext")} <ChevronRight size={14} />
         </button>
         <button
           onClick={() => dispatch({ type: "blackout" })}
@@ -364,7 +367,7 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
             session.output === "blackout" && "text-[var(--color-accent)]",
           )}
         >
-          Blackout
+          {t("liveBlackout")}
         </button>
         <button
           onClick={() => dispatch({ type: "show_logo" })}
@@ -373,13 +376,13 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
             session.output === "logo" && "text-[var(--color-accent)]",
           )}
         >
-          Logo
+          {t("liveLogo")}
         </button>
         <button
           onClick={() => setJumpOpen(true)}
           className="flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--color-bg-surface)]"
         >
-          <Search size={13} /> Hopp til{" "}
+          <Search size={13} /> {t("lpJumpTo")}{" "}
           <kbd className="rounded border border-[var(--color-border)] px-1 font-mono text-[10px]">
             ⌘J
           </kbd>
@@ -389,14 +392,14 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
             onClick={() => setStageOpen(true)}
             className="flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--color-bg-surface)]"
           >
-            <Monitor size={13} /> Sceneskjerm
+            <Monitor size={13} /> {t("liveStageScreen")}
           </button>
         )}
         <button
           onClick={() => setExportOpen(true)}
           className="flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--color-bg-surface)]"
         >
-          <Clapperboard size={13} /> Eksport
+          <Clapperboard size={13} /> {t("lpExport")}
         </button>
 
         <span className="flex-1" />
@@ -437,14 +440,9 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
 
       {outputHint === "no-target" && (
         <div className="fixed top-4 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2 rounded-xl border border-[var(--color-warning)]/50 bg-[var(--color-bg-elevated)] px-4 py-3 shadow-[var(--shadow-elevated)]">
-          <p className="text-sm font-semibold">
-            Ingen skjerm viser hovedutgangen
-          </p>
+          <p className="text-sm font-semibold">{t("lpNoOutputTitle")}</p>
           <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-            Ingen ekstern skjerm er tilordnet hovedutgang. Koble til en
-            projektor/TV, eller åpne «{" "}
-            <Monitor size={11} className="inline -translate-y-px" aria-hidden />{" "}
-            skjermer» nederst til høyre og velg en skjerm.
+            {t("lpNoOutputBody")}
           </p>
           <div className="mt-2 flex justify-end">
             <button
@@ -452,14 +450,14 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
               onClick={() => setOutputHint(null)}
               className="rounded-md px-3 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
             >
-              Skjønner
+              {t("lpGotIt")}
             </button>
           </div>
         </div>
       )}
       {outputHint === "opened" && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-[var(--color-success)]/40 bg-[var(--color-bg-elevated)] px-4 py-2 text-sm shadow-[var(--shadow-elevated)]">
-          Hovedutgang åpnet på ekstern skjerm
+          {t("lpOutputOpened")}
         </div>
       )}
     </div>
@@ -515,6 +513,7 @@ function FrameRender({ frame }: { frame: LiveFrame }) {
 }
 
 function CueMini({ cue }: { cue: Cue }) {
+  const t = useT();
   if (cue.kind === "show_slide") {
     return (
       <div className="grid h-full w-full place-items-center bg-[var(--color-sunday-blue-900)] p-2 text-center">
@@ -524,7 +523,7 @@ function CueMini({ cue }: { cue: Cue }) {
       </div>
     );
   }
-  return <Empty label={cueDisplayLabel(cue)} />;
+  return <Empty label={cueDisplayLabel(cue, t)} />;
 }
 
 function Empty({ label }: { label: string }) {
@@ -544,6 +543,7 @@ function QuickJump({
   onPick: (index: number) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [q, setQ] = useState("");
   const matches = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -551,10 +551,10 @@ function QuickJump({
       .map((cue, i) => ({ cue, i }))
       .filter(
         ({ cue }) =>
-          !needle || cueDisplayLabel(cue).toLowerCase().includes(needle),
+          !needle || cueDisplayLabel(cue, t).toLowerCase().includes(needle),
       )
       .slice(0, 50);
-  }, [cues, q]);
+  }, [cues, q, t]);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-start pt-[14vh]">
@@ -572,7 +572,7 @@ function QuickJump({
             if (e.key === "Enter" && matches[0]) onPick(matches[0].i);
             if (e.key === "Escape") onClose();
           }}
-          placeholder="Hopp til cue… (f.eks. «vers 2» eller «amazing»)"
+          placeholder={t("lpJumpPlaceholder")}
           className="w-full border-b border-[var(--color-border)] bg-transparent px-4 py-3 text-sm focus:outline-none"
         />
         <ul className="max-h-[50vh] overflow-y-auto p-2">
@@ -586,13 +586,15 @@ function QuickJump({
                 <span className="w-8 font-mono text-[10px] text-[var(--color-fg-muted)]">
                   {i + 1}
                 </span>
-                <span className="flex-1 truncate">{cueDisplayLabel(cue)}</span>
+                <span className="flex-1 truncate">
+                  {cueDisplayLabel(cue, t)}
+                </span>
               </button>
             </li>
           ))}
           {matches.length === 0 && (
             <li className="px-3 py-6 text-center text-sm text-[var(--color-fg-muted)]">
-              Ingen treff.
+              {t("liveNoMatches")}
             </li>
           )}
         </ul>
@@ -622,15 +624,18 @@ function cueId(cue: Cue): string {
   }
 }
 
-function cueDisplayLabel(cue: Cue): string {
+function cueDisplayLabel(
+  cue: Cue,
+  t: (key: TKey, params?: Record<string, string | number>) => string,
+): string {
   switch (cue.kind) {
     case "show_slide":
       return cue.source.display_label;
     case "black_out":
-      return "Blackout";
+      return t("liveBlackout");
     case "show_logo":
-      return "Vis logo";
+      return t("liveShowLogo");
     case "pause":
-      return `Pause: ${cue.label}`;
+      return t("livePausePrefix", { label: cue.label });
   }
 }

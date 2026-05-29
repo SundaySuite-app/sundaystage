@@ -12,13 +12,14 @@ import { Monitor } from "lucide-react";
 import { ipc } from "@/lib/ipc";
 import type { DisplayRole, OutputConfig } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { useT, type TKey } from "@/lib/i18n";
 import { Button, Select } from "@/components/ui";
 
-const ROLE_LABEL: Record<DisplayRole, string> = {
-  off: "Av",
-  main_output: "Hovedutgang",
-  stage_display: "Sceneskjerm",
-  confidence_monitor: "Confidence",
+const ROLE_KEY: Record<DisplayRole, TKey> = {
+  off: "roleOff",
+  main_output: "roleMainOutput",
+  stage_display: "roleStageDisplay",
+  confidence_monitor: "roleConfidence",
 };
 const ROLES: DisplayRole[] = [
   "off",
@@ -28,6 +29,7 @@ const ROLES: DisplayRole[] = [
 ];
 
 export function OutputControls() {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const monitorsQuery = useQuery({
@@ -86,7 +88,7 @@ export function OutputControls() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 rounded px-2 py-1 hover:bg-[var(--color-bg-surface)]"
-        title="Skjermer og utganger"
+        title={t("ocScreensAndOutputs")}
       >
         <span
           className={cn(
@@ -96,30 +98,32 @@ export function OutputControls() {
         />
         <Monitor size={13} />
         {driving && mainOutput
-          ? `Utgang: ${mainOutput.name}`
+          ? t("ocOutputOn", { name: mainOutput.name })
           : driving
-            ? "Utgang aktiv"
-            : `${monitors.length} skjerm${monitors.length === 1 ? "" : "er"}`}
+            ? t("ocOutputActive")
+            : t(monitors.length === 1 ? "screenCountOne" : "screenCountMany", {
+                n: monitors.length,
+              })}
       </button>
 
       {open && (
         <div className="absolute right-0 bottom-full mb-2 w-80 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 text-[var(--color-fg)] shadow-[var(--shadow-elevated)]">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold tracking-wide uppercase">
-              Skjermer
+              {t("ocScreens")}
             </h3>
             <Button
               size="sm"
               variant={driving ? "outline" : "primary"}
               onClick={toggle}
             >
-              {driving ? "Lukk utgang" : "Åpne utgang"}
+              {driving ? t("ocCloseOutput") : t("ocOpenOutput")}
             </Button>
           </div>
 
           {monitors.length === 0 ? (
             <p className="py-3 text-center text-xs text-[var(--color-fg-muted)]">
-              Ingen skjermer funnet.
+              {t("ocNoScreens")}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -130,7 +134,7 @@ export function OutputControls() {
                       {m.name}
                       {m.is_primary && (
                         <span className="rounded bg-[var(--color-bg-surface)] px-1 text-[9px] text-[var(--color-fg-muted)]">
-                          operatør
+                          {t("ocOperator")}
                         </span>
                       )}
                     </div>
@@ -147,7 +151,7 @@ export function OutputControls() {
                   >
                     {ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {ROLE_LABEL[r]}
+                        {t(ROLE_KEY[r])}
                       </option>
                     ))}
                   </Select>
@@ -156,8 +160,7 @@ export function OutputControls() {
             </ul>
           )}
           <p className="mt-2 text-[10px] text-[var(--color-fg-muted)]">
-            Hovedutgang vises rent; sceneskjerm får klokke og varsel ved tap av
-            forbindelse.
+            {t("ocFooterNote")}
           </p>
         </div>
       )}

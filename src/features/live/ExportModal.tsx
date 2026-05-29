@@ -15,6 +15,7 @@ import { Clapperboard, Copy, X } from "lucide-react";
 import type { ChapterMarker } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 
 function fmtOffset(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -27,6 +28,7 @@ function fmtOffset(ms: number): string {
 }
 
 export function ExportModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const [tab, setTab] = useState<"chapters" | "srt">("chapters");
   const [copied, setCopied] = useState(false);
 
@@ -76,7 +78,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
       <div className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]">
         <header className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
           <Clapperboard size={16} className="text-[var(--color-accent)]" />
-          <h2 className="font-semibold">Eksport til SundayRec</h2>
+          <h2 className="font-semibold">{t("exTitle")}</h2>
           <div className="flex-1" />
           <button
             type="button"
@@ -88,19 +90,19 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="flex items-center gap-1.5 border-b border-[var(--color-border)] px-4 py-2">
-          {(["chapters", "srt"] as const).map((t) => (
+          {(["chapters", "srt"] as const).map((tabId) => (
             <button
-              key={t}
+              key={tabId}
               type="button"
-              onClick={() => setTab(t)}
+              onClick={() => setTab(tabId)}
               className={cn(
                 "rounded-md px-3 py-1 text-xs transition-colors",
-                tab === t
+                tab === tabId
                   ? "bg-[var(--color-accent)] text-[var(--color-sunday-blue-900)]"
                   : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]",
               )}
             >
-              {t === "chapters" ? "Kapittelmarkører" : "SRT-undertekster"}
+              {tabId === "chapters" ? t("exTabChapters") : t("exTabSrt")}
             </button>
           ))}
           <div className="flex-1" />
@@ -109,7 +111,7 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
             onClick={copy}
             className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
           >
-            <Copy size={13} /> {copied ? "Kopiert" : "Kopier"}
+            <Copy size={13} /> {copied ? t("exCopied") : t("actionCopy")}
           </button>
         </div>
 
@@ -119,15 +121,14 @@ export function ExportModal({ onClose }: { onClose: () => void }) {
           ) : (
             <pre className="whitespace-pre-wrap rounded-md bg-[var(--color-bg)] p-3 font-mono text-xs text-[var(--color-fg-muted)]">
               {srtQuery.isLoading
-                ? "Genererer…"
-                : srt.trim() || "Ingen lysbilder vist enda."}
+                ? t("exGenerating")
+                : srt.trim() || t("exNoSlidesShown")}
             </pre>
           )}
         </div>
 
         <footer className="border-t border-[var(--color-border)] px-4 py-2 text-[11px] text-[var(--color-fg-muted)]">
-          Genereres fra live-sesjonens logg. Fillagring + automatisk
-          overlevering til SundayRec kommer via broen (Phase 10.1).
+          {t("exFooterNote")}
         </footer>
       </div>
     </div>
@@ -141,12 +142,15 @@ function ChapterList({
   markers: ChapterMarker[];
   loading: boolean;
 }) {
+  const t = useT();
   if (loading)
-    return <p className="text-sm text-[var(--color-fg-muted)]">Beregner…</p>;
+    return (
+      <p className="text-sm text-[var(--color-fg-muted)]">{t("exComputing")}</p>
+    );
   if (markers.length === 0) {
     return (
       <p className="text-sm text-[var(--color-fg-muted)]">
-        Ingen kapitler enda — naviger gjennom noen cues først.
+        {t("exNoChapters")}
       </p>
     );
   }
