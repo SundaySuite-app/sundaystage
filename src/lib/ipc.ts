@@ -160,6 +160,11 @@ export const service = {
     call<ServiceItem[]>("service_items", { serviceId }),
   rename: (id: string, name: string) =>
     call<Service>("service_rename", { id, name }),
+  setNotes: (id: string, notes: string) =>
+    call<Service>("service_set_notes", { id, notes }),
+  setStartsAt: (id: string, startsAt: number) =>
+    call<Service>("service_set_starts_at", { id, startsAt }),
+  delete: (id: string) => call<void>("service_delete", { id }),
   addSong: (
     serviceId: string,
     songId: string,

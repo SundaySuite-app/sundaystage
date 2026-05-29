@@ -146,6 +146,37 @@ impl<'a> ServiceRepo<'a> {
         self.get(id).await
     }
 
+    /// Set the service's start time (unix millis).
+    pub async fn set_starts_at(&self, id: &str, starts_at: i64) -> AppResult<Service> {
+        sqlx::query("UPDATE service SET starts_at = ?1, updated_at = ?2 WHERE id = ?3")
+            .bind(starts_at)
+            .bind(now_ms())
+            .bind(id)
+            .execute(self.pool)
+            .await?;
+        self.get(id).await
+    }
+
+    /// Soft delete — marks `deleted_at = now` so the service drops out of
+    /// listings but its history (and any played-state) is preserved.
+    pub async fn soft_delete(&self, id: &str) -> AppResult<()> {
+        let now = now_ms();
+        let affected =
+            sqlx::query("UPDATE service SET deleted_at = ?1, updated_at = ?1 WHERE id = ?2 AND deleted_at IS NULL")
+                .bind(now)
+                .bind(id)
+                .execute(self.pool)
+                .await?
+                .rows_affected();
+        if affected == 0 {
+            return Err(AppError::NotFound {
+                entity: "service",
+                id: id.to_string(),
+            });
+        }
+        Ok(())
+    }
+
     /// The position to append the next item at (current item count). Items use
     /// dense 0-based positions; appending at the count keeps them contiguous.
     pub async fn next_position(&self, service_id: &str) -> AppResult<i64> {
@@ -336,5 +367,32 @@ mod tests {
         let db = Database::open_in_memory().await.unwrap();
         let repo = ServiceRepo::new(&db.pool);
         assert!(repo.remove_item("does-not-exist").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn set_starts_at_and_soft_delete() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let repo = ServiceRepo::new(&db.pool);
+        let svc = repo.create(&lib.id, "Svc", 1).await.unwrap();
+
+        let moved = repo
+            .set_starts_at(&svc.id, 1_700_000_000_000)
+            .await
+            .unwrap();
+        assert_eq!(moved.starts_at, 1_700_000_000_000);
+
+        repo.soft_delete(&svc.id).await.unwrap();
+        // Gone from listings and direct get.
+        assert!(repo.get(&svc.id).await.is_err());
+        assert!(repo.upcoming(&lib.id, 0, 10).await.unwrap().is_empty());
+        // Deleting again is a no-op error (already gone).
+        assert!(repo.soft_delete(&svc.id).await.is_err());
     }
 }

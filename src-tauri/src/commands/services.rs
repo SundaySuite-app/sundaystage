@@ -55,6 +55,33 @@ pub async fn service_rename(
     ServiceRepo::new(&state.db.pool).rename(&id, &name).await
 }
 
+#[tauri::command]
+pub async fn service_set_notes(
+    state: State<'_, AppState>,
+    id: String,
+    notes: String,
+) -> AppResult<Service> {
+    ServiceRepo::new(&state.db.pool)
+        .set_notes(&id, &notes)
+        .await
+}
+
+#[tauri::command]
+pub async fn service_set_starts_at(
+    state: State<'_, AppState>,
+    id: String,
+    starts_at: i64,
+) -> AppResult<Service> {
+    ServiceRepo::new(&state.db.pool)
+        .set_starts_at(&id, starts_at)
+        .await
+}
+
+#[tauri::command]
+pub async fn service_delete(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    ServiceRepo::new(&state.db.pool).soft_delete(&id).await
+}
+
 /// Append a song to the service queue. `arrangement_id` is optional (falls back
 /// to the song's section order at compile time); `key_override` transposes.
 #[tauri::command]
