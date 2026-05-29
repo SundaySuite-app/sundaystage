@@ -12,7 +12,7 @@
  * `OutputControls` assigns monitors and opens/closes them.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -51,6 +51,10 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
   const [stageOpen, setStageOpen] = useState(false);
   const [stagePresetId, setStagePresetId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [outputHint, setOutputHint] = useState<"opened" | "no-target" | null>(
+    null,
+  );
+  const autoOpened = useRef(false);
 
   const cueListQuery = useQuery({
     queryKey: ["cueList", service.id],
@@ -104,6 +108,40 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
 
   // Drive the live output windows (Phase 5.2): broadcast each frame + heartbeat.
   useOutputBridge(session?.frame ?? null, !!session);
+
+  // Going live should put the slide on the projector without the operator
+  // hunting for a button. Once per session: if any monitor is assigned an
+  // output role (default makes the first external screen the main output), open
+  // the borderless full-screen output window. If nothing is assigned (e.g. only
+  // the operator's own laptop is connected), surface a hint instead of silently
+  // doing nothing. The OutputView late-joins via `live.state()`, so it paints
+  // the current frame the moment it opens.
+  useEffect(() => {
+    if (!session || autoOpened.current) return;
+    autoOpened.current = true;
+    void (async () => {
+      try {
+        const cfg = await ipc.output.config();
+        const hasTarget = cfg.assignments.some((a) => a.role !== "off");
+        if (hasTarget) {
+          await ipc.output.open();
+          setOutputHint("opened");
+        } else {
+          setOutputHint("no-target");
+        }
+      } catch {
+        /* not running inside Tauri / no displays — preview-only */
+      }
+    })();
+  }, [session]);
+
+  // The "opened" confirmation is transient; the "no-target" warning stays until
+  // the operator wires up a screen.
+  useEffect(() => {
+    if (outputHint !== "opened") return;
+    const id = setTimeout(() => setOutputHint(null), 4000);
+    return () => clearTimeout(id);
+  }, [outputHint]);
 
   // Hotkeys
   useEffect(() => {
@@ -183,13 +221,14 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
         <div className="max-w-md text-center">
           <p className="mb-1 font-semibold">Ingen cues å vise</p>
           <p className="text-sm text-[var(--color-fg-muted)]">
-            «{service.name}» har ingen items enda.
+            «{service.name}» har ingen sanger eller skrift i køen enda. Legg til
+            innhold i tjenesten, så kompileres køen automatisk.
           </p>
           <button
             onClick={exit}
-            className="mt-4 rounded-md bg-[var(--color-bg-surface)] px-4 py-2 text-sm hover:brightness-110"
+            className="mt-4 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110"
           >
-            Tilbake
+            Til køen
           </button>
         </div>
       </div>
@@ -395,6 +434,34 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
       )}
 
       {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
+
+      {outputHint === "no-target" && (
+        <div className="fixed top-4 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2 rounded-xl border border-[var(--color-warning)]/50 bg-[var(--color-bg-elevated)] px-4 py-3 shadow-[var(--shadow-elevated)]">
+          <p className="text-sm font-semibold">
+            Ingen skjerm viser hovedutgangen
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+            Ingen ekstern skjerm er tilordnet hovedutgang. Koble til en
+            projektor/TV, eller åpne «{" "}
+            <Monitor size={11} className="inline -translate-y-px" aria-hidden />{" "}
+            skjermer» nederst til høyre og velg en skjerm.
+          </p>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setOutputHint(null)}
+              className="rounded-md px-3 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+            >
+              Skjønner
+            </button>
+          </div>
+        </div>
+      )}
+      {outputHint === "opened" && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-[var(--color-success)]/40 bg-[var(--color-bg-elevated)] px-4 py-2 text-sm shadow-[var(--shadow-elevated)]">
+          Hovedutgang åpnet på ekstern skjerm
+        </div>
+      )}
     </div>
   );
 }

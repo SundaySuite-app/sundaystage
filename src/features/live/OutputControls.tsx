@@ -48,6 +48,14 @@ export function OutputControls() {
   const config = configQuery.data;
   const driving = isOpenQuery.data ?? false;
 
+  // The screen currently carrying the congregation output, for an at-a-glance
+  // label ("Utgang: Skjerm 2") instead of a bare monitor count.
+  const mainOutput = monitors.find(
+    (m) =>
+      config?.assignments.find((a) => a.monitor_index === m.index)?.role ===
+      "main_output",
+  );
+
   function roleFor(index: number): DisplayRole {
     return (
       config?.assignments.find((a) => a.monitor_index === index)?.role ?? "off"
@@ -87,7 +95,11 @@ export function OutputControls() {
           )}
         />
         <Monitor size={13} />
-        {monitors.length} skjerm{monitors.length === 1 ? "" : "er"}
+        {driving && mainOutput
+          ? `Utgang: ${mainOutput.name}`
+          : driving
+            ? "Utgang aktiv"
+            : `${monitors.length} skjerm${monitors.length === 1 ? "" : "er"}`}
       </button>
 
       {open && (

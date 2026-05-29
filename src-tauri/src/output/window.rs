@@ -79,6 +79,10 @@ pub fn open_outputs(
             .decorations(false)
             .position(m.x as f64, m.y as f64)
             .inner_size(m.width as f64, m.height as f64)
+            // Never steal keyboard focus from the operator console — the
+            // operator's cue-advance hotkeys are bound there, and a focused
+            // output window would silently swallow them mid-service.
+            .focused(false)
             .build()
             .map_err(|e| e.to_string())?;
         let _ = win.set_fullscreen(true);
