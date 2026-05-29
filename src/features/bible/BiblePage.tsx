@@ -13,6 +13,7 @@ import { BookOpen, Plus, Search } from "lucide-react";
 import { ipc } from "@/lib/ipc";
 import type { BibleVerse, Library } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 import { Button, Select } from "@/components/ui";
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function BiblePage({ library }: Props) {
+  const t = useT();
   const [primaryId, setPrimaryId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [book, setBook] = useState<string | null>(null);
@@ -106,7 +108,7 @@ export function BiblePage({ library }: Props) {
     const upcoming = await ipc.service.upcoming(library.id, 0, 1);
     const svc =
       upcoming[0] ??
-      (await ipc.service.create(library.id, "Ny tjeneste", Date.now()));
+      (await ipc.service.create(library.id, t("svcNewService"), Date.now()));
     await ipc.bible.addToService(
       svc.id,
       primaryId,
@@ -115,7 +117,7 @@ export function BiblePage({ library }: Props) {
       range?.start ?? null,
       range?.end ?? null,
     );
-    setAddMsg(`Lagt til i «${svc.name}».`);
+    setAddMsg(t("bibAddedTo", { name: svc.name }));
   }
 
   const inRange = (v: number) =>
@@ -126,10 +128,10 @@ export function BiblePage({ library }: Props) {
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] px-5 py-3">
         <BookOpen size={18} className="text-[var(--color-accent)]" />
-        <h1 className="text-lg font-semibold">Bibel</h1>
+        <h1 className="text-lg font-semibold">{t("navBible")}</h1>
         <div className="flex-1" />
         <label className="text-xs text-[var(--color-fg-muted)]">
-          Oversettelse
+          {t("svcTranslation")}
         </label>
         <Select
           className="w-44"
@@ -143,14 +145,14 @@ export function BiblePage({ library }: Props) {
           ))}
         </Select>
         <label className="text-xs text-[var(--color-fg-muted)]">
-          Sammenlign
+          {t("bibCompare")}
         </label>
         <Select
           className="w-44"
           value={compareId ?? ""}
           onChange={(e) => setCompareId(e.target.value || null)}
         >
-          <option value="">Ingen</option>
+          <option value="">{t("bibNone")}</option>
           {(translations.data ?? [])
             .filter((t) => t.id !== primaryId)
             .map((t) => (
@@ -172,12 +174,12 @@ export function BiblePage({ library }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && runSearch()}
-            placeholder="Slå opp en referanse (John 3:16) eller søk i teksten (shepherd)…"
+            placeholder={t("bibSearchPlaceholder")}
             className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] py-1.5 pr-3 pl-8 text-sm focus:border-[var(--color-accent)] focus:outline-none"
           />
         </div>
         <Button size="sm" onClick={runSearch}>
-          Søk
+          {t("actionSearch")}
         </Button>
       </div>
 
@@ -237,7 +239,7 @@ export function BiblePage({ library }: Props) {
                   {chapter}
                 </h2>
                 <Button size="sm" variant="outline" onClick={addToService}>
-                  <Plus size={14} /> Legg til i tjeneste
+                  <Plus size={14} /> {t("bibAddToService")}
                 </Button>
                 {addMsg && (
                   <span className="text-xs text-[var(--color-success)]">
@@ -271,11 +273,8 @@ export function BiblePage({ library }: Props) {
           ) : (
             <div className="grid h-full place-items-center text-center text-sm text-[var(--color-fg-muted)]">
               <div>
-                <p>Velg en bok og et kapittel, eller søk over.</p>
-                <p className="mt-1 text-xs">
-                  Innebygd: King James Version + Bibelen 1930 (utvalgte
-                  passasjer). Full nedlasting kommer.
-                </p>
+                <p>{t("bibSelectBookChapter")}</p>
+                <p className="mt-1 text-xs">{t("bibBundledNote")}</p>
               </div>
             </div>
           )}
@@ -292,13 +291,18 @@ function SearchResults({
   hits: BibleVerse[];
   onPick: (v: BibleVerse) => void;
 }) {
+  const t = useT();
   if (hits.length === 0) {
-    return <p className="text-sm text-[var(--color-fg-muted)]">Ingen treff.</p>;
+    return (
+      <p className="text-sm text-[var(--color-fg-muted)]">
+        {t("liveNoMatches")}
+      </p>
+    );
   }
   return (
     <div className="max-w-3xl space-y-1.5">
       <p className="mb-2 text-xs text-[var(--color-fg-muted)]">
-        {hits.length} treff
+        {t("bibHitCount", { n: hits.length })}
       </p>
       {hits.map((v) => (
         <button

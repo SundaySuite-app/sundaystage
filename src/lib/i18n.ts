@@ -383,6 +383,84 @@ const en: Catalog = {
   tcAccent: "Accent",
   tcDuplicateHint:
     "Duplicate a built-in theme to edit its colours and typography.",
+
+  // ── Bible ───────────────────────────────────────────────────────────────
+  bibCompare: "Compare",
+  bibNone: "None",
+  bibSearchPlaceholder:
+    "Look up a reference (John 3:16) or search the text (shepherd)…",
+  bibAddToService: "Add to service",
+  bibAddedTo: "Added to «{name}».",
+  bibSelectBookChapter: "Pick a book and chapter, or search above.",
+  bibBundledNote:
+    "Bundled: King James Version + Bibelen 1930 (selected passages). Full download is coming.",
+  bibHitCount: "{n} matches",
+
+  // ── Media ───────────────────────────────────────────────────────────────
+  medRelinkNotFound: "Found no file with the same content in that folder.",
+  medRelinkPrompt: "Which folder should we search for the moved file?",
+  medFileCount: "{n} files",
+  medPathPlaceholder: "/path/to/file.png or .mp4",
+  medImport: "Import",
+  medFilterAll: "All",
+  medImages: "Images",
+  medAudio: "Audio",
+  medEmpty: "No media imported yet. Paste a file path above to start.",
+  medNoneInFilter: "No files in this filter.",
+  medMissingFile: "The file does not exist at the stored path",
+  medRelink: "Relink",
+  actionRemove: "Remove",
+
+  // ── Settings ────────────────────────────────────────────────────────────
+  setGeneral: "General",
+  setAdvanced: "Advanced",
+  setTabOutput: "Output",
+  setTabAi: "AI",
+  setAppearance: "Appearance",
+  setAppearanceDesc: "Theme for the app itself (not the output).",
+  setSampleSection: "Verse 1",
+  setSampleLine1: "Great is thy faithfulness",
+  setSampleLine2: "morning by morning new",
+  setOutputAppearance: "Output appearance",
+  setOutputAppearanceDesc:
+    "How text shows on the main output (projector/TV). Changes take effect immediately on open screens.",
+  setTextSize: "Text size",
+  setLineHeight: "Line height",
+  setAlignLeft: "Left",
+  setAlignCenter: "Centered",
+  setAlignRight: "Right",
+  setShowSectionLabel: "Show section label",
+  setShowSectionLabelDesc:
+    "«Verse 1», «Chorus» on the main output (the stage display shows it regardless).",
+  setUppercase: "UPPERCASE",
+  setUppercaseDesc: "Show all text in uppercase.",
+  setResetDefault: "Reset to default",
+  setAiTitle: "AI — Anthropic",
+  setKeyStoredDesc:
+    "The key is stored in the system keychain, never in plaintext.",
+  setStatus: "Status:",
+  setStoredInKeychain: "Stored in keychain",
+  setFromEnv: "From environment variable",
+  setNoKey: "No key",
+  setClearKey: "Remove stored key",
+  setDefaultModel: "Default model",
+  setTestConnection: "Test connection",
+  setAiPrivacy: "AI privacy",
+  setAiPrivacyDesc: "AI features are optional and send content to Anthropic.",
+  setConsentLabel: "Consent:",
+  setGiven: "Given",
+  setNotGiven: "Not given",
+  setRevoke: "Withdraw",
+  setGiveConsent: "Give consent",
+  setCrashReporting: "Crash reporting",
+  setCrashDesc:
+    "Store crash reports locally on the machine — nothing is sent automatically. Off by default.",
+  setOn: "On",
+  setOff: "Off",
+  setCrashCount: "{n} report(s) stored",
+  actionClear: "Clear",
+  setTurnOff: "Turn off",
+  setTurnOn: "Turn on",
 };
 
 const no: Catalog = {
@@ -752,6 +830,85 @@ const no: Catalog = {
   tcAccent: "Aksent",
   tcDuplicateHint:
     "Dupliser et innebygd tema for å redigere fargene og typografien.",
+
+  // ── Bible ───────────────────────────────────────────────────────────────
+  bibCompare: "Sammenlign",
+  bibNone: "Ingen",
+  bibSearchPlaceholder:
+    "Slå opp en referanse (John 3:16) eller søk i teksten (shepherd)…",
+  bibAddToService: "Legg til i gudstjeneste",
+  bibAddedTo: "Lagt til i «{name}».",
+  bibSelectBookChapter: "Velg en bok og et kapittel, eller søk over.",
+  bibBundledNote:
+    "Innebygd: King James Version + Bibelen 1930 (utvalgte passasjer). Full nedlasting kommer.",
+  bibHitCount: "{n} treff",
+
+  // ── Media ───────────────────────────────────────────────────────────────
+  medRelinkNotFound: "Fant ingen fil med samme innhold i den mappen.",
+  medRelinkPrompt: "Søk i hvilken mappe etter den flyttede filen?",
+  medFileCount: "{n} filer",
+  medPathPlaceholder: "/sti/til/fil.png eller .mp4",
+  medImport: "Importer",
+  medFilterAll: "Alle",
+  medImages: "Bilder",
+  medAudio: "Lyd",
+  medEmpty: "Ingen media importert enda. Lim inn en filsti over for å starte.",
+  medNoneInFilter: "Ingen filer i dette filteret.",
+  medMissingFile: "Filen finnes ikke på lagret sti",
+  medRelink: "Koble på nytt",
+  actionRemove: "Fjern",
+
+  // ── Settings ────────────────────────────────────────────────────────────
+  setGeneral: "Generelt",
+  setAdvanced: "Avansert",
+  setTabOutput: "Output",
+  setTabAi: "AI",
+  setAppearance: "Utseende",
+  setAppearanceDesc: "Tema for selve programmet (ikke output).",
+  setSampleSection: "Vers 1",
+  setSampleLine1: "Stor er din trofasthet",
+  setSampleLine2: "morgen for morgen ny",
+  setOutputAppearance: "Utseende på output",
+  setOutputAppearanceDesc:
+    "Hvordan tekst vises på hovedutgangen (projektor/TV). Endringer slår inn med en gang på åpne skjermer.",
+  setTextSize: "Tekststørrelse",
+  setLineHeight: "Linjehøyde",
+  setAlignLeft: "Venstre",
+  setAlignCenter: "Midtstilt",
+  setAlignRight: "Høyre",
+  setShowSectionLabel: "Vis seksjonsetikett",
+  setShowSectionLabelDesc:
+    "«Vers 1», «Refreng» på hovedutgangen (sceneskjermen viser den uansett).",
+  setUppercase: "STORE BOKSTAVER",
+  setUppercaseDesc: "Vis all tekst med store bokstaver.",
+  setResetDefault: "Tilbakestill til standard",
+  setAiTitle: "AI — Anthropic",
+  setKeyStoredDesc:
+    "Nøkkelen lagres i systemets nøkkelring, aldri i klartekst.",
+  setStatus: "Status:",
+  setStoredInKeychain: "Lagret i nøkkelring",
+  setFromEnv: "Fra miljøvariabel",
+  setNoKey: "Ingen nøkkel",
+  setClearKey: "Fjern lagret nøkkel",
+  setDefaultModel: "Standardmodell",
+  setTestConnection: "Test tilkobling",
+  setAiPrivacy: "Personvern for AI",
+  setAiPrivacyDesc:
+    "AI-funksjoner er valgfrie og sender innhold til Anthropic.",
+  setConsentLabel: "Samtykke:",
+  setGiven: "Gitt",
+  setNotGiven: "Ikke gitt",
+  setRevoke: "Trekk tilbake",
+  setGiveConsent: "Gi samtykke",
+  setCrashReporting: "Feilrapportering",
+  setCrashDesc:
+    "Lagre krasj-rapporter lokalt på maskinen — ingenting sendes automatisk. Av som standard.",
+  setOn: "På",
+  setOff: "Av",
+  setCrashCount: "{n} rapport(er) lagret",
+  actionClear: "Tøm",
+  setTurnOff: "Slå av",
+  setTurnOn: "Slå på",
 };
 
 // Scandinavian + de/fr/pl: nav/chrome only; everything else falls back to en.

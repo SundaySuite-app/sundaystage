@@ -45,40 +45,44 @@ import {
 } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/cn";
+import { useT, type TKey } from "@/lib/i18n";
 
 type Tab = "general" | "output" | "ai" | "advanced";
 
-const TABS: Array<{ id: Tab; label: string; icon: typeof Settings2 }> = [
-  { id: "general", label: "Generelt", icon: Settings2 },
-  { id: "output", label: "Output", icon: Monitor },
-  { id: "ai", label: "AI", icon: Sparkles },
-  { id: "advanced", label: "Avansert", icon: ShieldAlert },
+const TABS: Array<{ id: Tab; labelKey: TKey; icon: typeof Settings2 }> = [
+  { id: "general", labelKey: "setGeneral", icon: Settings2 },
+  { id: "output", labelKey: "setTabOutput", icon: Monitor },
+  { id: "ai", labelKey: "setTabAi", icon: Sparkles },
+  { id: "advanced", labelKey: "setAdvanced", icon: ShieldAlert },
 ];
 
 export function SettingsPage() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>("general");
 
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-[var(--color-border)] px-8 pt-8">
-        <h1 className="text-[var(--text-ui-3xl)] font-bold">Innstillinger</h1>
+        <h1 className="text-[var(--text-ui-3xl)] font-bold">
+          {t("navSettings")}
+        </h1>
         <div className="mt-4 flex gap-1">
-          {TABS.map((t) => {
-            const Icon = t.icon;
+          {TABS.map((tabItem) => {
+            const Icon = tabItem.icon;
             return (
               <button
-                key={t.id}
+                key={tabItem.id}
                 type="button"
-                onClick={() => setTab(t.id)}
+                onClick={() => setTab(tabItem.id)}
                 className={cn(
                   "flex items-center gap-2 rounded-t-md border-b-2 px-4 py-2 text-sm font-medium transition-colors",
-                  tab === t.id
+                  tab === tabItem.id
                     ? "border-[var(--color-accent)] text-[var(--color-fg)]"
                     : "border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
                 )}
               >
                 <Icon size={15} aria-hidden />
-                {t.label}
+                {t(tabItem.labelKey)}
               </button>
             );
           })}
@@ -98,17 +102,18 @@ export function SettingsPage() {
 }
 
 function GeneralSettings() {
+  const t = useT();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Utseende</CardTitle>
-        <CardDescription>
-          Tema for selve programmet (ikke output).
-        </CardDescription>
+        <CardTitle>{t("setAppearance")}</CardTitle>
+        <CardDescription>{t("setAppearanceDesc")}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-[var(--color-fg-muted)]">Tema</span>
+          <span className="text-sm text-[var(--color-fg-muted)]">
+            {t("themeLabel")}
+          </span>
           <ThemeToggle />
         </div>
       </CardContent>
@@ -116,18 +121,18 @@ function GeneralSettings() {
   );
 }
 
-const SAMPLE_FRAME: LiveFrame = {
-  kind: "slide",
-  slide_content: {
-    section_label: "Vers 1",
-    text_lines: ["Stor er din trofasthet", "morgen for morgen ny"],
-    translation_lines: null,
-    reference: null,
-  },
-};
-
 function OutputSettings() {
+  const t = useT();
   const qc = useQueryClient();
+  const sampleFrame: LiveFrame = {
+    kind: "slide",
+    slide_content: {
+      section_label: t("setSampleSection"),
+      text_lines: [t("setSampleLine1"), t("setSampleLine2")],
+      translation_lines: null,
+      reference: null,
+    },
+  };
   const [draft, setDraft] = useState<OutputAppearance>(
     DEFAULT_OUTPUT_APPEARANCE,
   );
@@ -176,23 +181,20 @@ function OutputSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Monitor size={18} className="text-[var(--color-accent)]" />
-            Utseende på output
+            {t("setOutputAppearance")}
           </CardTitle>
-          <CardDescription>
-            Hvordan tekst vises på hovedutgangen (projektor/TV). Endringer slår
-            inn med en gang på åpne skjermer.
-          </CardDescription>
+          <CardDescription>{t("setOutputAppearanceDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Live preview */}
           <div className="overflow-hidden rounded-lg ring-1 ring-[var(--color-border)]">
             <div className="aspect-video w-full">
-              <SlideView frame={SAMPLE_FRAME} appearance={draft} />
+              <SlideView frame={sampleFrame} appearance={draft} />
             </div>
           </div>
 
           <RangeRow
-            label="Tekststørrelse"
+            label={t("setTextSize")}
             min={0.5}
             max={2.5}
             step={0.05}
@@ -201,7 +203,7 @@ function OutputSettings() {
             onChange={(v) => update({ text_scale: v })}
           />
           <RangeRow
-            label="Linjehøyde"
+            label={t("setLineHeight")}
             min={0.9}
             max={2.5}
             step={0.05}
@@ -212,18 +214,18 @@ function OutputSettings() {
 
           <div className="flex flex-wrap gap-6">
             <ColorRow
-              label="Tekstfarge"
+              label={t("tcTextColor")}
               value={draft.text_color}
               onChange={(v) => update({ text_color: v })}
             />
             <ColorRow
-              label="Bakgrunn"
+              label={t("inspBackground")}
               value={draft.bg_color}
               onChange={(v) => update({ bg_color: v })}
             />
             <div>
               <label className="mb-1 block text-xs text-[var(--color-fg-muted)]">
-                Justering
+                {t("inspAlign")}
               </label>
               <Select
                 className="w-32"
@@ -234,29 +236,29 @@ function OutputSettings() {
                   })
                 }
               >
-                <option value="left">Venstre</option>
-                <option value="center">Midtstilt</option>
-                <option value="right">Høyre</option>
+                <option value="left">{t("setAlignLeft")}</option>
+                <option value="center">{t("setAlignCenter")}</option>
+                <option value="right">{t("setAlignRight")}</option>
               </Select>
             </div>
           </div>
 
           <ToggleRow
-            label="Vis seksjonsetikett"
-            description="«Vers 1», «Refreng» på hovedutgangen (sceneskjermen viser den uansett)."
+            label={t("setShowSectionLabel")}
+            description={t("setShowSectionLabelDesc")}
             checked={draft.show_section_label}
             onChange={(v) => update({ show_section_label: v })}
           />
           <ToggleRow
-            label="STORE BOKSTAVER"
-            description="Vis all tekst med store bokstaver."
+            label={t("setUppercase")}
+            description={t("setUppercaseDesc")}
             checked={draft.uppercase}
             onChange={(v) => update({ uppercase: v })}
           />
 
           <div className="flex justify-end">
             <Button variant="ghost" size="sm" onClick={reset}>
-              Tilbakestill til standard
+              {t("setResetDefault")}
             </Button>
           </div>
         </CardContent>
@@ -375,6 +377,7 @@ function ToggleRow({
 }
 
 function AiSettings() {
+  const t = useT();
   const qc = useQueryClient();
   const [keyInput, setKeyInput] = useState("");
   const [model, setModel] = useState(preferredModel() ?? "claude-sonnet-4-6");
@@ -413,21 +416,21 @@ function AiSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <KeyRound size={18} className="text-[var(--color-accent)]" />
-            AI — Anthropic
+            {t("setAiTitle")}
           </CardTitle>
-          <CardDescription>
-            Nøkkelen lagres i systemets nøkkelring, aldri i klartekst.
-          </CardDescription>
+          <CardDescription>{t("setKeyStoredDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--color-fg-muted)]">Status:</span>
+            <span className="text-[var(--color-fg-muted)]">
+              {t("setStatus")}
+            </span>
             {status?.stored ? (
-              <Badge variant="success">Lagret i nøkkelring</Badge>
+              <Badge variant="success">{t("setStoredInKeychain")}</Badge>
             ) : status?.env ? (
-              <Badge variant="neutral">Fra miljøvariabel</Badge>
+              <Badge variant="neutral">{t("setFromEnv")}</Badge>
             ) : (
-              <Badge variant="warning">Ingen nøkkel</Badge>
+              <Badge variant="warning">{t("setNoKey")}</Badge>
             )}
           </div>
 
@@ -442,13 +445,13 @@ function AiSettings() {
               onClick={() => saveKey.mutate()}
               disabled={keyInput.trim().length === 0 || saveKey.isPending}
             >
-              Lagre
+              {t("actionSave")}
             </Button>
             {status?.stored && (
               <Button
                 variant="outline"
                 size="icon"
-                title="Fjern lagret nøkkel"
+                title={t("setClearKey")}
                 onClick={() => clearKey.mutate()}
                 disabled={clearKey.isPending}
               >
@@ -459,7 +462,7 @@ function AiSettings() {
 
           <div className="flex items-center gap-2">
             <label className="text-sm text-[var(--color-fg-muted)]">
-              Standardmodell
+              {t("setDefaultModel")}
             </label>
             <Select
               className="max-w-xs"
@@ -486,7 +489,7 @@ function AiSettings() {
               {testConn.isPending && (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              Test tilkobling
+              {t("setTestConnection")}
             </Button>
             {test && (
               <span
@@ -506,18 +509,18 @@ function AiSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Personvern for AI</CardTitle>
-          <CardDescription>
-            AI-funksjoner er valgfrie og sender innhold til Anthropic.
-          </CardDescription>
+          <CardTitle>{t("setAiPrivacy")}</CardTitle>
+          <CardDescription>{t("setAiPrivacyDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--color-fg-muted)]">Samtykke:</span>
+            <span className="text-[var(--color-fg-muted)]">
+              {t("setConsentLabel")}
+            </span>
             {consent ? (
-              <Badge variant="success">Gitt</Badge>
+              <Badge variant="success">{t("setGiven")}</Badge>
             ) : (
-              <Badge variant="neutral">Ikke gitt</Badge>
+              <Badge variant="neutral">{t("setNotGiven")}</Badge>
             )}
           </div>
           {consent ? (
@@ -528,7 +531,7 @@ function AiSettings() {
                 setConsent(false);
               }}
             >
-              Trekk tilbake
+              {t("setRevoke")}
             </Button>
           ) : (
             <Button
@@ -537,7 +540,7 @@ function AiSettings() {
                 setConsent(true);
               }}
             >
-              Gi samtykke
+              {t("setGiveConsent")}
             </Button>
           )}
         </CardContent>
@@ -547,6 +550,7 @@ function AiSettings() {
 }
 
 function AdvancedSettings() {
+  const t = useT();
   const qc = useQueryClient();
   const crashStatus = useQuery({
     queryKey: ["crashStatus"],
@@ -568,23 +572,20 @@ function AdvancedSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Feilrapportering</CardTitle>
-        <CardDescription>
-          Lagre krasj-rapporter lokalt på maskinen — ingenting sendes
-          automatisk. Av som standard.
-        </CardDescription>
+        <CardTitle>{t("setCrashReporting")}</CardTitle>
+        <CardDescription>{t("setCrashDesc")}</CardDescription>
       </CardHeader>
       <CardContent className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-[var(--color-fg-muted)]">Status:</span>
+          <span className="text-[var(--color-fg-muted)]">{t("setStatus")}</span>
           {crashStatus.data ? (
-            <Badge variant="success">På</Badge>
+            <Badge variant="success">{t("setOn")}</Badge>
           ) : (
-            <Badge variant="neutral">Av</Badge>
+            <Badge variant="neutral">{t("setOff")}</Badge>
           )}
           {(crashCount.data ?? 0) > 0 && (
             <span className="text-xs text-[var(--color-fg-muted)]">
-              {crashCount.data} rapport(er) lagret
+              {t("setCrashCount", { n: crashCount.data ?? 0 })}
             </span>
           )}
         </div>
@@ -595,7 +596,7 @@ function AdvancedSettings() {
               size="sm"
               onClick={() => clearCrashes.mutate()}
             >
-              Tøm
+              {t("actionClear")}
             </Button>
           )}
           <Button
@@ -603,7 +604,7 @@ function AdvancedSettings() {
             size="sm"
             onClick={() => setCrash.mutate(!crashStatus.data)}
           >
-            {crashStatus.data ? "Slå av" : "Slå på"}
+            {crashStatus.data ? t("setTurnOff") : t("setTurnOn")}
           </Button>
         </div>
       </CardContent>

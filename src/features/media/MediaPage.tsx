@@ -22,6 +22,7 @@ import {
 import type { Library, MediaStatus } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 
 type Filter = "all" | "image" | "video" | "audio";
 
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function MediaPage({ library }: Props) {
+  const t = useT();
   const qc = useQueryClient();
   const mediaKey = ["media", library.id] as const;
   const [filter, setFilter] = useState<Filter>("all");
@@ -70,22 +72,23 @@ export function MediaPage({ library }: Props) {
       ipc.media.relink(id, dirs),
     onSuccess: (asset) => {
       void qc.invalidateQueries({ queryKey: mediaKey });
-      if (!asset)
-        window.alert("Fant ingen fil med samme innhold i den mappen.");
+      if (!asset) window.alert(t("medRelinkNotFound"));
     },
   });
 
   const relink = (id: string) => {
-    const dir = window.prompt("Søk i hvilken mappe etter den flyttede filen?");
+    const dir = window.prompt(t("medRelinkPrompt"));
     if (dir?.trim()) relinkMut.mutate({ id, dirs: [dir.trim()] });
   };
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
-        <h1 className="text-[var(--text-ui-xl)] font-semibold">Media</h1>
+        <h1 className="text-[var(--text-ui-xl)] font-semibold">
+          {t("navMedia")}
+        </h1>
         <span className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
-          {items.length} filer
+          {t("medFileCount", { n: items.length })}
         </span>
         <div className="flex-1" />
         <input
@@ -95,7 +98,7 @@ export function MediaPage({ library }: Props) {
           onKeyDown={(e) =>
             e.key === "Enter" && path.trim() && importMut.mutate(path.trim())
           }
-          placeholder="/sti/til/fil.png eller .mp4"
+          placeholder={t("medPathPlaceholder")}
           className="w-72 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
         />
         <button
@@ -104,7 +107,7 @@ export function MediaPage({ library }: Props) {
           disabled={!path.trim() || importMut.isPending}
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          <Plus size={14} /> Importer
+          <Plus size={14} /> {t("medImport")}
         </button>
       </header>
 
@@ -122,12 +125,12 @@ export function MediaPage({ library }: Props) {
             )}
           >
             {f === "all"
-              ? "Alle"
+              ? t("medFilterAll")
               : f === "image"
-                ? "Bilder"
+                ? t("medImages")
                 : f === "video"
-                  ? "Video"
-                  : "Lyd"}
+                  ? t("kindVideo")
+                  : t("medAudio")}
           </button>
         ))}
       </div>
@@ -135,14 +138,12 @@ export function MediaPage({ library }: Props) {
       <div className="flex-1 overflow-y-auto p-6">
         {importMut.isError && (
           <p className="mb-3 text-sm text-[var(--color-danger)]">
-            Import feilet: {String(importMut.error)}
+            {t("importFailed", { error: String(importMut.error) })}
           </p>
         )}
         {shown.length === 0 ? (
           <p className="text-sm text-[var(--color-fg-muted)]">
-            {items.length === 0
-              ? "Ingen media importert enda. Lim inn en filsti over for å starte."
-              : "Ingen filer i dette filteret."}
+            {items.length === 0 ? t("medEmpty") : t("medNoneInFilter")}
           </p>
         ) : (
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
@@ -170,6 +171,7 @@ function MediaCard({
   onDelete: () => void;
   onRelink: () => void;
 }) {
+  const t = useT();
   const { asset, present } = status;
   return (
     <li className="group relative flex flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
@@ -182,7 +184,7 @@ function MediaCard({
         </span>
         {!present && (
           <span
-            title="Filen finnes ikke på lagret sti"
+            title={t("medMissingFile")}
             className="text-[var(--color-warning)]"
           >
             <AlertTriangle size={13} />
@@ -195,13 +197,13 @@ function MediaCard({
           onClick={onRelink}
           className="flex items-center justify-center gap-1.5 border-t border-[var(--color-border)] py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-bg-surface)]"
         >
-          <Link2 size={13} /> Koble på nytt
+          <Link2 size={13} /> {t("medRelink")}
         </button>
       )}
       <button
         type="button"
         onClick={onDelete}
-        title="Fjern"
+        title={t("actionRemove")}
         className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-md bg-[var(--color-bg)]/70 text-[var(--color-fg-muted)] opacity-0 transition-opacity hover:text-[var(--color-danger)] group-hover:opacity-100"
       >
         <Trash2 size={13} />
