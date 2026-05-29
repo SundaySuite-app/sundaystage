@@ -15,7 +15,12 @@ import {
   ArrowDown,
   ArrowUp,
   CalendarDays,
+  ChevronDown,
   Import,
+  Megaphone,
+  Music,
+  Pause,
+  Pencil,
   Play,
   Plus,
   Search,
@@ -29,6 +34,7 @@ import type {
   Library,
   SearchResult,
   Service,
+  ServiceItem,
   ServiceItemCues,
   SongArrangement,
 } from "@/lib/bindings";
@@ -224,6 +230,7 @@ function QueueEditor({
 }) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -238,11 +245,10 @@ function QueueEditor({
   const summary = summaryQuery.data;
   const items = summary?.items ?? [];
 
-  // Map service_item_id → key override, to show the key on each row.
-  const keyById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const it of itemsQuery.data ?? [])
-      if (it.key_override) m.set(it.id, it.key_override);
+  // Map service_item_id → full item, for showing the key and editing in place.
+  const itemById = useMemo(() => {
+    const m = new Map<string, ServiceItem>();
+    for (const it of itemsQuery.data ?? []) m.set(it.id, it);
     return m;
   }, [itemsQuery.data]);
 
@@ -257,6 +263,20 @@ function QueueEditor({
       arrangementId: string | null;
       key: string | null;
     }) => ipc.service.addSong(service.id, a.songId, a.arrangementId, a.key),
+    onSuccess: () => refresh(),
+  });
+  const addNonSong = useMutation({
+    mutationFn: (a: { kind: string; label: string }) =>
+      ipc.service.addItem(service.id, a.kind, a.label),
+    onSuccess: () => refresh(),
+  });
+  const updateItem = useMutation({
+    mutationFn: (a: {
+      itemId: string;
+      arrangementId: string | null;
+      key: string | null;
+      notes: string | null;
+    }) => ipc.service.updateItem(a.itemId, a.arrangementId, a.key, a.notes),
     onSuccess: () => refresh(),
   });
   const removeItem = useMutation({
@@ -339,14 +359,55 @@ function QueueEditor({
         >
           <Trash2 size={16} />
         </button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setAdding((v) => !v)}
-        >
-          <Plus size={14} aria-hidden />
-          Legg til sang
-        </Button>
+        <div className="relative">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAddMenuOpen((v) => !v)}
+          >
+            <Plus size={14} aria-hidden />
+            Legg til
+            <ChevronDown size={13} aria-hidden />
+          </Button>
+          {addMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setAddMenuOpen(false)}
+                aria-hidden
+              />
+              <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1 shadow-[var(--shadow-elevated)]">
+                <AddMenuItem
+                  icon={Music}
+                  label="Sang"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    setAdding(true);
+                  }}
+                />
+                <AddMenuItem
+                  icon={Pause}
+                  label="Pause"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    addNonSong.mutate({ kind: "gap", label: "Pause" });
+                  }}
+                />
+                <AddMenuItem
+                  icon={Megaphone}
+                  label="Kunngjøring"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    addNonSong.mutate({
+                      kind: "announcement",
+                      label: "Kunngjøring",
+                    });
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </div>
         {onGoLive && (
           <button
             type="button"
@@ -416,10 +477,18 @@ function QueueEditor({
                 index={i}
                 count={items.length}
                 item={item}
-                keyOverride={keyById.get(item.service_item_id) ?? null}
+                serviceItem={itemById.get(item.service_item_id) ?? null}
                 onUp={() => move(i, -1)}
                 onDown={() => move(i, 1)}
                 onRemove={() => removeItem.mutate(item.service_item_id)}
+                onSave={(arrangementId, key, notes) =>
+                  updateItem.mutate({
+                    itemId: item.service_item_id,
+                    arrangementId,
+                    key,
+                    notes,
+                  })
+                }
               />
             ))}
           </ol>
@@ -451,89 +520,241 @@ const KIND_LABEL: Record<string, string> = {
   video: "Video",
 };
 
+function AddMenuItem({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof Music;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-surface)]"
+    >
+      <Icon size={14} aria-hidden className="text-[var(--color-fg-muted)]" />
+      {label}
+    </button>
+  );
+}
+
 function QueueItemRow({
   index,
   count,
   item,
-  keyOverride,
+  serviceItem,
   onUp,
   onDown,
   onRemove,
+  onSave,
 }: {
   index: number;
   count: number;
   item: ServiceItemCues;
-  keyOverride: string | null;
+  serviceItem: ServiceItem | null;
   onUp: () => void;
   onDown: () => void;
   onRemove: () => void;
+  onSave: (
+    arrangementId: string | null,
+    key: string | null,
+    notes: string | null,
+  ) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const keyOverride = serviceItem?.key_override ?? null;
+
   return (
-    <li className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
-      <span className="w-6 shrink-0 pt-0.5 text-center font-mono text-xs tabular-nums text-[var(--color-fg-muted)]">
-        {index + 1}
-      </span>
+    <li className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+      <div className="flex items-start gap-3 p-3">
+        <span className="w-6 shrink-0 pt-0.5 text-center font-mono text-xs tabular-nums text-[var(--color-fg-muted)]">
+          {index + 1}
+        </span>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-[var(--color-bg-surface)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-fg-muted)] uppercase">
-            {KIND_LABEL[item.kind] ?? item.kind}
-          </span>
-          <span className="truncate font-medium">{item.title}</span>
-          {keyOverride && (
-            <span className="rounded bg-[var(--color-accent)]/15 px-1.5 py-0.5 font-mono text-[11px] text-[var(--color-accent-fg)]">
-              {keyOverride}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-[var(--color-bg-surface)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-fg-muted)] uppercase">
+              {KIND_LABEL[item.kind] ?? item.kind}
             </span>
-          )}
-          <span className="ml-auto shrink-0 text-xs text-[var(--color-fg-muted)]">
-            {item.cue_count} {item.cue_count === 1 ? "lysbilde" : "lysbilder"}
-          </span>
-        </div>
-        {/* What goes into the queue for this item — per-section slide counts. */}
-        {item.sections.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {item.sections.map((sec, si) => (
-              <span
-                key={si}
-                className="inline-flex items-center gap-1 rounded-md bg-[var(--color-bg-surface)] px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)]"
-              >
-                <span className="text-[var(--color-fg)]">{sec.label}</span>
-                <span className="font-mono">×{sec.slide_count}</span>
+            <span className="truncate font-medium">{item.title}</span>
+            {keyOverride && (
+              <span className="rounded bg-[var(--color-accent)]/15 px-1.5 py-0.5 font-mono text-[11px] text-[var(--color-accent-fg)]">
+                {keyOverride}
               </span>
-            ))}
+            )}
+            <span className="ml-auto shrink-0 text-xs text-[var(--color-fg-muted)]">
+              {item.cue_count} {item.cue_count === 1 ? "lysbilde" : "lysbilder"}
+            </span>
           </div>
-        )}
+          {/* What goes into the queue for this item — per-section slide counts. */}
+          {item.sections.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {item.sections.map((sec, si) => (
+                <span
+                  key={si}
+                  className="inline-flex items-center gap-1 rounded-md bg-[var(--color-bg-surface)] px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)]"
+                >
+                  <span className="text-[var(--color-fg)]">{sec.label}</span>
+                  <span className="font-mono">×{sec.slide_count}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-0.5">
+          {serviceItem && (
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              title="Rediger"
+              className={cn(
+                "rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]",
+                editing &&
+                  "bg-[var(--color-bg-surface)] text-[var(--color-fg)]",
+              )}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onUp}
+            disabled={index === 0}
+            title="Flytt opp"
+            className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-30"
+          >
+            <ArrowUp size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={onDown}
+            disabled={index === count - 1}
+            title="Flytt ned"
+            className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-30"
+          >
+            <ArrowDown size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            title="Fjern fra kø"
+            className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-0.5">
-        <button
-          type="button"
-          onClick={onUp}
-          disabled={index === 0}
-          title="Flytt opp"
-          className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-30"
-        >
-          <ArrowUp size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={onDown}
-          disabled={index === count - 1}
-          title="Flytt ned"
-          className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-30"
-        >
-          <ArrowDown size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          title="Fjern fra kø"
-          className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
+      {editing && serviceItem && (
+        <ItemEditor
+          serviceItem={serviceItem}
+          onCancel={() => setEditing(false)}
+          onSave={(arrId, key, notes) => {
+            onSave(arrId, key, notes);
+            setEditing(false);
+          }}
+        />
+      )}
     </li>
+  );
+}
+
+/** Inline editor for an existing queue item: arrangement + key for songs, or a
+ * label for pauses/announcements. */
+function ItemEditor({
+  serviceItem,
+  onSave,
+  onCancel,
+}: {
+  serviceItem: ServiceItem;
+  onSave: (
+    arrangementId: string | null,
+    key: string | null,
+    notes: string | null,
+  ) => void;
+  onCancel: () => void;
+}) {
+  const isSong = serviceItem.kind === "song";
+  const [arrangementId, setArrangementId] = useState(
+    serviceItem.arrangement_id ?? "",
+  );
+  const [key, setKey] = useState(serviceItem.key_override ?? "");
+  const [notes, setNotes] = useState(serviceItem.notes ?? "");
+
+  const arrangementsQuery = useQuery({
+    queryKey: ["arrangements", serviceItem.song_id],
+    queryFn: () => ipc.arrangement.list(serviceItem.song_id as string),
+    enabled: isSong && !!serviceItem.song_id,
+  });
+  const arrangements: SongArrangement[] = arrangementsQuery.data ?? [];
+
+  return (
+    <div className="border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-4 py-3">
+      <div className="flex flex-wrap items-end gap-3">
+        {isSong ? (
+          <>
+            <label className="text-xs text-[var(--color-fg-muted)]">
+              <span className="mb-1 block">Arrangement</span>
+              <Select
+                className="w-48"
+                value={arrangementId}
+                onChange={(e) => setArrangementId(e.target.value)}
+              >
+                <option value="">Standard (alle seksjoner)</option>
+                {arrangements.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.is_default ? " ★" : ""}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="text-xs text-[var(--color-fg-muted)]">
+              <span className="mb-1 block">Toneart</span>
+              <input
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder="f.eks. G"
+                className="w-24 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+              />
+            </label>
+          </>
+        ) : (
+          <label className="flex-1 text-xs text-[var(--color-fg-muted)]">
+            <span className="mb-1 block">Tekst</span>
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="f.eks. Kollekt"
+              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+            />
+          </label>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            Avbryt
+          </Button>
+          <Button
+            size="sm"
+            onClick={() =>
+              isSong
+                ? onSave(
+                    arrangementId || null,
+                    key.trim() ? key.trim() : null,
+                    serviceItem.notes ?? null,
+                  )
+                : onSave(null, null, notes.trim() ? notes.trim() : null)
+            }
+          >
+            Lagre
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
