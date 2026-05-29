@@ -14,8 +14,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   ArrowUp,
+  BookOpen,
   CalendarDays,
   ChevronDown,
+  Eye,
+  GripVertical,
   Import,
   Megaphone,
   Music,
@@ -31,7 +34,11 @@ import {
 
 import { ipc } from "@/lib/ipc";
 import type {
+  BibleBook,
+  BibleTranslation,
+  Cue,
   Library,
+  OutputAppearance,
   SearchResult,
   Service,
   ServiceItem,
@@ -39,6 +46,8 @@ import type {
   SongArrangement,
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { DEFAULT_OUTPUT_APPEARANCE } from "@/lib/outputBridge";
+import { SlideView } from "@/components/SlideView";
 import { Button, Select } from "@/components/ui";
 
 interface Props {
@@ -229,10 +238,12 @@ function QueueEditor({
   onDeleted: () => void;
 }) {
   const qc = useQueryClient();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<null | "song" | "scripture">(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const summaryQuery = useQuery({
     queryKey: ["cueSummary", service.id],
@@ -268,6 +279,24 @@ function QueueEditor({
   const addNonSong = useMutation({
     mutationFn: (a: { kind: string; label: string }) =>
       ipc.service.addItem(service.id, a.kind, a.label),
+    onSuccess: () => refresh(),
+  });
+  const addScripture = useMutation({
+    mutationFn: (a: {
+      translationId: string;
+      book: string;
+      chapter: number;
+      verseStart: number | null;
+      verseEnd: number | null;
+    }) =>
+      ipc.bible.addToService(
+        service.id,
+        a.translationId,
+        a.book,
+        a.chapter,
+        a.verseStart,
+        a.verseEnd,
+      ),
     onSuccess: () => refresh(),
   });
   const updateItem = useMutation({
@@ -306,10 +335,15 @@ function QueueEditor({
   });
 
   function move(index: number, dir: -1 | 1) {
-    const target = index + dir;
-    if (target < 0 || target >= items.length) return;
+    reorderTo(index, index + dir);
+  }
+
+  /** Move the item at `from` to position `to`, then persist the new order. */
+  function reorderTo(from: number, to: number) {
+    if (to < 0 || to >= items.length || from === to) return;
     const ids = items.map((i) => i.service_item_id);
-    [ids[index], ids[target]] = [ids[target], ids[index]];
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
     reorder.mutate(ids);
   }
 
@@ -382,7 +416,15 @@ function QueueEditor({
                   label="Sang"
                   onClick={() => {
                     setAddMenuOpen(false);
-                    setAdding(true);
+                    setAdding("song");
+                  }}
+                />
+                <AddMenuItem
+                  icon={BookOpen}
+                  label="Skrift"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    setAdding("scripture");
                   }}
                 />
                 <AddMenuItem
@@ -437,14 +479,23 @@ function QueueEditor({
         />
       )}
 
-      {adding && (
+      {adding === "song" && (
         <AddSongPanel
           library={library}
           onAdd={(songId, arrangementId, key) => {
             addSong.mutate({ songId, arrangementId, key });
-            setAdding(false);
+            setAdding(null);
           }}
-          onClose={() => setAdding(false)}
+          onClose={() => setAdding(null)}
+        />
+      )}
+      {adding === "scripture" && (
+        <AddScripturePanel
+          onAdd={(a) => {
+            addScripture.mutate(a);
+            setAdding(null);
+          }}
+          onClose={() => setAdding(null)}
         />
       )}
 
@@ -464,7 +515,7 @@ function QueueEditor({
               Legg til sanger så ser du her nøyaktig hvilke lysbilder hver sang
               blir, og hvor mange cues køen får totalt.
             </p>
-            <Button className="mt-5" onClick={() => setAdding(true)}>
+            <Button className="mt-5" onClick={() => setAdding("song")}>
               <Plus size={14} aria-hidden />
               Legg til sang
             </Button>
@@ -478,8 +529,22 @@ function QueueEditor({
                 count={items.length}
                 item={item}
                 serviceItem={itemById.get(item.service_item_id) ?? null}
+                dragging={dragIndex === i}
+                onDragStart={() => setDragIndex(i)}
+                onDragEnter={() => {
+                  if (dragIndex !== null && dragIndex !== i) {
+                    reorderTo(dragIndex, i);
+                    setDragIndex(i);
+                  }
+                }}
+                onDragEnd={() => setDragIndex(null)}
                 onUp={() => move(i, -1)}
                 onDown={() => move(i, 1)}
+                onPreview={
+                  item.cue_count > 0
+                    ? () => setPreviewId(item.service_item_id)
+                    : undefined
+                }
                 onRemove={() => removeItem.mutate(item.service_item_id)}
                 onSave={(arrangementId, key, notes) =>
                   updateItem.mutate({
@@ -505,6 +570,18 @@ function QueueEditor({
             del.mutate();
           }}
           onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {previewId && (
+        <CuePreviewModal
+          serviceId={service.id}
+          itemId={previewId}
+          title={
+            items.find((i) => i.service_item_id === previewId)?.title ??
+            "Forhåndsvisning"
+          }
+          onClose={() => setPreviewId(null)}
         />
       )}
     </section>
@@ -546,8 +623,13 @@ function QueueItemRow({
   count,
   item,
   serviceItem,
+  dragging,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
   onUp,
   onDown,
+  onPreview,
   onRemove,
   onSave,
 }: {
@@ -555,8 +637,13 @@ function QueueItemRow({
   count: number;
   item: ServiceItemCues;
   serviceItem: ServiceItem | null;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragEnter: () => void;
+  onDragEnd: () => void;
   onUp: () => void;
   onDown: () => void;
+  onPreview?: () => void;
   onRemove: () => void;
   onSave: (
     arrangementId: string | null,
@@ -568,10 +655,26 @@ function QueueItemRow({
   const keyOverride = serviceItem?.key_override ?? null;
 
   return (
-    <li className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <div className="flex items-start gap-3 p-3">
-        <span className="w-6 shrink-0 pt-0.5 text-center font-mono text-xs tabular-nums text-[var(--color-fg-muted)]">
-          {index + 1}
+    <li
+      draggable
+      onDragStart={onDragStart}
+      onDragEnter={onDragEnter}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] transition-opacity",
+        dragging && "opacity-40 ring-1 ring-[var(--color-accent)]",
+      )}
+    >
+      <div className="flex items-start gap-2 p-3">
+        <span
+          className="flex cursor-grab items-center gap-1 pt-0.5 text-[var(--color-fg-muted)] active:cursor-grabbing"
+          title="Dra for å endre rekkefølge"
+        >
+          <GripVertical size={14} aria-hidden />
+          <span className="w-4 text-center font-mono text-xs tabular-nums">
+            {index + 1}
+          </span>
         </span>
 
         <div className="min-w-0 flex-1">
@@ -606,6 +709,16 @@ function QueueItemRow({
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
+          {onPreview && (
+            <button
+              type="button"
+              onClick={onPreview}
+              title="Forhåndsvis"
+              className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+            >
+              <Eye size={14} />
+            </button>
+          )}
           {serviceItem && (
             <button
               type="button"
@@ -1052,6 +1165,247 @@ function ConfirmDialog({
           >
             {confirmLabel}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Step 1 of add-scripture: pick translation → book → chapter → verses. Adds via
+ *  the existing bible_add_to_service command. */
+function AddScripturePanel({
+  onAdd,
+  onClose,
+}: {
+  onAdd: (a: {
+    translationId: string;
+    book: string;
+    chapter: number;
+    verseStart: number | null;
+    verseEnd: number | null;
+  }) => void;
+  onClose: () => void;
+}) {
+  const [translationId, setTranslationId] = useState("");
+  const [book, setBook] = useState("");
+  const [chapter, setChapter] = useState<number | "">("");
+  const [verseStart, setVerseStart] = useState("");
+  const [verseEnd, setVerseEnd] = useState("");
+
+  const translations = useQuery({
+    queryKey: ["bibleTranslations"],
+    queryFn: () => ipc.bible.translations(),
+  });
+  // Default to the first installed translation.
+  useEffect(() => {
+    const list = translations.data;
+    if (list && list.length && !translationId) setTranslationId(list[0].id);
+  }, [translations.data, translationId]);
+
+  const books = useQuery({
+    queryKey: ["bibleBooks", translationId],
+    queryFn: () => ipc.bible.books(translationId),
+    enabled: !!translationId,
+  });
+  const chapters = useQuery({
+    queryKey: ["bibleChapters", translationId, book],
+    queryFn: () => ipc.bible.chapters(translationId, book),
+    enabled: !!translationId && !!book,
+  });
+
+  const canAdd = !!translationId && !!book && chapter !== "";
+
+  return (
+    <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Oversettelse">
+          <Select
+            className="w-40"
+            value={translationId}
+            onChange={(e) => {
+              setTranslationId(e.target.value);
+              setBook("");
+              setChapter("");
+            }}
+          >
+            {(translations.data ?? []).map((t: BibleTranslation) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Bok">
+          <Select
+            className="w-40"
+            value={book}
+            onChange={(e) => {
+              setBook(e.target.value);
+              setChapter("");
+            }}
+          >
+            <option value="">Velg…</option>
+            {(books.data ?? []).map((b: BibleBook) => (
+              <option key={b.book} value={b.book}>
+                {b.display}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Kapittel">
+          <Select
+            className="w-24"
+            value={chapter === "" ? "" : String(chapter)}
+            onChange={(e) =>
+              setChapter(e.target.value ? Number(e.target.value) : "")
+            }
+            disabled={!book}
+          >
+            <option value="">—</option>
+            {(chapters.data ?? []).map((c: number) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Vers fra">
+          <input
+            value={verseStart}
+            onChange={(e) => setVerseStart(e.target.value.replace(/\D/g, ""))}
+            placeholder="alle"
+            className="w-20 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+          />
+        </Field>
+        <Field label="Vers til">
+          <input
+            value={verseEnd}
+            onChange={(e) => setVerseEnd(e.target.value.replace(/\D/g, ""))}
+            placeholder="—"
+            className="w-20 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+          />
+        </Field>
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Avbryt
+          </Button>
+          <Button
+            size="sm"
+            disabled={!canAdd}
+            onClick={() =>
+              onAdd({
+                translationId,
+                book,
+                chapter: chapter as number,
+                verseStart: verseStart ? Number(verseStart) : null,
+                verseEnd: verseEnd ? Number(verseEnd) : null,
+              })
+            }
+          >
+            <Plus size={14} aria-hidden />
+            Legg til i kø
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="text-xs text-[var(--color-fg-muted)]">
+      <span className="mb-1 block">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/** Renders every slide an item produces, styled exactly as the output will,
+ *  by compiling the cue list and filtering to this item's slides. */
+function CuePreviewModal({
+  serviceId,
+  itemId,
+  title,
+  onClose,
+}: {
+  serviceId: string;
+  itemId: string;
+  title: string;
+  onClose: () => void;
+}) {
+  const cueList = useQuery({
+    queryKey: ["cueList", serviceId],
+    queryFn: () => ipc.live.compileCueList(serviceId),
+  });
+  const appearance = useQuery({
+    queryKey: ["outputAppearance"],
+    queryFn: () => ipc.output.appearance(),
+  });
+  const app: OutputAppearance = appearance.data ?? DEFAULT_OUTPUT_APPEARANCE;
+
+  const slides = (cueList.data?.cues ?? []).filter(
+    (c: Cue): c is Extract<Cue, { kind: "show_slide" }> =>
+      c.kind === "show_slide" && c.source.service_item_id === itemId,
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center">
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div className="relative flex max-h-[85vh] w-[min(92vw,920px)] flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]">
+        <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
+          <Eye size={16} className="text-[var(--color-accent)]" aria-hidden />
+          <h2 className="flex-1 truncate font-semibold">{title}</h2>
+          <span className="text-xs text-[var(--color-fg-muted)]">
+            {slides.length} {slides.length === 1 ? "lysbilde" : "lysbilder"}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 overflow-y-auto p-5 sm:grid-cols-3">
+          {cueList.isLoading ? (
+            <p className="col-span-full py-8 text-center text-sm text-[var(--color-fg-muted)]">
+              Kompilerer…
+            </p>
+          ) : slides.length === 0 ? (
+            <p className="col-span-full py-8 text-center text-sm text-[var(--color-fg-muted)]">
+              Ingen lysbilder å vise.
+            </p>
+          ) : (
+            slides.map((cue, i) => (
+              <div key={cue.cue_id}>
+                <div className="overflow-hidden rounded-md ring-1 ring-[var(--color-border)]">
+                  <div className="aspect-video w-full">
+                    <SlideView
+                      frame={{
+                        kind: "slide",
+                        slide_content: cue.slide_content,
+                      }}
+                      appearance={app}
+                      forceSectionLabel
+                    />
+                  </div>
+                </div>
+                <div className="mt-1 text-center text-[10px] text-[var(--color-fg-muted)]">
+                  {i + 1}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
