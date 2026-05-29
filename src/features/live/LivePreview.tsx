@@ -222,7 +222,7 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
           <p className="mb-1 font-semibold">Ingen cues å vise</p>
           <p className="text-sm text-[var(--color-fg-muted)]">
             «{service.name}» har ingen sanger eller skrift i køen enda. Legg til
-            innhold i tjenesten, så kompileres køen automatisk.
+            innhold i gudstjenesten, så kompileres køen automatisk.
           </p>
           <button
             onClick={exit}
@@ -336,7 +336,7 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
           <p className="whitespace-pre-wrap text-xs text-[var(--color-fg-muted)]">
             {service.notes?.trim()
               ? service.notes
-              : "Ingen notater for denne tjenesten."}
+              : "Ingen notater for denne gudstjenesten."}
           </p>
         </div>
       </aside>

@@ -61,7 +61,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
     mutationFn: () =>
       ipc.service.create(
         library.id,
-        `Ny tjeneste ${new Date().toLocaleDateString("no")}`,
+        `Ny gudstjeneste ${new Date().toLocaleDateString("no")}`,
         Date.now(),
       ),
     onSuccess: async (svc) => {
@@ -99,7 +99,9 @@ export function ServicesPage({ library, onGoLive }: Props) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
-        <h1 className="text-[var(--text-ui-xl)] font-semibold">Tjenester</h1>
+        <h1 className="text-[var(--text-ui-xl)] font-semibold">
+          Gudstjenester
+        </h1>
         <span className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
           {library.name}
         </span>
@@ -129,7 +131,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
           <Plus size={14} aria-hidden />
-          <span>Ny tjeneste</span>
+          <span>Ny gudstjeneste</span>
         </button>
       </header>
 
@@ -150,7 +152,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
         <aside className="min-h-0 overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-2">
           {services.length === 0 ? (
             <p className="p-4 text-center text-sm text-[var(--color-fg-muted)]">
-              Ingen tjenester enda. Lag en ny eller importer fra SundayPlan.
+              Ingen gudstjenester enda. Lag en ny eller importer fra SundayPlan.
             </p>
           ) : (
             <ul className="space-y-0.5">
@@ -195,7 +197,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
           />
         ) : (
           <div className="grid place-items-center text-sm text-[var(--color-fg-muted)]">
-            <p>Velg eller lag en tjeneste for å bygge køen.</p>
+            <p>Velg eller lag en gudstjeneste for å bygge køen.</p>
           </div>
         )}
       </div>
@@ -277,7 +279,7 @@ function QueueEditor({
             title={
               summary?.total_cues === 0
                 ? "Køen er tom — legg til innhold først"
-                : "Gå live med denne tjenesten"
+                : "Gå live med denne gudstjenesten"
             }
             className="flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110 disabled:opacity-40"
           >

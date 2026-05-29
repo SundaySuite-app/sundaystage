@@ -225,7 +225,7 @@ function Placeholder({ route }: { route: Route }) {
     dashboard: { title: "Dashbord", phase: "Phase 2.1" },
     library: { title: "Sangbibliotek", phase: "Phase 2.2" },
     decks: { title: "Decks", phase: "Phase 3.1" },
-    services: { title: "Tjenester", phase: "Phase 5" },
+    services: { title: "Gudstjenester", phase: "Phase 5" },
     bible: { title: "Bibel", phase: "Phase 7.1" },
     media: { title: "Media", phase: "Phase 7.2" },
     settings: { title: "Innstillinger", phase: "Phase 13" },
