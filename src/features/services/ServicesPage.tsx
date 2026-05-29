@@ -46,6 +46,7 @@ import type {
   SongArrangement,
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { useT, useLocale, type TKey } from "@/lib/i18n";
 import { DEFAULT_OUTPUT_APPEARANCE } from "@/lib/outputBridge";
 import { SlideView } from "@/components/SlideView";
 import { Button, Select } from "@/components/ui";
@@ -57,6 +58,8 @@ interface Props {
 }
 
 export function ServicesPage({ library, onGoLive }: Props) {
+  const t = useT();
+  const lang = useLocale((s) => s.lang);
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -77,7 +80,9 @@ export function ServicesPage({ library, onGoLive }: Props) {
     mutationFn: () =>
       ipc.service.create(
         library.id,
-        `Ny gudstjeneste ${new Date().toLocaleDateString("no")}`,
+        t("svcNewDefaultTitle", {
+          date: new Date().toLocaleDateString(lang),
+        }),
         Date.now(),
       ),
     onSuccess: async (svc) => {
@@ -93,13 +98,19 @@ export function ServicesPage({ library, onGoLive }: Props) {
       await servicesQuery.refetch();
       void qc.invalidateQueries({ queryKey: ["songs", library.id] });
       setSelectedId(res.service.id);
-      const bits = [`${res.matched_songs} sang(er) matchet`];
+      const bits = [t("importMatchedSongs", { n: res.matched_songs })];
       if (res.created_songs.length)
-        bits.push(`${res.created_songs.length} opprettet som tom`);
-      if (res.warnings.length) bits.push(`${res.warnings.length} varsel`);
-      setToast(`Importert «${res.service.name}» — ${bits.join(", ")}`);
+        bits.push(t("importCreatedEmpty", { n: res.created_songs.length }));
+      if (res.warnings.length)
+        bits.push(t("importWarnings", { n: res.warnings.length }));
+      setToast(
+        t("importToast", {
+          name: res.service.name,
+          details: bits.join(", "),
+        }),
+      );
     },
-    onError: (e) => setToast(`Import feilet: ${String(e)}`),
+    onError: (e) => setToast(t("importFailed", { error: String(e) })),
   });
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -108,7 +119,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => importPlan.mutate(String(reader.result ?? ""));
-    reader.onerror = () => setToast("Kunne ikke lese filen");
+    reader.onerror = () => setToast(t("importReadError"));
     reader.readAsText(file);
   }
 
@@ -116,7 +127,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
         <h1 className="text-[var(--text-ui-xl)] font-semibold">
-          Gudstjenester
+          {t("navServices")}
         </h1>
         <span className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
           {library.name}
@@ -137,7 +148,9 @@ export function ServicesPage({ library, onGoLive }: Props) {
         >
           <Import size={14} aria-hidden />
           <span>
-            {importPlan.isPending ? "Importerer…" : "Importer fra SundayPlan"}
+            {importPlan.isPending
+              ? t("svcImporting")
+              : t("svcImportFromSundayPlan")}
           </span>
         </button>
         <button
@@ -147,7 +160,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
           <Plus size={14} aria-hidden />
-          <span>Ny gudstjeneste</span>
+          <span>{t("svcNewService")}</span>
         </button>
       </header>
 
@@ -168,7 +181,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
         <aside className="min-h-0 overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-2">
           {services.length === 0 ? (
             <p className="p-4 text-center text-sm text-[var(--color-fg-muted)]">
-              Ingen gudstjenester enda. Lag en ny eller importer fra SundayPlan.
+              {t("svcListEmpty")}
             </p>
           ) : (
             <ul className="space-y-0.5">
@@ -190,7 +203,7 @@ export function ServicesPage({ library, onGoLive }: Props) {
                         {svc.name}
                       </span>
                       <span className="block text-[11px] text-[var(--color-fg-muted)]">
-                        {formatDate(Number(svc.starts_at))}
+                        {formatDate(Number(svc.starts_at), lang)}
                       </span>
                     </span>
                   </button>
@@ -211,12 +224,12 @@ export function ServicesPage({ library, onGoLive }: Props) {
             onDeleted={async () => {
               setSelectedId(null);
               await servicesQuery.refetch();
-              setToast("Gudstjeneste slettet");
+              setToast(t("svcDeletedToast"));
             }}
           />
         ) : (
           <div className="grid place-items-center text-sm text-[var(--color-fg-muted)]">
-            <p>Velg eller lag en gudstjeneste for å bygge køen.</p>
+            <p>{t("svcSelectOrCreate")}</p>
           </div>
         )}
       </div>
@@ -237,6 +250,7 @@ function QueueEditor({
   onChanged: () => void;
   onDeleted: () => void;
 }) {
+  const t = useT();
   const qc = useQueryClient();
   const [adding, setAdding] = useState<null | "song" | "scripture">(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -368,8 +382,13 @@ function QueueEditor({
             />
             <span>
               {summary
-                ? `${items.length} element${items.length === 1 ? "" : "er"} · ${summary.total_cues} cues i køen`
-                : "Laster kø…"}
+                ? `${t(
+                    items.length === 1
+                      ? "svcElementCountOne"
+                      : "svcElementCountMany",
+                    { n: items.length },
+                  )} · ${t("svcCuesInQueue", { n: summary.total_cues })}`
+                : t("svcLoadingQueue")}
             </span>
           </div>
         </div>
@@ -377,7 +396,7 @@ function QueueEditor({
         <button
           type="button"
           onClick={() => setNotesOpen((v) => !v)}
-          title="Notater"
+          title={t("svcNotes")}
           className={cn(
             "rounded-md p-2 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]",
             notesOpen && "bg-[var(--color-bg-surface)] text-[var(--color-fg)]",
@@ -388,7 +407,7 @@ function QueueEditor({
         <button
           type="button"
           onClick={() => setConfirmDelete(true)}
-          title="Slett gudstjeneste"
+          title={t("svcDeleteService")}
           className="rounded-md p-2 text-[var(--color-fg-muted)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
         >
           <Trash2 size={16} />
@@ -400,7 +419,7 @@ function QueueEditor({
             onClick={() => setAddMenuOpen((v) => !v)}
           >
             <Plus size={14} aria-hidden />
-            Legg til
+            {t("actionAdd")}
             <ChevronDown size={13} aria-hidden />
           </Button>
           {addMenuOpen && (
@@ -413,7 +432,7 @@ function QueueEditor({
               <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1 shadow-[var(--shadow-elevated)]">
                 <AddMenuItem
                   icon={Music}
-                  label="Sang"
+                  label={t("kindSong")}
                   onClick={() => {
                     setAddMenuOpen(false);
                     setAdding("song");
@@ -421,7 +440,7 @@ function QueueEditor({
                 />
                 <AddMenuItem
                   icon={BookOpen}
-                  label="Skrift"
+                  label={t("kindScripture")}
                   onClick={() => {
                     setAddMenuOpen(false);
                     setAdding("scripture");
@@ -429,20 +448,20 @@ function QueueEditor({
                 />
                 <AddMenuItem
                   icon={Pause}
-                  label="Pause"
+                  label={t("kindGap")}
                   onClick={() => {
                     setAddMenuOpen(false);
-                    addNonSong.mutate({ kind: "gap", label: "Pause" });
+                    addNonSong.mutate({ kind: "gap", label: t("kindGap") });
                   }}
                 />
                 <AddMenuItem
                   icon={Megaphone}
-                  label="Kunngjøring"
+                  label={t("kindAnnouncement")}
                   onClick={() => {
                     setAddMenuOpen(false);
                     addNonSong.mutate({
                       kind: "announcement",
-                      label: "Kunngjøring",
+                      label: t("kindAnnouncement"),
                     });
                   }}
                 />
@@ -457,13 +476,13 @@ function QueueEditor({
             disabled={summary?.total_cues === 0}
             title={
               summary?.total_cues === 0
-                ? "Køen er tom — legg til innhold først"
-                : "Gå live med denne gudstjenesten"
+                ? t("svcQueueEmptyTooltip")
+                : t("svcGoLiveTooltip")
             }
             className="flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110 disabled:opacity-40"
           >
             <Play size={14} aria-hidden fill="currentColor" />
-            Gå live
+            {t("goLive")}
           </button>
         )}
       </div>
@@ -503,21 +522,22 @@ function QueueEditor({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {summaryQuery.isLoading ? (
           <p className="p-6 text-center text-sm text-[var(--color-fg-muted)]">
-            Laster…
+            {t("loadingShort")}
           </p>
         ) : items.length === 0 ? (
           <div className="mx-auto max-w-md py-16 text-center">
             <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-[var(--color-bg-surface)] text-[var(--color-fg-muted)]">
               <CalendarDays size={20} />
             </div>
-            <h3 className="text-[var(--text-ui-lg)] font-semibold">Tom kø</h3>
+            <h3 className="text-[var(--text-ui-lg)] font-semibold">
+              {t("svcEmptyQueueTitle")}
+            </h3>
             <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-              Legg til sanger så ser du her nøyaktig hvilke lysbilder hver sang
-              blir, og hvor mange cues køen får totalt.
+              {t("svcEmptyQueueBody")}
             </p>
             <Button className="mt-5" onClick={() => setAdding("song")}>
               <Plus size={14} aria-hidden />
-              Legg til sang
+              {t("svcAddSong")}
             </Button>
           </div>
         ) : (
@@ -562,9 +582,9 @@ function QueueEditor({
 
       {confirmDelete && (
         <ConfirmDialog
-          title="Slette denne gudstjenesten?"
-          body={`«${service.name}» fjernes fra listen. Sangene i biblioteket beholdes.`}
-          confirmLabel="Slett"
+          title={t("svcConfirmDeleteTitle")}
+          body={t("svcConfirmDeleteBody", { name: service.name })}
+          confirmLabel={t("actionDelete")}
           onConfirm={() => {
             setConfirmDelete(false);
             del.mutate();
@@ -579,7 +599,7 @@ function QueueEditor({
           itemId={previewId}
           title={
             items.find((i) => i.service_item_id === previewId)?.title ??
-            "Forhåndsvisning"
+            t("previewLabel")
           }
           onClose={() => setPreviewId(null)}
         />
@@ -588,13 +608,13 @@ function QueueEditor({
   );
 }
 
-const KIND_LABEL: Record<string, string> = {
-  song: "Sang",
-  scripture: "Skrift",
-  custom_deck: "Lysbilder",
-  gap: "Pause",
-  announcement: "Kunngjøring",
-  video: "Video",
+const KIND_KEY: Record<string, TKey> = {
+  song: "kindSong",
+  scripture: "kindScripture",
+  custom_deck: "kindCustomDeck",
+  gap: "kindGap",
+  announcement: "kindAnnouncement",
+  video: "kindVideo",
 };
 
 function AddMenuItem({
@@ -651,6 +671,7 @@ function QueueItemRow({
     notes: string | null,
   ) => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const keyOverride = serviceItem?.key_override ?? null;
 
@@ -669,7 +690,7 @@ function QueueItemRow({
       <div className="flex items-start gap-2 p-3">
         <span
           className="flex cursor-grab items-center gap-1 pt-0.5 text-[var(--color-fg-muted)] active:cursor-grabbing"
-          title="Dra for å endre rekkefølge"
+          title={t("dragReorder")}
         >
           <GripVertical size={14} aria-hidden />
           <span className="w-4 text-center font-mono text-xs tabular-nums">
@@ -680,7 +701,7 @@ function QueueItemRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="rounded bg-[var(--color-bg-surface)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-fg-muted)] uppercase">
-              {KIND_LABEL[item.kind] ?? item.kind}
+              {KIND_KEY[item.kind] ? t(KIND_KEY[item.kind]) : item.kind}
             </span>
             <span className="truncate font-medium">{item.title}</span>
             {keyOverride && (
@@ -689,7 +710,9 @@ function QueueItemRow({
               </span>
             )}
             <span className="ml-auto shrink-0 text-xs text-[var(--color-fg-muted)]">
-              {item.cue_count} {item.cue_count === 1 ? "lysbilde" : "lysbilder"}
+              {t(item.cue_count === 1 ? "slideCountOne" : "slideCountMany", {
+                n: item.cue_count,
+              })}
             </span>
           </div>
           {/* What goes into the queue for this item — per-section slide counts. */}
@@ -713,7 +736,7 @@ function QueueItemRow({
             <button
               type="button"
               onClick={onPreview}
-              title="Forhåndsvis"
+              title={t("actionPreview")}
               className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
             >
               <Eye size={14} />
@@ -723,7 +746,7 @@ function QueueItemRow({
             <button
               type="button"
               onClick={() => setEditing((v) => !v)}
-              title="Rediger"
+              title={t("actionEdit")}
               className={cn(
                 "rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]",
                 editing &&
@@ -737,7 +760,7 @@ function QueueItemRow({
             type="button"
             onClick={onUp}
             disabled={index === 0}
-            title="Flytt opp"
+            title={t("svcMoveUp")}
             className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-30"
           >
             <ArrowUp size={14} />
@@ -746,7 +769,7 @@ function QueueItemRow({
             type="button"
             onClick={onDown}
             disabled={index === count - 1}
-            title="Flytt ned"
+            title={t("svcMoveDown")}
             className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-30"
           >
             <ArrowDown size={14} />
@@ -754,7 +777,7 @@ function QueueItemRow({
           <button
             type="button"
             onClick={onRemove}
-            title="Fjern fra kø"
+            title={t("svcRemoveFromQueue")}
             className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-danger)]/15 hover:text-[var(--color-danger)]"
           >
             <Trash2 size={14} />
@@ -791,6 +814,7 @@ function ItemEditor({
   ) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const isSong = serviceItem.kind === "song";
   const [arrangementId, setArrangementId] = useState(
     serviceItem.arrangement_id ?? "",
@@ -811,13 +835,13 @@ function ItemEditor({
         {isSong ? (
           <>
             <label className="text-xs text-[var(--color-fg-muted)]">
-              <span className="mb-1 block">Arrangement</span>
+              <span className="mb-1 block">{t("arrTitle")}</span>
               <Select
                 className="w-48"
                 value={arrangementId}
                 onChange={(e) => setArrangementId(e.target.value)}
               >
-                <option value="">Standard (alle seksjoner)</option>
+                <option value="">{t("svcDefaultAllSections")}</option>
                 {arrangements.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -827,29 +851,29 @@ function ItemEditor({
               </Select>
             </label>
             <label className="text-xs text-[var(--color-fg-muted)]">
-              <span className="mb-1 block">Toneart</span>
+              <span className="mb-1 block">{t("colKey")}</span>
               <input
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="f.eks. G"
+                placeholder={t("svcKeyPlaceholder")}
                 className="w-24 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
               />
             </label>
           </>
         ) : (
           <label className="flex-1 text-xs text-[var(--color-fg-muted)]">
-            <span className="mb-1 block">Tekst</span>
+            <span className="mb-1 block">{t("svcLabelText")}</span>
             <input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="f.eks. Kollekt"
+              placeholder={t("svcLabelPlaceholder")}
               className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
             />
           </label>
         )}
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={onCancel}>
-            Avbryt
+            {t("actionCancel")}
           </Button>
           <Button
             size="sm"
@@ -863,7 +887,7 @@ function ItemEditor({
                 : onSave(null, null, notes.trim() ? notes.trim() : null)
             }
           >
-            Lagre
+            {t("actionSave")}
           </Button>
         </div>
       </div>
@@ -879,6 +903,7 @@ function EditableName({
   value: string;
   onCommit: (name: string) => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -888,7 +913,7 @@ function EditableName({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        title="Klikk for å gi nytt navn"
+        title={t("svcClickToRename")}
         className="max-w-full truncate rounded px-1 text-left font-semibold hover:bg-[var(--color-bg-surface)]"
       >
         {value}
@@ -926,6 +951,7 @@ function NotesEditor({
   onSave: (notes: string) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState(initial);
   return (
     <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
@@ -934,15 +960,15 @@ function NotesEditor({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         rows={3}
-        placeholder="Notater for denne gudstjenesten (vises i live-konsollen)…"
+        placeholder={t("svcNotesPlaceholder")}
         className="w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-accent)] focus:outline-none"
       />
       <div className="mt-2 flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onClose}>
-          Avbryt
+          {t("actionCancel")}
         </Button>
         <Button size="sm" onClick={() => onSave(draft)}>
-          Lagre notater
+          {t("svcSaveNotes")}
         </Button>
       </div>
     </div>
@@ -962,6 +988,7 @@ function AddSongPanel({
   ) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<{ id: string; title: string } | null>(
     null,
@@ -1010,7 +1037,7 @@ function AddSongPanel({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Søk etter sang å legge til…"
+            placeholder={t("svcSearchSongToAdd")}
             className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] py-1.5 pr-3 pl-8 text-sm placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-accent)] focus:outline-none"
           />
         </div>
@@ -1025,9 +1052,7 @@ function AddSongPanel({
       <ul className="mt-2 max-h-56 overflow-y-auto">
         {rows.length === 0 ? (
           <li className="px-2 py-4 text-center text-sm text-[var(--color-fg-muted)]">
-            {searching
-              ? `Ingen treff på «${q}».`
-              : "Ingen sanger i biblioteket."}
+            {searching ? t("cmdNoHits", { q }) : t("svcNoSongsInLibrary")}
           </li>
         ) : (
           rows.map((row) => (
@@ -1069,6 +1094,7 @@ function SongConfig({
   onAdd: (arrangementId: string | null, key: string | null) => void;
   onBack: () => void;
 }) {
+  const t = useT();
   const [arrangementId, setArrangementId] = useState<string>("");
   const [key, setKey] = useState("");
 
@@ -1085,7 +1111,7 @@ function SongConfig({
           type="button"
           onClick={onBack}
           className="rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
-          title="Tilbake til søk"
+          title={t("svcBackToSearch")}
         >
           <ArrowUp size={14} className="-rotate-90" />
         </button>
@@ -1093,13 +1119,13 @@ function SongConfig({
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs text-[var(--color-fg-muted)]">
-          <span className="mb-1 block">Arrangement</span>
+          <span className="mb-1 block">{t("arrTitle")}</span>
           <Select
             className="w-48"
             value={arrangementId}
             onChange={(e) => setArrangementId(e.target.value)}
           >
-            <option value="">Standard (alle seksjoner)</option>
+            <option value="">{t("svcDefaultAllSections")}</option>
             {arrangements.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -1109,11 +1135,11 @@ function SongConfig({
           </Select>
         </label>
         <label className="text-xs text-[var(--color-fg-muted)]">
-          <span className="mb-1 block">Toneart (valgfri)</span>
+          <span className="mb-1 block">{t("svcKeyOptional")}</span>
           <input
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="f.eks. G"
+            placeholder={t("svcKeyPlaceholder")}
             className="w-24 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
           />
         </label>
@@ -1124,7 +1150,7 @@ function SongConfig({
           }
         >
           <Plus size={14} aria-hidden />
-          Legg til i kø
+          {t("svcAddToQueue")}
         </Button>
       </div>
     </div>
@@ -1186,6 +1212,7 @@ function AddScripturePanel({
   }) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [translationId, setTranslationId] = useState("");
   const [book, setBook] = useState("");
   const [chapter, setChapter] = useState<number | "">("");
@@ -1218,7 +1245,7 @@ function AddScripturePanel({
   return (
     <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
       <div className="flex flex-wrap items-end gap-3">
-        <Field label="Oversettelse">
+        <Field label={t("svcTranslation")}>
           <Select
             className="w-40"
             value={translationId}
@@ -1235,7 +1262,7 @@ function AddScripturePanel({
             ))}
           </Select>
         </Field>
-        <Field label="Bok">
+        <Field label={t("svcBook")}>
           <Select
             className="w-40"
             value={book}
@@ -1244,7 +1271,7 @@ function AddScripturePanel({
               setChapter("");
             }}
           >
-            <option value="">Velg…</option>
+            <option value="">{t("svcSelectEllipsis")}</option>
             {(books.data ?? []).map((b: BibleBook) => (
               <option key={b.book} value={b.book}>
                 {b.display}
@@ -1252,7 +1279,7 @@ function AddScripturePanel({
             ))}
           </Select>
         </Field>
-        <Field label="Kapittel">
+        <Field label={t("svcChapter")}>
           <Select
             className="w-24"
             value={chapter === "" ? "" : String(chapter)}
@@ -1269,15 +1296,15 @@ function AddScripturePanel({
             ))}
           </Select>
         </Field>
-        <Field label="Vers fra">
+        <Field label={t("svcVerseFrom")}>
           <input
             value={verseStart}
             onChange={(e) => setVerseStart(e.target.value.replace(/\D/g, ""))}
-            placeholder="alle"
+            placeholder={t("svcAll")}
             className="w-20 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
           />
         </Field>
-        <Field label="Vers til">
+        <Field label={t("svcVerseTo")}>
           <input
             value={verseEnd}
             onChange={(e) => setVerseEnd(e.target.value.replace(/\D/g, ""))}
@@ -1287,7 +1314,7 @@ function AddScripturePanel({
         </Field>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={onClose}>
-            Avbryt
+            {t("actionCancel")}
           </Button>
           <Button
             size="sm"
@@ -1303,7 +1330,7 @@ function AddScripturePanel({
             }
           >
             <Plus size={14} aria-hidden />
-            Legg til i kø
+            {t("svcAddToQueue")}
           </Button>
         </div>
       </div>
@@ -1339,6 +1366,7 @@ function CuePreviewModal({
   title: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const cueList = useQuery({
     queryKey: ["cueList", serviceId],
     queryFn: () => ipc.live.compileCueList(serviceId),
@@ -1366,7 +1394,9 @@ function CuePreviewModal({
           <Eye size={16} className="text-[var(--color-accent)]" aria-hidden />
           <h2 className="flex-1 truncate font-semibold">{title}</h2>
           <span className="text-xs text-[var(--color-fg-muted)]">
-            {slides.length} {slides.length === 1 ? "lysbilde" : "lysbilder"}
+            {t(slides.length === 1 ? "slideCountOne" : "slideCountMany", {
+              n: slides.length,
+            })}
           </span>
           <button
             type="button"
@@ -1379,11 +1409,11 @@ function CuePreviewModal({
         <div className="grid grid-cols-2 gap-3 overflow-y-auto p-5 sm:grid-cols-3">
           {cueList.isLoading ? (
             <p className="col-span-full py-8 text-center text-sm text-[var(--color-fg-muted)]">
-              Kompilerer…
+              {t("svcCompiling")}
             </p>
           ) : slides.length === 0 ? (
             <p className="col-span-full py-8 text-center text-sm text-[var(--color-fg-muted)]">
-              Ingen lysbilder å vise.
+              {t("svcNoSlidesToShow")}
             </p>
           ) : (
             slides.map((cue, i) => (
@@ -1412,8 +1442,8 @@ function CuePreviewModal({
   );
 }
 
-function formatDate(ms: number): string {
-  return new Date(ms).toLocaleDateString("no", {
+function formatDate(ms: number, lang: string): string {
+  return new Date(ms).toLocaleDateString(lang, {
     weekday: "short",
     day: "numeric",
     month: "short",
