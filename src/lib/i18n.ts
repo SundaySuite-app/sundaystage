@@ -118,6 +118,92 @@ const en: Catalog = {
   themeSystem: "System",
   themeLight: "Light",
   themeDark: "Dark",
+
+  // ── More common actions ─────────────────────────────────────────────────
+  actionNew: "New",
+  actionDuplicate: "Duplicate",
+  dragReorder: "Drag to reorder",
+  deletedMarker: "(deleted)",
+  previewLabel: "Preview",
+  loadingShort: "Loading…",
+
+  // ── Service-item kinds (reused) ─────────────────────────────────────────
+  kindSong: "Song",
+  kindScripture: "Scripture",
+  kindNote: "Note",
+
+  // ── Plan-with-AI modal ──────────────────────────────────────────────────
+  planTitle: "Plan a service with AI",
+  planBriefPlaceholder:
+    "E.g.: 25 min of worship about forgiveness for a youth service, calm ending.",
+  planApiKeyRequired: "Anthropic API key (required)",
+  planThinking: "Thinking…",
+  planSuggest: "Suggest a plan",
+  planEmptyHint:
+    "Describe the service above and AI will suggest songs from your library, readings and transitions.",
+  planThemePrefix: "Theme: {theme}",
+  planCreating: "Creating…",
+  planCreateService: "Create service",
+
+  // ── Paste & format modal ────────────────────────────────────────────────
+  pasteTitle: "Paste & format with AI",
+  pasteRawPlaceholder:
+    "Paste text from anywhere — chord lines, «x2», and odd formatting are fine.",
+  pasteApiKeyOptional:
+    "Anthropic API key (optional — without it, formatting runs locally)",
+  pasteFormatting: "Formatting…",
+  pasteFormat: "Format",
+  pasteUsingStoredKey:
+    "Uses the stored key from Settings if the field is empty.",
+  pasteNoKeyHint:
+    "Without a key, formatting runs locally. Save a key in Settings for AI.",
+  pasteTitleSuggestion: "Title suggestion: ",
+  pasteResultHint: "The result appears here after formatting.",
+  pasteApplying: "Applying…",
+  pasteApply: "Apply to the song",
+
+  // ── Library page ────────────────────────────────────────────────────────
+  librarySearchPlaceholder: "Search lyric lines…",
+  libraryPlanWithAi: "Plan with AI",
+  libraryNewSong: "New song",
+  filterAllLanguages: "All languages",
+  filterAllLicensing: "All licensing",
+  licenseUnknown: "Unknown",
+  colTitle: "Title",
+  colKey: "Key",
+  colTempo: "Tempo",
+  colLanguage: "Language",
+  colLicense: "Licence",
+  libraryNoSongs: "No songs.",
+  librarySelectForPreview: "Select a song to preview.",
+  libraryNoLyricsYet: "No lyrics yet. Press «Edit» to add sections.",
+  libraryEmptyTitle: "Empty library — let's get started",
+  libraryEmptyBody:
+    "Add your first song manually. Import from ProPresenter, EasyWorship, FreeShow, OpenLP and lyric folders is coming in a later version.",
+  libraryCreateFirst: "Create your first song",
+  toastServiceCreated: "Service created: {name}",
+  newSongDefaultTitle: "New song {time}",
+  songCountOne: "{n} song",
+  songCountMany: "{n} songs",
+
+  // ── Song editor ─────────────────────────────────────────────────────────
+  songSectionsTitle: "Sections",
+  songAddSection: "Add section",
+  songNoSections: "No sections yet. Add a verse or chorus to start.",
+  songDeleteSection: "Delete section",
+  songLyricsPlaceholder: "Lyric lines…",
+  slideCountOne: "{n} slide",
+  slideCountMany: "{n} slides",
+  arrTitle: "Arrangement",
+  arrNewNamePrompt: "New name",
+  arrRename: "Rename",
+  arrSetDefault: "Default",
+  arrAddSectionTo: "Add a section to the arrangement",
+  arrCreateSectionsFirst: "Create sections first.",
+  arrSequence: "Sequence",
+  arrEmpty: "Empty arrangement. Click a section above to add it.",
+  arrNone: "No arrangements yet.",
+  arrCreate: "Create arrangement",
 };
 
 const no: Catalog = {
@@ -218,6 +304,94 @@ const no: Catalog = {
   themeSystem: "System",
   themeLight: "Lyst",
   themeDark: "Mørkt",
+
+  // ── More common actions ─────────────────────────────────────────────────
+  actionNew: "Ny",
+  actionDuplicate: "Dupliser",
+  dragReorder: "Dra for å endre rekkefølge",
+  deletedMarker: "(slettet)",
+  previewLabel: "Forhåndsvisning",
+  loadingShort: "Laster…",
+
+  // ── Service-item kinds (reused) ─────────────────────────────────────────
+  kindSong: "Sang",
+  kindScripture: "Skrift",
+  kindNote: "Notat",
+
+  // ── Plan-with-AI modal ──────────────────────────────────────────────────
+  planTitle: "Planlegg tjeneste med AI",
+  planBriefPlaceholder:
+    "F.eks.: 25 min lovsang om tilgivelse for en ungdomsgudstjeneste, rolig avslutning.",
+  planApiKeyRequired: "Anthropic API-nøkkel (påkrevd)",
+  planThinking: "Tenker…",
+  planSuggest: "Foreslå plan",
+  planEmptyHint:
+    "Beskriv tjenesten over, så foreslår AI sanger fra biblioteket ditt, lesninger og overganger.",
+  planThemePrefix: "Tema: {theme}",
+  planCreating: "Oppretter…",
+  planCreateService: "Opprett tjeneste",
+
+  // ── Paste & format modal ────────────────────────────────────────────────
+  pasteTitle: "Lim inn & formater med AI",
+  pasteRawPlaceholder:
+    "Lim inn tekst fra hvor som helst — akkordlinjer, «x2», og rar formatering er greit.",
+  pasteApiKeyOptional:
+    "Anthropic API-nøkkel (valgfri — uten den formateres lokalt)",
+  pasteFormatting: "Formaterer…",
+  pasteFormat: "Formater",
+  pasteUsingStoredKey:
+    "Bruker den lagrede nøkkelen fra Innstillinger hvis feltet er tomt.",
+  pasteNoKeyHint:
+    "Uten nøkkel formateres det lokalt. Lagre en nøkkel i Innstillinger for AI.",
+  pasteTitleSuggestion: "Tittelforslag: ",
+  pasteResultHint: "Resultatet vises her etter formatering.",
+  pasteApplying: "Bruker…",
+  pasteApply: "Bruk på sangen",
+
+  // ── Library page ────────────────────────────────────────────────────────
+  librarySearchPlaceholder: "Søk i tekstlinjer…",
+  libraryPlanWithAi: "Planlegg med AI",
+  libraryNewSong: "Ny sang",
+  filterAllLanguages: "Alle språk",
+  filterAllLicensing: "All lisensiering",
+  licenseUnknown: "Ukjent",
+  colTitle: "Tittel",
+  colKey: "Toneart",
+  colTempo: "Tempo",
+  colLanguage: "Språk",
+  colLicense: "Lisens",
+  libraryNoSongs: "Ingen sanger.",
+  librarySelectForPreview: "Velg en sang for forhåndsvisning.",
+  libraryNoLyricsYet:
+    "Ingen tekst enda. Trykk «Rediger» for å legge til seksjoner.",
+  libraryEmptyTitle: "Tomt bibliotek — la oss starte",
+  libraryEmptyBody:
+    "Legg til din første sang manuelt. Import fra ProPresenter, EasyWorship, FreeShow, OpenLP og tekstmapper kommer i en senere versjon.",
+  libraryCreateFirst: "Lag din første sang",
+  toastServiceCreated: "Gudstjeneste opprettet: {name}",
+  newSongDefaultTitle: "Ny sang {time}",
+  songCountOne: "{n} sang",
+  songCountMany: "{n} sanger",
+
+  // ── Song editor ─────────────────────────────────────────────────────────
+  songSectionsTitle: "Deler",
+  songAddSection: "Legg til del",
+  songNoSections:
+    "Ingen deler enda. Legg til et vers eller refreng for å starte.",
+  songDeleteSection: "Slett del",
+  songLyricsPlaceholder: "Tekstlinjer…",
+  slideCountOne: "{n} lysbilde",
+  slideCountMany: "{n} lysbilder",
+  arrTitle: "Arrangement",
+  arrNewNamePrompt: "Nytt navn",
+  arrRename: "Gi nytt navn",
+  arrSetDefault: "Standard",
+  arrAddSectionTo: "Legg til del i arrangementet",
+  arrCreateSectionsFirst: "Lag deler først.",
+  arrSequence: "Rekkefølge",
+  arrEmpty: "Tomt arrangement. Klikk en del over for å legge den til.",
+  arrNone: "Ingen arrangementer enda.",
+  arrCreate: "Lag arrangement",
 };
 
 // Scandinavian + de/fr/pl: nav/chrome only; everything else falls back to en.

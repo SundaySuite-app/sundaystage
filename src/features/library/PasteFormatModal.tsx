@@ -17,6 +17,7 @@ import { ipc } from "@/lib/ipc";
 import { cn } from "@/lib/cn";
 import { hasAiConsent, grantAiConsent, preferredModel } from "@/lib/aiConsent";
 import { ConsentDialog } from "@/components/ConsentDialog";
+import { useT } from "@/lib/i18n";
 
 function humanize(label: string): string {
   return label
@@ -36,6 +37,7 @@ export function PasteFormatModal({
   onClose,
   onApplied,
 }: PasteFormatModalProps) {
+  const t = useT();
   const [raw, setRaw] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(preferredModel() ?? "claude-sonnet-4-6");
@@ -85,7 +87,7 @@ export function PasteFormatModal({
       <div className="relative flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]">
         <header className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
           <Sparkles size={16} className="text-[var(--color-accent)]" />
-          <h2 className="font-semibold">Lim inn &amp; formater med AI</h2>
+          <h2 className="font-semibold">{t("pasteTitle")}</h2>
           <div className="flex-1" />
           <button
             type="button"
@@ -102,7 +104,7 @@ export function PasteFormatModal({
             <textarea
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
-              placeholder="Lim inn tekst fra hvor som helst — akkordlinjer, «x2», og rar formatering er greit."
+              placeholder={t("pasteRawPlaceholder")}
               className="min-h-0 flex-1 resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3 text-sm leading-snug focus:border-[var(--color-accent)] focus:outline-none"
             />
             <div className="space-y-2">
@@ -110,7 +112,7 @@ export function PasteFormatModal({
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Anthropic API-nøkkel (valgfri — uten den formateres lokalt)"
+                placeholder={t("pasteApiKeyOptional")}
                 className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
               />
               <div className="flex items-center gap-2">
@@ -132,13 +134,15 @@ export function PasteFormatModal({
                   className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
                   <Sparkles size={14} />
-                  {formatMut.isPending ? "Formaterer…" : "Formater"}
+                  {formatMut.isPending
+                    ? t("pasteFormatting")
+                    : t("pasteFormat")}
                 </button>
               </div>
               <p className="text-[10px] text-[var(--color-fg-muted)]">
                 {keyStatusQuery.data?.stored
-                  ? "Bruker den lagrede nøkkelen fra Innstillinger hvis feltet er tomt."
-                  : "Uten nøkkel formateres det lokalt. Lagre en nøkkel i Innstillinger for AI."}
+                  ? t("pasteUsingStoredKey")
+                  : t("pasteNoKeyHint")}
               </p>
             </div>
           </div>
@@ -150,7 +154,7 @@ export function PasteFormatModal({
                 {draft.title_suggestion && (
                   <p className="text-sm">
                     <span className="text-[var(--color-fg-muted)]">
-                      Tittelforslag:{" "}
+                      {t("pasteTitleSuggestion")}
                     </span>
                     {draft.title_suggestion}
                   </p>
@@ -193,7 +197,7 @@ export function PasteFormatModal({
               </div>
             ) : (
               <div className="grid flex-1 place-items-center p-4 text-center text-sm text-[var(--color-fg-muted)]">
-                Resultatet vises her etter formatering.
+                {t("pasteResultHint")}
               </div>
             )}
           </div>
@@ -205,7 +209,7 @@ export function PasteFormatModal({
             onClick={onClose}
             className="rounded-md px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
           >
-            Avbryt
+            {t("actionCancel")}
           </button>
           <button
             type="button"
@@ -215,7 +219,7 @@ export function PasteFormatModal({
               "rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110 disabled:opacity-40",
             )}
           >
-            {applyMut.isPending ? "Bruker…" : "Bruk på sangen"}
+            {applyMut.isPending ? t("pasteApplying") : t("pasteApply")}
           </button>
         </footer>
       </div>

@@ -15,6 +15,7 @@ import { ipc } from "@/lib/ipc";
 import type { Library, SongSection } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { Badge, Button, Select } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 import { SongEditor } from "./SongEditor";
 import { PlanModal } from "./PlanModal";
 
@@ -36,6 +37,7 @@ interface Row {
 const ROW_HEIGHT = 44;
 
 export function LibraryPage({ library }: Props) {
+  const t = useT();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [lang, setLang] = useState("all");
@@ -119,7 +121,9 @@ export function LibraryPage({ library }: Props) {
     mutationFn: () =>
       ipc.song.create({
         library_id: library.id,
-        title: `Ny sang ${new Date().toLocaleTimeString("no")}`,
+        title: t("newSongDefaultTitle", {
+          time: new Date().toLocaleTimeString(),
+        }),
         language: "no",
         default_key: null,
         tempo_bpm: null,
@@ -150,7 +154,7 @@ export function LibraryPage({ library }: Props) {
       {/* Top bar */}
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
         <h1 className="text-[var(--text-ui-xl)] font-semibold">
-          Sangbibliotek
+          {t("cmdSongLibrary")}
         </h1>
         <span className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
           {library.name}
@@ -166,7 +170,7 @@ export function LibraryPage({ library }: Props) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Søk i tekstlinjer…"
+            placeholder={t("librarySearchPlaceholder")}
             className="w-72 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] py-1.5 pr-3 pl-8 text-sm placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-accent)] focus:outline-none"
           />
         </div>
@@ -176,7 +180,7 @@ export function LibraryPage({ library }: Props) {
           className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
           <Sparkles size={14} aria-hidden />
-          <span>Planlegg med AI</span>
+          <span>{t("libraryPlanWithAi")}</span>
         </button>
         <button
           type="button"
@@ -185,7 +189,7 @@ export function LibraryPage({ library }: Props) {
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
           <Plus size={14} aria-hidden />
-          <span>Ny sang</span>
+          <span>{t("libraryNewSong")}</span>
         </button>
       </header>
 
@@ -197,7 +201,7 @@ export function LibraryPage({ library }: Props) {
             value={lang}
             onChange={(e) => setLang(e.target.value)}
           >
-            <option value="all">Alle språk</option>
+            <option value="all">{t("filterAllLanguages")}</option>
             {languages.map((l) => (
               <option key={l} value={l}>
                 {l}
@@ -209,13 +213,15 @@ export function LibraryPage({ library }: Props) {
             value={lic}
             onChange={(e) => setLic(e.target.value)}
           >
-            <option value="all">All lisensiering</option>
+            <option value="all">{t("filterAllLicensing")}</option>
             <option value="CCLI">CCLI</option>
             <option value="TONO">TONO</option>
-            <option value="Ukjent">Ukjent</option>
+            <option value="Ukjent">{t("licenseUnknown")}</option>
           </Select>
           <span className="ml-auto text-[var(--color-fg-muted)]">
-            {rows.length} sang{rows.length === 1 ? "" : "er"}
+            {t(rows.length === 1 ? "songCountOne" : "songCountMany", {
+              n: rows.length,
+            })}
           </span>
         </div>
       )}
@@ -224,7 +230,7 @@ export function LibraryPage({ library }: Props) {
         <PlanModal
           library={library}
           onClose={() => setPlanOpen(false)}
-          onCreated={(name) => setToast(`Tjeneste opprettet: ${name}`)}
+          onCreated={(name) => setToast(t("toastServiceCreated", { name }))}
         />
       )}
       {toast && (
@@ -248,22 +254,22 @@ export function LibraryPage({ library }: Props) {
           {/* Virtualized table */}
           <div className="flex min-h-0 flex-col">
             <div className="grid grid-cols-[1fr_4rem_4rem_3rem_5rem] gap-2 border-b border-[var(--color-border)] px-6 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">
-              <span>Tittel</span>
-              <span>Toneart</span>
-              <span>Tempo</span>
-              <span>Språk</span>
-              <span>Lisens</span>
+              <span>{t("colTitle")}</span>
+              <span>{t("colKey")}</span>
+              <span>{t("colTempo")}</span>
+              <span>{t("colLanguage")}</span>
+              <span>{t("colLicense")}</span>
             </div>
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
               {showingSearch && searchQuery.isLoading ? (
                 <p className="p-6 text-sm text-[var(--color-fg-muted)]">
-                  Søker…
+                  {t("cmdSearching")}
                 </p>
               ) : rows.length === 0 ? (
                 <p className="p-6 text-sm text-[var(--color-fg-muted)]">
                   {showingSearch
-                    ? `Ingen treff på «${search}».`
-                    : "Ingen sanger."}
+                    ? t("cmdNoHits", { q: search })
+                    : t("libraryNoSongs")}
                 </p>
               ) : (
                 <div
@@ -355,6 +361,7 @@ function PreviewPane({
   row: Row | null;
   onEdit: (r: Row) => void;
 }) {
+  const t = useT();
   const sections = useQuery({
     queryKey: ["songSections", row?.id],
     queryFn: () => ipc.song.sections(row!.id),
@@ -364,7 +371,7 @@ function PreviewPane({
   if (!row) {
     return (
       <aside className="grid place-items-center border-l border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-fg-muted)]">
-        <p>Velg en sang for forhåndsvisning.</p>
+        <p>{t("librarySelectForPreview")}</p>
       </aside>
     );
   }
@@ -374,15 +381,17 @@ function PreviewPane({
       <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
         <h2 className="flex-1 truncate font-semibold">{row.title}</h2>
         <Button size="sm" onClick={() => onEdit(row)}>
-          Rediger
+          {t("actionEdit")}
         </Button>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         {sections.isLoading ? (
-          <p className="text-sm text-[var(--color-fg-muted)]">Laster…</p>
+          <p className="text-sm text-[var(--color-fg-muted)]">
+            {t("loadingShort")}
+          </p>
         ) : (sections.data ?? []).length === 0 ? (
           <p className="text-sm text-[var(--color-fg-muted)]">
-            Ingen tekst enda. Trykk «Rediger» for å legge til seksjoner.
+            {t("libraryNoLyricsYet")}
           </p>
         ) : (
           <div className="space-y-3">
@@ -404,17 +413,17 @@ function PreviewPane({
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const t = useT();
   return (
     <div className="mx-auto max-w-md py-16 text-center">
       <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-[var(--color-bg-surface)] text-[var(--color-fg-muted)]">
         <Search size={20} />
       </div>
       <h2 className="text-[var(--text-ui-lg)] font-semibold">
-        Tomt bibliotek — la oss starte
+        {t("libraryEmptyTitle")}
       </h2>
       <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-        Legg til din første sang manuelt. Import fra ProPresenter, EasyWorship,
-        FreeShow, OpenLP og tekstmapper kommer i en senere versjon.
+        {t("libraryEmptyBody")}
       </p>
       <button
         type="button"
@@ -422,7 +431,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         className="mt-5 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110"
       >
         <Plus size={14} aria-hidden />
-        Lag din første sang
+        {t("libraryCreateFirst")}
       </button>
     </div>
   );

@@ -16,6 +16,7 @@ import type { Library, PlanItem, ServicePlan } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { hasAiConsent, grantAiConsent, preferredModel } from "@/lib/aiConsent";
 import { ConsentDialog } from "@/components/ConsentDialog";
+import { useT } from "@/lib/i18n";
 
 interface PlanModalProps {
   library: Library;
@@ -24,6 +25,7 @@ interface PlanModalProps {
 }
 
 export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
+  const t = useT();
   const [brief, setBrief] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(preferredModel() ?? "claude-sonnet-4-6");
@@ -64,7 +66,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
       <div className="relative flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]">
         <header className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
           <Sparkles size={16} className="text-[var(--color-accent)]" />
-          <h2 className="font-semibold">Planlegg tjeneste med AI</h2>
+          <h2 className="font-semibold">{t("planTitle")}</h2>
           <div className="flex-1" />
           <button
             type="button"
@@ -80,7 +82,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
             rows={3}
-            placeholder="F.eks.: 25 min lovsang om tilgivelse for en ungdomsgudstjeneste, rolig avslutning."
+            placeholder={t("planBriefPlaceholder")}
             className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3 text-sm focus:border-[var(--color-accent)] focus:outline-none"
           />
           <div className="flex items-center gap-2">
@@ -88,7 +90,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Anthropic API-nøkkel (påkrevd)"
+              placeholder={t("planApiKeyRequired")}
               className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
             />
             <select
@@ -109,7 +111,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
               className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
             >
               <Sparkles size={14} />
-              {planMut.isPending ? "Tenker…" : "Foreslå plan"}
+              {planMut.isPending ? t("planThinking") : t("planSuggest")}
             </button>
           </div>
           {planMut.isError && (
@@ -122,8 +124,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
         <div className="flex-1 overflow-y-auto p-4">
           {!plan ? (
             <p className="text-sm text-[var(--color-fg-muted)]">
-              Beskriv tjenesten over, så foreslår AI sanger fra biblioteket
-              ditt, lesninger og overganger.
+              {t("planEmptyHint")}
             </p>
           ) : (
             <div className="space-y-3">
@@ -131,7 +132,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
                 <h3 className="font-semibold">{plan.title}</h3>
                 {plan.theme && (
                   <p className="text-xs text-[var(--color-fg-muted)]">
-                    Tema: {plan.theme}
+                    {t("planThemePrefix", { theme: plan.theme })}
                   </p>
                 )}
               </div>
@@ -162,7 +163,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
             onClick={onClose}
             className="rounded-md px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
           >
-            Avbryt
+            {t("actionCancel")}
           </button>
           <button
             type="button"
@@ -170,7 +171,7 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
             disabled={!plan || applyMut.isPending}
             className="rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110 disabled:opacity-40"
           >
-            {applyMut.isPending ? "Oppretter…" : "Opprett tjeneste"}
+            {applyMut.isPending ? t("planCreating") : t("planCreateService")}
           </button>
         </footer>
       </div>
@@ -189,12 +190,13 @@ export function PlanModal({ library, onClose, onCreated }: PlanModalProps) {
 }
 
 function PlanRow({ item, n }: { item: PlanItem; n: number }) {
+  const t = useT();
   const badge =
     item.kind === "song"
-      ? "Sang"
+      ? t("kindSong")
       : item.kind === "scripture"
-        ? "Skrift"
-        : "Notat";
+        ? t("kindScripture")
+        : t("kindNote");
   return (
     <li className="flex items-center gap-3 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm">
       <span className="w-5 font-mono text-[10px] text-[var(--color-fg-muted)]">

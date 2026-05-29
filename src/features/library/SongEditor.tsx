@@ -25,6 +25,7 @@ import type {
 import { ipc } from "@/lib/ipc";
 import { docWithText } from "@/lib/slideEditor/doc";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 import { SlideCanvas } from "@/features/decks/SlideCanvas";
 import { PasteFormatModal } from "./PasteFormatModal";
 
@@ -70,6 +71,7 @@ interface SongEditorProps {
 }
 
 export function SongEditor({ songId, title, onBack }: SongEditorProps) {
+  const t = useT();
   const qc = useQueryClient();
   const sectionsKey = ["sections", songId] as const;
   const arrangementsKey = ["arrangements", songId] as const;
@@ -113,7 +115,7 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
           onClick={onBack}
           className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
-          <ArrowLeft size={15} /> Bibliotek
+          <ArrowLeft size={15} /> {t("navLibrary")}
         </button>
         <h1 className="text-[var(--text-ui-lg)] font-semibold">{title}</h1>
         <div className="flex-1" />
@@ -122,7 +124,7 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
           onClick={() => setShowPaste(true)}
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
         >
-          <Sparkles size={14} /> Lim inn &amp; formater med AI
+          <Sparkles size={14} /> {t("pasteTitle")}
         </button>
       </header>
 
@@ -177,6 +179,7 @@ function SectionsPanel({
   sectionsKey: readonly unknown[];
   arrangementsKey: readonly unknown[];
 }) {
+  const t = useT();
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const addMut = useMutation({
@@ -224,20 +227,20 @@ function SectionsPanel({
 
   return (
     <div className="flex flex-col overflow-hidden border-r border-[var(--color-border)]">
-      <PanelHeader title="Deler">
+      <PanelHeader title={t("songSectionsTitle")}>
         <button
           type="button"
           onClick={() => addMut.mutate()}
           className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
-          <Plus size={13} /> Legg til del
+          <Plus size={13} /> {t("songAddSection")}
         </button>
       </PanelHeader>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {sections.length === 0 && (
           <p className="text-sm text-[var(--color-fg-muted)]">
-            Ingen deler enda. Legg til et vers eller refreng for å starte.
+            {t("songNoSections")}
           </p>
         )}
         {sections.map((section, i) => (
@@ -272,6 +275,7 @@ function SectionRow({
   onSave: (label: string, lyrics: string) => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const [label, setLabel] = useState(section.label);
   const [lyrics, setLyrics] = useState(section.lyrics);
 
@@ -284,7 +288,7 @@ function SectionRow({
       <div className="mb-2 flex items-center gap-2">
         <span
           className="cursor-grab text-[var(--color-fg-muted)]"
-          title="Dra for å endre rekkefølge"
+          title={t("dragReorder")}
         >
           ⠿
         </span>
@@ -303,13 +307,15 @@ function SectionRow({
           ))}
         </select>
         <span className="text-[10px] text-[var(--color-fg-muted)]">
-          {slideCount(lyrics)} lysbilder
+          {t(slideCount(lyrics) === 1 ? "slideCountOne" : "slideCountMany", {
+            n: slideCount(lyrics),
+          })}
         </span>
         <div className="flex-1" />
         <button
           type="button"
           onClick={onDelete}
-          title="Slett del"
+          title={t("songDeleteSection")}
           className="grid h-6 w-6 place-items-center rounded text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-danger)]"
         >
           <Trash2 size={13} />
@@ -318,7 +324,7 @@ function SectionRow({
       <textarea
         value={lyrics}
         rows={4}
-        placeholder="Tekstlinjer…"
+        placeholder={t("songLyricsPlaceholder")}
         onChange={(e) => setLyrics(e.target.value)}
         onBlur={() => {
           if (lyrics !== section.lyrics || label !== section.label)
@@ -349,6 +355,7 @@ function ArrangementPanel({
   qc: QC;
   arrangementsKey: readonly unknown[];
 }) {
+  const t = useT();
   const itemsKey = ["arrangementItems", activeArrId] as const;
   const itemsQuery = useQuery({
     queryKey: itemsKey,
@@ -432,7 +439,7 @@ function ArrangementPanel({
 
   return (
     <div className="flex flex-col overflow-hidden">
-      <PanelHeader title="Arrangement">
+      <PanelHeader title={t("arrTitle")}>
         <select
           value={activeArrId ?? ""}
           onChange={(e) => onActivate(e.target.value)}
@@ -451,7 +458,7 @@ function ArrangementPanel({
           onClick={() => createMut.mutate()}
           className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
-          <Plus size={13} /> Ny
+          <Plus size={13} /> {t("actionNew")}
         </button>
       </PanelHeader>
 
@@ -462,12 +469,12 @@ function ArrangementPanel({
             <button
               type="button"
               onClick={() => {
-                const name = window.prompt("Nytt navn", active.name);
+                const name = window.prompt(t("arrNewNamePrompt"), active.name);
                 if (name) renameMut.mutate({ id: active.id, name });
               }}
               className="rounded-md border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
             >
-              Gi nytt navn
+              {t("arrRename")}
             </button>
             <button
               type="button"
@@ -475,35 +482,37 @@ function ArrangementPanel({
               disabled={Number(active.is_default) === 1}
               className="flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-40"
             >
-              <Star size={12} /> Standard
+              <Star size={12} /> {t("arrSetDefault")}
             </button>
             <button
               type="button"
               onClick={() => duplicateMut.mutate(active.id)}
               className="flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
             >
-              <Copy size={12} /> Dupliser
+              <Copy size={12} /> {t("actionDuplicate")}
             </button>
             <button
               type="button"
               onClick={() => deleteMut.mutate(active.id)}
               className="rounded-md border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-danger)]"
             >
-              Slett
+              {t("actionDelete")}
             </button>
             <span className="flex-1" />
             <span className="text-xs text-[var(--color-fg-muted)]">
-              {generated.length} lysbilder
+              {t(generated.length === 1 ? "slideCountOne" : "slideCountMany", {
+                n: generated.length,
+              })}
             </span>
           </div>
 
           {/* Section palette → click to append */}
           <div>
-            <Subhead>Legg til del i arrangementet</Subhead>
+            <Subhead>{t("arrAddSectionTo")}</Subhead>
             <div className="flex flex-wrap gap-1.5">
               {sections.length === 0 && (
                 <span className="text-xs text-[var(--color-fg-muted)]">
-                  Lag deler først.
+                  {t("arrCreateSectionsFirst")}
                 </span>
               )}
               {sections.map((s) => (
@@ -521,10 +530,10 @@ function ArrangementPanel({
 
           {/* Ordered sequence */}
           <div>
-            <Subhead>Rekkefølge</Subhead>
+            <Subhead>{t("arrSequence")}</Subhead>
             {order.length === 0 ? (
               <p className="text-xs text-[var(--color-fg-muted)]">
-                Tomt arrangement. Klikk en del over for å legge den til.
+                {t("arrEmpty")}
               </p>
             ) : (
               <ol className="space-y-1">
@@ -549,7 +558,7 @@ function ArrangementPanel({
                         {i + 1}
                       </span>
                       <span className="flex-1">
-                        {sec ? humanize(sec.label) : "(slettet)"}
+                        {sec ? humanize(sec.label) : t("deletedMarker")}
                       </span>
                       <button
                         type="button"
@@ -570,7 +579,7 @@ function ArrangementPanel({
           {/* Generated-slide preview */}
           {generated.length > 0 && (
             <div>
-              <Subhead>Forhåndsvisning</Subhead>
+              <Subhead>{t("previewLabel")}</Subhead>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {generated.map((g) => (
                   <div key={g.key} className="shrink-0">
@@ -594,14 +603,14 @@ function ArrangementPanel({
         <div className="grid flex-1 place-items-center p-4 text-center">
           <div>
             <p className="mb-3 text-sm text-[var(--color-fg-muted)]">
-              Ingen arrangementer enda.
+              {t("arrNone")}
             </p>
             <button
               type="button"
               onClick={() => createMut.mutate()}
               className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110"
             >
-              <Plus size={14} /> Lag arrangement
+              <Plus size={14} /> {t("arrCreate")}
             </button>
           </div>
         </div>
