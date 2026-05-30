@@ -64,10 +64,32 @@ Phase 13.1 onward.
       Settings sample (`setSampleSection`) is already localised, so it keeps the
       identity default. The cue compiler's `section_label`/`display_label`
       contract is unchanged (no risk to the sacrosanct, well-tested compile
-      path). **Note:** `display_label` still carries a hard-coded Norwegian
-      "Sang — " prefix (pre-existing) — a separate cleanup.
+      path).
+- [x] Operator cue labels (`display_label`) no longer carry hard-coded
+      Norwegian prefixes ("Sang — ", "Bibel — ", "Deck — Slide "). Since the
+      backend has no locale, each cue now uses its own language-neutral identity:
+      song → "{title} — {section}" (also fixes the title the doc promised but the
+      code dropped), scripture → the reference ("John 3:16-17"), deck → "{deck
+      name} — {n}".
+- [x] **Song import (Phase 2.2)** — `services/song_import.rs`: pure,
+      dependency-free parsers for plain text, ChordPro, OpenSong and OpenLyrics
+      (OpenLP) → `FormattedSong`, reusing the existing `apply_formatted_song`
+      insertion path. `import_song_file` command + `ImportModal` (plain
+      `<input type=file>` + `FileReader`, so no native dialog plugin needed yet),
+      wired into the library header + empty state, 12 import i18n keys ×7
+      catalogs. Binary formats (ProPresenter `.pro`, EasyWorship, FreeShow) need
+      format-specific decoders — out of scope.
+- [x] **Deep-open from search (Phase 2.3 polish)** — selecting a song/service
+      hit in ⌘K now opens the item (editor / selected service), not just its
+      page, via a small deep-link target threaded through `App`. Bible hits still
+      navigate to the page (jumping to a verse needs more in `BiblePage`).
 
 ## Remaining before 1.0 (deferred / needs infra this environment can't provide)
+
+- [ ] Bible search deep-open: jump to the matched verse in `BiblePage` (today it
+      navigates to the page only).
+- [ ] Native file dialog / drag-drop for import (the parser + an in-webview file
+      input already work; a native dialog/drag-drop is a nicety).
 
 - [ ] Interactive 5-step tutorial overlay (library → editor → live).
 - [~] Multi-display output + per-screen role assignment (Phase 5.2): shipped as
