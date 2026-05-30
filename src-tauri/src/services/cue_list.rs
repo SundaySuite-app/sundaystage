@@ -277,7 +277,7 @@ impl<'a> CueCompiler<'a> {
             )));
         };
         let song_repo = SongRepo::new(self.pool);
-        let _song = song_repo.get(song_id).await?;
+        let song = song_repo.get(song_id).await?;
 
         // Phase 3.3: if the service item names an arrangement, play its
         // ordered (possibly repeating) sections; otherwise fall back to the
@@ -311,7 +311,13 @@ impl<'a> CueCompiler<'a> {
                     source: CueSource {
                         service_item_id: item.id.clone(),
                         item_cue_index: cue_idx,
-                        display_label: format!("Sang — {}", humanize_section_label(&section.label)),
+                        // The song's own title identifies the cue (language-
+                        // neutral); the section follows it.
+                        display_label: format!(
+                            "{} — {}",
+                            song.title,
+                            humanize_section_label(&section.label)
+                        ),
                     },
                 });
                 cue_idx += 1;
@@ -374,7 +380,8 @@ impl<'a> CueCompiler<'a> {
                 source: CueSource {
                     service_item_id: item.id.clone(),
                     item_cue_index: cue_idx,
-                    display_label: format!("Bibel — {}", display),
+                    // The reference ("John 3:16-17") is already self-identifying.
+                    display_label: display.clone(),
                 },
             });
         }
@@ -394,6 +401,12 @@ impl<'a> CueCompiler<'a> {
                 item.id
             )));
         };
+
+        let deck_name: String = sqlx::query_scalar("SELECT name FROM custom_deck WHERE id = ?1")
+            .bind(deck_id)
+            .fetch_optional(self.pool)
+            .await?
+            .unwrap_or_default();
 
         let slides: Vec<Slide> = sqlx::query_as::<_, Slide>(
             "SELECT * FROM slide WHERE custom_deck_id = ?1 ORDER BY position",
@@ -420,7 +433,12 @@ impl<'a> CueCompiler<'a> {
                 source: CueSource {
                     service_item_id: item.id.clone(),
                     item_cue_index: cue_idx as u32,
-                    display_label: format!("Deck — Slide {}", cue_idx + 1),
+                    // Deck name + slide number; the name carries the identity.
+                    display_label: if deck_name.is_empty() {
+                        (cue_idx + 1).to_string()
+                    } else {
+                        format!("{} — {}", deck_name, cue_idx + 1)
+                    },
                 },
             });
         }
@@ -632,7 +650,7 @@ mod tests {
             } => {
                 assert_eq!(slide_content.section_label.as_deref(), Some("Verse 1"));
                 assert_eq!(slide_content.text_lines.len(), 4);
-                assert_eq!(source.display_label, "Sang — Verse 1");
+                assert_eq!(source.display_label, "Amazing Grace — Verse 1");
             }
             _ => panic!("expected ShowSlide cue"),
         }
@@ -769,7 +787,7 @@ mod tests {
             } => {
                 assert_eq!(slide_content.reference.as_deref(), Some("John 3:16-17"));
                 assert_eq!(slide_content.text_lines.len(), 4);
-                assert_eq!(source.display_label, "Bibel — John 3:16-17");
+                assert_eq!(source.display_label, "John 3:16-17");
             }
             _ => panic!("expected ShowSlide"),
         }
