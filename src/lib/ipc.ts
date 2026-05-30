@@ -29,6 +29,7 @@ import type {
   CustomDeck,
   DemoSummary,
   FormattedSong,
+  ImportResult,
   LocaleInfo,
   Library,
   LibraryInput,
@@ -122,6 +123,8 @@ export const song = {
   deleteSection: (id: string) => call<void>("song_delete_section", { id }),
   reorderSections: (songId: string, orderedIds: string[]) =>
     call<SongSection[]>("song_reorder_sections", { songId, orderedIds }),
+  importFile: (libraryId: string, filename: string, content: string) =>
+    call<ImportResult>("import_song_file", { libraryId, filename, content }),
 };
 
 // ── Arrangements (Phase 3.3) ───────────────────────────────────────────────────

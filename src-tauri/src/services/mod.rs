@@ -16,6 +16,7 @@ pub mod live_session;
 pub mod media;
 pub mod session_store;
 pub mod slide_doc;
+pub mod song_import;
 pub mod stage_display;
 pub mod sundayplan;
 pub mod sundayrec_bridge;

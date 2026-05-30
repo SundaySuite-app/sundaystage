@@ -116,6 +116,7 @@ pub fn run() {
             commands::ai::ai_models,
             commands::ai::ai_format_lyrics,
             commands::ai::ai_apply_format,
+            commands::import::import_song_file,
             commands::ai::ai_plan_service,
             commands::ai::ai_apply_plan,
             commands::ai::ai_translate,

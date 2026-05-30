@@ -32,6 +32,8 @@ export type { DisplayRole }       from "./DisplayRole";
 export type { FormattedSection }  from "./FormattedSection";
 export type { FormattedSong }     from "./FormattedSong";
 export type { HAlign }            from "./HAlign";
+export type { ImportFormat }      from "./ImportFormat";
+export type { ImportResult }      from "./ImportResult";
 export type { Library }           from "./Library";
 export type { LibraryInput }      from "./LibraryInput";
 export type { LiveAction }        from "./LiveAction";

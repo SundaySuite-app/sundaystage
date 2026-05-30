@@ -268,7 +268,7 @@ pub fn heuristic_format(raw: &str) -> FormattedSong {
 }
 
 /// Ensure a label is unique among already-built sections (suffix `_2`, `_3`, …).
-fn unique_label(existing: &[FormattedSection], label: String) -> String {
+pub(crate) fn unique_label(existing: &[FormattedSection], label: String) -> String {
     if !existing.iter().any(|s| s.label == label) {
         return label;
     }
@@ -363,7 +363,7 @@ pub fn normalize_label(raw: &str) -> String {
 }
 
 /// Does this line look like a section header ("[Chorus]", "Verse 1", "Refreng:")?
-fn detect_header(line: &str) -> Option<String> {
+pub(crate) fn detect_header(line: &str) -> Option<String> {
     let t = line.trim();
     // Headers are short and contain a known section keyword.
     let inner: String = t
@@ -461,7 +461,7 @@ fn is_chord_line(line: &str) -> bool {
             .any(|c| c.is_ascii_digit() || matches!(c, '#' | '/'))
 }
 
-fn detect_language(text: &str) -> String {
+pub(crate) fn detect_language(text: &str) -> String {
     let lower = text.to_lowercase();
     if lower.contains('æ') || lower.contains('ø') || lower.contains('å') {
         return "no".to_string();

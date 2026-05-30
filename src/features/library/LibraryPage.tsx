@@ -9,7 +9,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Plus, Search, Sparkles } from "lucide-react";
+import { Download, Plus, Search, Sparkles } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
 import type { Library, SongSection } from "@/lib/bindings";
@@ -19,6 +19,7 @@ import { useT } from "@/lib/i18n";
 import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { SongEditor } from "./SongEditor";
 import { PlanModal } from "./PlanModal";
+import { ImportModal } from "./ImportModal";
 
 interface Props {
   library: Library;
@@ -49,6 +50,7 @@ export function LibraryPage({ library }: Props) {
     title: string;
   } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +179,14 @@ export function LibraryPage({ library }: Props) {
         </div>
         <button
           type="button"
+          onClick={() => setImportOpen(true)}
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <Download size={14} aria-hidden />
+          <span>{t("libraryImport")}</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setPlanOpen(true)}
           className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
@@ -234,6 +244,15 @@ export function LibraryPage({ library }: Props) {
           onCreated={(name) => setToast(t("toastServiceCreated", { name }))}
         />
       )}
+      {importOpen && (
+        <ImportModal
+          libraryId={library.id}
+          onClose={() => setImportOpen(false)}
+          onImported={() =>
+            qc.invalidateQueries({ queryKey: ["songs", library.id] })
+          }
+        />
+      )}
       {toast && (
         <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] px-4 py-2 text-sm shadow-[var(--shadow-elevated)]">
           {toast}
@@ -248,7 +267,10 @@ export function LibraryPage({ library }: Props) {
 
       {empty ? (
         <div className="flex-1 overflow-y-auto p-6">
-          <EmptyState onCreate={() => createSong.mutate()} />
+          <EmptyState
+            onCreate={() => createSong.mutate()}
+            onImport={() => setImportOpen(true)}
+          />
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-[1fr_360px]">
@@ -413,7 +435,13 @@ function PreviewPane({
   );
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function EmptyState({
+  onCreate,
+  onImport,
+}: {
+  onCreate: () => void;
+  onImport: () => void;
+}) {
   const t = useT();
   return (
     <div className="mx-auto max-w-md py-16 text-center">
@@ -426,14 +454,24 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
         {t("libraryEmptyBody")}
       </p>
-      <button
-        type="button"
-        onClick={onCreate}
-        className="mt-5 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110"
-      >
-        <Plus size={14} aria-hidden />
-        {t("libraryCreateFirst")}
-      </button>
+      <div className="mt-5 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onCreate}
+          className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110"
+        >
+          <Plus size={14} aria-hidden />
+          {t("libraryCreateFirst")}
+        </button>
+        <button
+          type="button"
+          onClick={onImport}
+          className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-4 py-2 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <Download size={14} aria-hidden />
+          {t("libraryImport")}
+        </button>
+      </div>
     </div>
   );
 }

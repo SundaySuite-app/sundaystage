@@ -9,6 +9,7 @@ pub mod arrangements;
 pub mod bible;
 pub mod crash;
 pub mod decks;
+pub mod import;
 pub mod libraries;
 pub mod live;
 pub mod media;
