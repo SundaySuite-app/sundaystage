@@ -19,6 +19,8 @@ import {
   DEFAULT_OUTPUT_APPEARANCE,
 } from "@/lib/outputBridge";
 import { SlideView } from "@/components/SlideView";
+import { useT } from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 
 const TIMEOUT_MS = 2000;
 
@@ -39,6 +41,7 @@ export function OutputView() {
   const [role, setRole] = useState<Role>("main");
   const lastBeat = useRef<number>(Date.now());
   const lastSeq = useRef<number>(0);
+  const t = useT();
 
   useEffect(() => {
     try {
@@ -102,6 +105,7 @@ export function OutputView() {
         frame={frame}
         appearance={appearance}
         forceSectionLabel={chrome}
+        localizeLabel={(l) => localizeSectionLabel(l, t)}
       />
       {chrome && <Clock />}
       {disconnected && chrome && (

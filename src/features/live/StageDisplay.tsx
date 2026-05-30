@@ -13,6 +13,7 @@ import { X } from "lucide-react";
 
 import type { Cue, LiveSessionView, StageDisplayConfig } from "@/lib/bindings";
 import { useT, useLocale } from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 
 function fmtDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -94,7 +95,7 @@ export function StageDisplay({
         <span className="text-sm text-white/50">{serviceName}</span>
         {preset.show_section_label && current.section && (
           <span className="rounded-full bg-[var(--color-accent)] px-3 py-1 text-sm font-bold text-black">
-            {current.section}
+            {localizeSectionLabel(current.section, t)}
           </span>
         )}
         <div className="flex-1" />
@@ -170,7 +171,7 @@ export function StageDisplay({
                 </h3>
                 {next.section && (
                   <p className="text-sm font-bold text-[var(--color-accent)]">
-                    {next.section}
+                    {localizeSectionLabel(next.section, t)}
                   </p>
                 )}
                 <p className="line-clamp-4 text-lg leading-snug text-white/70">

@@ -1430,6 +1430,7 @@ function CuePreviewModal({
                       }}
                       appearance={app}
                       forceSectionLabel
+                      localizeLabel={(l) => localizeSectionLabel(l, t)}
                     />
                   </div>
                 </div>

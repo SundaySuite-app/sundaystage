@@ -18,12 +18,17 @@ interface Props {
   /** Force the section label on regardless of appearance (stage/confidence
    *  screens always want it; the main output respects the setting). */
   forceSectionLabel?: boolean;
+  /** Localise the section label for display. Defaults to identity so this
+   *  component stays i18n-agnostic; callers that render backend-humanised
+   *  labels pass `(l) => localizeSectionLabel(l, t)`. */
+  localizeLabel?: (label: string) => string;
 }
 
 export function SlideView({
   frame,
   appearance,
   forceSectionLabel = false,
+  localizeLabel,
 }: Props) {
   return (
     <div
@@ -34,12 +39,13 @@ export function SlideView({
         frame={frame}
         appearance={appearance}
         forceSectionLabel={forceSectionLabel}
+        localizeLabel={localizeLabel}
       />
     </div>
   );
 }
 
-function Inner({ frame, appearance, forceSectionLabel }: Props) {
+function Inner({ frame, appearance, forceSectionLabel, localizeLabel }: Props) {
   if (!frame || frame.kind === "black") {
     return <div className="h-full w-full bg-black" />;
   }
@@ -75,7 +81,7 @@ function Inner({ frame, appearance, forceSectionLabel }: Props) {
       <div className="w-full" style={{ textAlign: appearance.h_align }}>
         {showLabel && c.section_label && (
           <div className="mb-[3cqh] font-semibold tracking-[0.3em] text-[var(--color-accent)] uppercase [font-size:1.6cqw]">
-            {c.section_label}
+            {(localizeLabel ?? ((l) => l))(c.section_label)}
           </div>
         )}
         {c.text_lines.map((line, i) => (

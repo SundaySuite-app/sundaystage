@@ -33,6 +33,7 @@ import type {
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { useOutputBridge } from "@/lib/outputBridge";
 import { StageDisplay } from "./StageDisplay";
 import { ExportModal } from "./ExportModal";
@@ -465,6 +466,7 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
 }
 
 function FrameRender({ frame }: { frame: LiveFrame }) {
+  const t = useT();
   if (frame.kind === "black") {
     return (
       <div className="grid h-full w-full place-items-center bg-black text-xs text-white/30">
@@ -492,7 +494,7 @@ function FrameRender({ frame }: { frame: LiveFrame }) {
       <div className="w-full max-w-3xl text-center text-white">
         {c.section_label && (
           <div className="mb-5 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-accent)]">
-            {c.section_label}
+            {localizeSectionLabel(c.section_label, t)}
           </div>
         )}
         {c.text_lines.map((line, i) => (

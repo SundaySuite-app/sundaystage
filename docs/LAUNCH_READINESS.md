@@ -51,15 +51,21 @@ Phase 13.1 onward.
       seven catalogs. Wired into the song editor, paste-&-format modal, library
       song detail and the services queue editor; replaces the old per-file
       `humanize()`. (8 unit tests in `tests/integration/sectionLabel.test.ts`.)
-- [ ] Localise section-type labels on the **live output** (`SlideView` /
-      operator preview). These read `slide_content.section_label`, which the
-      Rust cue compiler pre-title-cases via `humanize_section_label` (asserted as
-      "Verse 1" in tests). Doing it right means making the cue compiler
-      locale-aware (single source for operator preview + real output + cue-list
-      `display_label`) rather than coupling the deliberately hook-free output
-      renderer to the locale store. `localizeSectionLabel()` already normalises
-      the title-cased form, so the frontend half is ready once the backend emits
-      canonical labels (or a locale).
+- [x] Localise section-type labels on the **live output** and stage screens.
+      These read `slide_content.section_label`, which the Rust cue compiler
+      pre-title-cases via `humanize_section_label` ("Verse 1"). The locale lives
+      only in the frontend (`localStorage` "ss-locale"; the backend has no
+      locale), so localisation is done at the display layer: `localizeSectionLabel()`
+      normalises the title-cased form back to a canonical type and re-localises
+      it. `SlideView` takes an optional `localizeLabel` prop (default identity,
+      so it stays i18n-agnostic) — the real congregation output (`OutputView`)
+      and the services slide preview pass it; the operator preview
+      (`LivePreview`) and the musicians' `StageDisplay` localise inline. The
+      Settings sample (`setSampleSection`) is already localised, so it keeps the
+      identity default. The cue compiler's `section_label`/`display_label`
+      contract is unchanged (no risk to the sacrosanct, well-tested compile
+      path). **Note:** `display_label` still carries a hard-coded Norwegian
+      "Sang — " prefix (pre-existing) — a separate cleanup.
 
 ## Remaining before 1.0 (deferred / needs infra this environment can't provide)
 
