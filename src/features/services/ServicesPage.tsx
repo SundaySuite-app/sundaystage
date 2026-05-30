@@ -47,6 +47,7 @@ import type {
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT, useLocale, type TKey } from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { DEFAULT_OUTPUT_APPEARANCE } from "@/lib/outputBridge";
 import { SlideView } from "@/components/SlideView";
 import { Button, Select } from "@/components/ui";
@@ -723,7 +724,9 @@ function QueueItemRow({
                   key={si}
                   className="inline-flex items-center gap-1 rounded-md bg-[var(--color-bg-surface)] px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)]"
                 >
-                  <span className="text-[var(--color-fg)]">{sec.label}</span>
+                  <span className="text-[var(--color-fg)]">
+                    {localizeSectionLabel(sec.label, t)}
+                  </span>
                   <span className="font-mono">×{sec.slide_count}</span>
                 </span>
               ))}

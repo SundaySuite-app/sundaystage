@@ -26,6 +26,7 @@ import { ipc } from "@/lib/ipc";
 import { docWithText } from "@/lib/slideEditor/doc";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { SlideCanvas } from "@/features/decks/SlideCanvas";
 import { PasteFormatModal } from "./PasteFormatModal";
 
@@ -42,13 +43,6 @@ const SECTION_LABELS = [
   "tag",
   "ending",
 ];
-
-function humanize(label: string): string {
-  return label
-    .split("_")
-    .map((p) => (p ? p[0].toUpperCase() + p.slice(1) : ""))
-    .join(" ");
-}
 
 function sectionToSlides(lyrics: string): string[][] {
   const lines = lyrics.split("\n").filter((l) => l.trim().length > 0);
@@ -302,7 +296,7 @@ function SectionRow({
         >
           {labelOptions.map((l) => (
             <option key={l} value={l}>
-              {humanize(l)}
+              {localizeSectionLabel(l, t)}
             </option>
           ))}
         </select>
@@ -431,11 +425,15 @@ function ArrangementPanel({
       const sec = sectionMap.get(sid);
       if (!sec) return;
       sectionToSlides(sec.lyrics).forEach((lines, si) => {
-        slides.push({ key: `${idx}-${si}`, lines, label: humanize(sec.label) });
+        slides.push({
+          key: `${idx}-${si}`,
+          lines,
+          label: localizeSectionLabel(sec.label, t),
+        });
       });
     });
     return slides;
-  }, [order, sectionMap]);
+  }, [order, sectionMap, t]);
 
   return (
     <div className="flex flex-col overflow-hidden">
@@ -522,7 +520,7 @@ function ArrangementPanel({
                   onClick={() => commitOrder([...order, s.id])}
                   className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2.5 py-1 text-xs hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                 >
-                  + {humanize(s.label)}
+                  + {localizeSectionLabel(s.label, t)}
                 </button>
               ))}
             </div>
@@ -558,7 +556,9 @@ function ArrangementPanel({
                         {i + 1}
                       </span>
                       <span className="flex-1">
-                        {sec ? humanize(sec.label) : t("deletedMarker")}
+                        {sec
+                          ? localizeSectionLabel(sec.label, t)
+                          : t("deletedMarker")}
                       </span>
                       <button
                         type="button"

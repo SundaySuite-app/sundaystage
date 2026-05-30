@@ -18,13 +18,7 @@ import { cn } from "@/lib/cn";
 import { hasAiConsent, grantAiConsent, preferredModel } from "@/lib/aiConsent";
 import { ConsentDialog } from "@/components/ConsentDialog";
 import { useT } from "@/lib/i18n";
-
-function humanize(label: string): string {
-  return label
-    .split("_")
-    .map((p) => (p ? p[0].toUpperCase() + p.slice(1) : ""))
-    .join(" ");
-}
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 
 interface PasteFormatModalProps {
   songId: string;
@@ -165,7 +159,7 @@ export function PasteFormatModal({
                       key={`${label}-${i}`}
                       className="rounded-full bg-[var(--color-bg-surface)] px-2 py-0.5 text-[11px]"
                     >
-                      {humanize(label)}
+                      {localizeSectionLabel(label, t)}
                     </span>
                   ))}
                 </div>
@@ -175,7 +169,7 @@ export function PasteFormatModal({
                     className="rounded-md border border-[var(--color-border)] p-2"
                   >
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-accent)]">
-                      {humanize(s.label)}
+                      {localizeSectionLabel(s.label, t)}
                     </div>
                     <pre className="whitespace-pre-wrap font-sans text-xs text-[var(--color-fg-muted)]">
                       {s.lyrics}

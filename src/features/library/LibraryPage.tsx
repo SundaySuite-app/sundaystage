@@ -16,6 +16,7 @@ import type { Library, SongSection } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { Badge, Button, Select } from "@/components/ui";
 import { useT } from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { SongEditor } from "./SongEditor";
 import { PlanModal } from "./PlanModal";
 
@@ -398,7 +399,7 @@ function PreviewPane({
             {(sections.data ?? []).map((sec: SongSection) => (
               <div key={sec.id}>
                 <div className="mb-1 text-[10px] font-semibold tracking-widest text-[var(--color-accent)] uppercase">
-                  {sec.label}
+                  {localizeSectionLabel(sec.label, t)}
                 </div>
                 <pre className="font-sans text-xs whitespace-pre-wrap text-[var(--color-fg-muted)]">
                   {sec.lyrics}

@@ -461,6 +461,16 @@ const en: Catalog = {
   actionClear: "Clear",
   setTurnOff: "Turn off",
   setTurnOn: "Turn on",
+
+  // ── Song section-type labels (verse_1 → "Verse 1") ──────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Verse",
+  sectionPreChorus: "Pre-Chorus",
+  sectionChorus: "Chorus",
+  sectionBridge: "Bridge",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Ending",
 };
 
 const no: Catalog = {
@@ -909,6 +919,16 @@ const no: Catalog = {
   actionClear: "Tøm",
   setTurnOff: "Slå av",
   setTurnOn: "Slå på",
+
+  // ── Song section-type labels (verse_1 → "Vers 1") ───────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Vers",
+  sectionPreChorus: "Pre-refreng",
+  sectionChorus: "Refreng",
+  sectionBridge: "Bro",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Slutt",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -1311,6 +1331,16 @@ const sv: Catalog = {
   actionClear: "Töm",
   setTurnOff: "Stäng av",
   setTurnOn: "Slå på",
+
+  // ── Song section-type labels (verse_1 → "Vers 1") ───────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Vers",
+  sectionPreChorus: "Pre-refräng",
+  sectionChorus: "Refräng",
+  sectionBridge: "Brygga",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Avslutning",
 };
 const da: Catalog = {
   appTagline: "Live-præsentation",
@@ -1707,6 +1737,16 @@ const da: Catalog = {
   actionClear: "Ryd",
   setTurnOff: "Slå fra",
   setTurnOn: "Slå til",
+
+  // ── Song section-type labels (verse_1 → "Vers 1") ───────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Vers",
+  sectionPreChorus: "Pre-omkvæd",
+  sectionChorus: "Omkvæd",
+  sectionBridge: "Bro",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Afslutning",
 };
 const de: Catalog = {
   appTagline: "Live-Präsentation",
@@ -2110,6 +2150,16 @@ const de: Catalog = {
   actionClear: "Leeren",
   setTurnOff: "Ausschalten",
   setTurnOn: "Einschalten",
+
+  // ── Song section-type labels (verse_1 → "Strophe 1") ────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Strophe",
+  sectionPreChorus: "Pre-Refrain",
+  sectionChorus: "Refrain",
+  sectionBridge: "Bridge",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Schluss",
 };
 const fr: Catalog = {
   appTagline: "Présentation en direct",
@@ -2515,6 +2565,16 @@ const fr: Catalog = {
   actionClear: "Effacer",
   setTurnOff: "Désactiver",
   setTurnOn: "Activer",
+
+  // ── Song section-type labels (verse_1 → "Couplet 1") ────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Couplet",
+  sectionPreChorus: "Pré-refrain",
+  sectionChorus: "Refrain",
+  sectionBridge: "Pont",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Fin",
 };
 const pl: Catalog = {
   appTagline: "Prezentacja na żywo",
@@ -2910,6 +2970,16 @@ const pl: Catalog = {
   actionClear: "Wyczyść",
   setTurnOff: "Wyłącz",
   setTurnOn: "Włącz",
+
+  // ── Song section-type labels (verse_1 → "Zwrotka 1") ────────────────────
+  sectionIntro: "Intro",
+  sectionVerse: "Zwrotka",
+  sectionPreChorus: "Pre-refren",
+  sectionChorus: "Refren",
+  sectionBridge: "Bridge",
+  sectionInstrumental: "Instrumental",
+  sectionTag: "Tag",
+  sectionEnding: "Zakończenie",
 };
 
 const CATALOG: Record<Lang, Catalog> = { en, no, sv, da, de, fr, pl };

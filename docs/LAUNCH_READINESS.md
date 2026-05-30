@@ -42,8 +42,24 @@ Phase 13.1 onward.
       human review** is still recommended before public release for a few stylistic
       nuances flagged in the change notes (e.g. da `bibSearchPlaceholder` keeps the
       English "(shepherd)" example; sv `inspAlignCenter` "C" vs "M").
-- [ ] Localise section-type labels (`verse_1` → "Verse 1") — currently derived
-      from data via `humanize()`, so they read in English-ish regardless of locale.
+- [x] Localise section-type labels (`verse_1` → "Verse 1") on the content-
+      authoring surfaces. A shared `localizeSectionLabel()` (`src/lib/sectionLabel.ts`)
+      maps canonical section _types_ (intro, verse, pre_chorus, chorus, bridge,
+      instrumental, tag, ending + outro/refrain synonyms) through `t()`, keeps a
+      trailing number (`verse_1` → "Vers 1"/"Couplet 1"), and falls back to
+      title-case for user-authored labels. Eight `sectionX` keys added to all
+      seven catalogs. Wired into the song editor, paste-&-format modal, library
+      song detail and the services queue editor; replaces the old per-file
+      `humanize()`. (8 unit tests in `tests/integration/sectionLabel.test.ts`.)
+- [ ] Localise section-type labels on the **live output** (`SlideView` /
+      operator preview). These read `slide_content.section_label`, which the
+      Rust cue compiler pre-title-cases via `humanize_section_label` (asserted as
+      "Verse 1" in tests). Doing it right means making the cue compiler
+      locale-aware (single source for operator preview + real output + cue-list
+      `display_label`) rather than coupling the deliberately hook-free output
+      renderer to the locale store. `localizeSectionLabel()` already normalises
+      the title-cased form, so the frontend half is ready once the backend emits
+      canonical labels (or a locale).
 
 ## Remaining before 1.0 (deferred / needs infra this environment can't provide)
 
