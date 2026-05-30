@@ -6,7 +6,7 @@
  * shows the selected song's sections. Licensing is derived from CCLI/TONO ids
  * (live SundaySong coverage is a later integration).
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Download, Plus, Search, Sparkles } from "lucide-react";
@@ -23,6 +23,9 @@ import { ImportModal } from "./ImportModal";
 
 interface Props {
   library: Library;
+  /** Deep-link from search: open this song's editor on mount/prop change. */
+  openSongId?: string | null;
+  onDeepLinkDone?: () => void;
 }
 
 interface Row {
@@ -38,7 +41,7 @@ interface Row {
 
 const ROW_HEIGHT = 44;
 
-export function LibraryPage({ library }: Props) {
+export function LibraryPage({ library, openSongId, onDeepLinkDone }: Props) {
   const t = useT();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -136,6 +139,18 @@ export function LibraryPage({ library }: Props) {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["songs", library.id] }),
   });
+
+  // Deep-link from search: open the song's editor once its row is loaded.
+  useEffect(() => {
+    if (!openSongId) return;
+    const song = (songsQuery.data ?? []).find((s) => s.id === openSongId);
+    if (song) {
+      setOpenSong({ id: song.id, title: song.title });
+      onDeepLinkDone?.();
+    } else if (songsQuery.data) {
+      onDeepLinkDone?.(); // unknown id — don't get stuck
+    }
+  }, [openSongId, songsQuery.data, onDeepLinkDone]);
 
   if (openSong) {
     return (

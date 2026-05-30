@@ -23,6 +23,11 @@ const ONBOARDED_KEY = "ss-onboarded";
 
 function App() {
   const [route, setRoute] = useState<Route>("library");
+  // A pending deep-link target from search (open this song/service, not just
+  // its page). Pages consume it via a prop and clear it through onDeepLinkDone.
+  const [deepLink, setDeepLink] = useState<{ route: Route; id: string } | null>(
+    null,
+  );
   const [liveService, setLiveService] = useState<Service | null>(null);
   const [resuming, setResuming] = useState(false);
   const [recoverable, setRecoverable] = useState<LiveSessionView | null>(null);
@@ -142,7 +147,11 @@ function App() {
             <p>{t("loadingLibrary")}</p>
           </div>
         ) : route === "library" ? (
-          <LibraryPage library={activeLibrary} />
+          <LibraryPage
+            library={activeLibrary}
+            openSongId={deepLink?.route === "library" ? deepLink.id : null}
+            onDeepLinkDone={() => setDeepLink(null)}
+          />
         ) : route === "decks" ? (
           <DecksPage library={activeLibrary} />
         ) : route === "media" ? (
@@ -153,6 +162,8 @@ function App() {
           <ServicesPage
             library={activeLibrary}
             onGoLive={(svc) => setLiveService(svc)}
+            openServiceId={deepLink?.route === "services" ? deepLink.id : null}
+            onDeepLinkDone={() => setDeepLink(null)}
           />
         ) : (
           <Placeholder route={route} />
@@ -161,6 +172,10 @@ function App() {
 
       <CommandPalette
         onNavigate={setRoute}
+        onOpenResult={(r, id) => {
+          setRoute(r);
+          setDeepLink({ route: r, id });
+        }}
         libraryId={activeLibrary?.id ?? null}
       />
       <UpdateBanner />

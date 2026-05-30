@@ -56,9 +56,17 @@ interface Props {
   library: Library;
   /** Hand the selected service to the live console. */
   onGoLive?: (service: Service) => void;
+  /** Deep-link from search: select this service on mount/prop change. */
+  openServiceId?: string | null;
+  onDeepLinkDone?: () => void;
 }
 
-export function ServicesPage({ library, onGoLive }: Props) {
+export function ServicesPage({
+  library,
+  onGoLive,
+  openServiceId,
+  onDeepLinkDone,
+}: Props) {
   const t = useT();
   const lang = useLocale((s) => s.lang);
   const qc = useQueryClient();
@@ -76,6 +84,17 @@ export function ServicesPage({ library, onGoLive }: Props) {
   );
   const selected =
     services.find((s) => s.id === selectedId) ?? services[0] ?? null;
+
+  // Deep-link from search: select the service once the list is loaded.
+  useEffect(() => {
+    if (!openServiceId) return;
+    if (services.some((s) => s.id === openServiceId)) {
+      setSelectedId(openServiceId);
+      onDeepLinkDone?.();
+    } else if (servicesQuery.data) {
+      onDeepLinkDone?.(); // unknown id — don't get stuck
+    }
+  }, [openServiceId, services, servicesQuery.data, onDeepLinkDone]);
 
   const createService = useMutation({
     mutationFn: () =>

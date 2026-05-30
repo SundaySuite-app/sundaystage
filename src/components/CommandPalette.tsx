@@ -28,6 +28,8 @@ import type { Route } from "./Sidebar";
 
 interface CommandPaletteProps {
   onNavigate: (route: Route) => void;
+  /** Open a specific search hit (song/service) rather than just its page. */
+  onOpenResult?: (route: Route, id: string) => void;
   libraryId?: string | null;
 }
 
@@ -37,7 +39,11 @@ const KIND_ROUTE: Record<string, Route> = {
   service: "services",
 };
 
-export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
+export function CommandPalette({
+  onNavigate,
+  onOpenResult,
+  libraryId,
+}: CommandPaletteProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -67,6 +73,11 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
   }
   function go(route: Route) {
     onNavigate(route);
+    close();
+  }
+  function openHit(route: Route, id: string) {
+    if (onOpenResult) onOpenResult(route, id);
+    else onNavigate(route);
     close();
   }
 
@@ -120,7 +131,7 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
                       icon={<Library size={14} />}
                       title={h.title}
                       subtitle={h.subtitle}
-                      onSelect={() => go(KIND_ROUTE.song)}
+                      onSelect={() => openHit(KIND_ROUTE.song, h.id)}
                     />
                   ))}
                 </Group>
@@ -146,7 +157,7 @@ export function CommandPalette({ onNavigate, libraryId }: CommandPaletteProps) {
                       icon={<CalendarDays size={14} />}
                       title={h.title}
                       subtitle={h.subtitle}
-                      onSelect={() => go(KIND_ROUTE.service)}
+                      onSelect={() => openHit(KIND_ROUTE.service, h.id)}
                     />
                   ))}
                 </Group>
