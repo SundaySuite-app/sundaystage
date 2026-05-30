@@ -2820,7 +2820,7 @@ const pl: Catalog = {
   inspGradient: "Gradient",
   inspAlign: "Wyrównanie",
   inspAlignLeft: "L",
-  inspAlignCenter: "C",
+  inspAlignCenter: "Ś",
   inspAlignRight: "P",
   inspVertical: "W pionie",
   inspTop: "Góra",

@@ -17,15 +17,15 @@ Phase 13.1 onward.
 
 ## i18n status per language
 
-| Lang | Nav/chrome | Full app strings         |
-| ---- | ---------- | ------------------------ |
-| en   | ✅         | ✅ (base)                |
-| no   | ✅         | ✅                       |
-| sv   | ✅         | ✅ (machine, unreviewed) |
-| da   | ✅         | ✅ (machine, unreviewed) |
-| de   | ✅         | ✅ (machine, unreviewed) |
-| fr   | ✅         | ✅ (machine, unreviewed) |
-| pl   | ✅         | ✅ (machine, unreviewed) |
+| Lang | Nav/chrome | Full app strings          |
+| ---- | ---------- | ------------------------- |
+| en   | ✅         | ✅ (base)                 |
+| no   | ✅         | ✅                        |
+| sv   | ✅         | ✅ (machine, AI-reviewed) |
+| da   | ✅         | ✅ (machine, AI-reviewed) |
+| de   | ✅         | ✅ (machine, AI-reviewed) |
+| fr   | ✅         | ✅ (machine, AI-reviewed) |
+| pl   | ✅         | ✅ (machine, AI-reviewed) |
 
 - [x] Route **every** user-visible string through `t()`. Done across every
       feature page (library, services/queue, live console, decks/slide editor,
@@ -33,8 +33,15 @@ Phase 13.1 onward.
       `{name}`-interpolation. **Exception:** the dev-only `/design` style guide
       (DEV-gated route) is left untranslated.
 - [x] Machine-translate sv/da/de/fr/pl catalogs (full, via Claude — all 357
-      keys per language). **Still needs human review** before public release,
-      especially Polish; Scandinavian/German/French are high-confidence.
+      keys per language).
+- [x] AI review pass over all five non-base catalogs (2026-05-30): each value
+      checked against the English base for terminology, interpolation-placeholder
+      integrity, alignment-abbreviation consistency and English leftovers. Result:
+      pl needed one consistency fix (`inspAlignCenter` "C" → "Ś"); sv/da/de/fr
+      were already correct and internally consistent (0 changes). A **native
+      human review** is still recommended before public release for a few stylistic
+      nuances flagged in the change notes (e.g. da `bibSearchPlaceholder` keeps the
+      English "(shepherd)" example; sv `inspAlignCenter` "C" vs "M").
 - [ ] Localise section-type labels (`verse_1` → "Verse 1") — currently derived
       from data via `humanize()`, so they read in English-ish regardless of locale.
 
