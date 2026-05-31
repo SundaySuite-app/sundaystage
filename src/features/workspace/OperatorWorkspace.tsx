@@ -1,0 +1,547 @@
+/**
+ * The unified operator workspace — SundayStage's convergence on the worship
+ * console layout (ProPresenter / EasyWorship / FreeShow), done our way.
+ *
+ * One screen, always present:
+ *   ┌ TransportBar ───────────────────────────────────────────────┐
+ *   │ ScheduleRail │        SlideGrid          │ PreviewLivePanel   │
+ *   └ MediaDrawer ─────────────────────────────────────────────────┘
+ * Library/Media are summoned in (progressive disclosure) so the resting state
+ * stays three clean columns — a volunteer can run it after ten minutes.
+ *
+ * The Rust `LiveSession` stays the single source of truth for what's on air.
+ * This component adds one frontend concept on top: `previewIndex` — the staged
+ * slide. Clicking a slide stages it; "Go" promotes Preview → Live via the
+ * existing `go_to` dispatch. Nothing reaches the projector without Go.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { ipc } from "@/lib/ipc";
+import type {
+  Cue,
+  Library,
+  LiveAction,
+  LiveSessionView,
+  OutputAppearance,
+  Service,
+} from "@/lib/bindings";
+import { useT } from "@/lib/i18n";
+import { DEFAULT_OUTPUT_APPEARANCE, useOutputBridge } from "@/lib/outputBridge";
+import { CommandPalette } from "@/components/CommandPalette";
+import type { Route } from "@/components/Sidebar";
+import { SettingsPage } from "@/features/settings/SettingsPage";
+import { ServicesPage } from "@/features/services/ServicesPage";
+import { StageDisplay } from "@/features/live/StageDisplay";
+import { ExportModal } from "@/features/live/ExportModal";
+import { TransportBar } from "./TransportBar";
+import { ScheduleRail } from "./ScheduleRail";
+import { SlideGrid } from "./SlideGrid";
+import { PreviewLivePanel } from "./PreviewLivePanel";
+import { LibraryBrowser, type BrowserTab } from "./LibraryBrowser";
+import { MediaDrawer } from "./MediaDrawer";
+import { JumpModal } from "./JumpModal";
+import { cueServiceItemId } from "./cueUtils";
+
+export function OperatorWorkspace({ library }: { library: Library }) {
+  const t = useT();
+  const qc = useQueryClient();
+
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
+    null,
+  );
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [session, setSession] = useState<LiveSessionView | null>(null);
+  const [recoverable, setRecoverable] = useState<LiveSessionView | null>(null);
+
+  // Overlays
+  const [browser, setBrowser] = useState<{ tab: BrowserTab } | null>(null);
+  const [browserSongId, setBrowserSongId] = useState<string | null>(null);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [stageOpen, setStageOpen] = useState(false);
+  const [stagePresetId, setStagePresetId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const isLive = !!session;
+
+  // ── Data ────────────────────────────────────────────────────────────────
+  const servicesQuery = useQuery({
+    queryKey: ["services", library.id],
+    queryFn: () => ipc.service.upcoming(library.id, 0, 100),
+  });
+  const services = useMemo(
+    () => servicesQuery.data ?? [],
+    [servicesQuery.data],
+  );
+  const service: Service | null =
+    services.find((s) => s.id === selectedServiceId) ?? services[0] ?? null;
+
+  // Default-select the first service once the list loads.
+  useEffect(() => {
+    if (!selectedServiceId && services.length > 0)
+      setSelectedServiceId(services[0].id);
+  }, [services, selectedServiceId]);
+
+  const cueListQuery = useQuery({
+    queryKey: ["cueList", service?.id],
+    queryFn: () => ipc.live.compileCueList(service!.id),
+    enabled: !!service,
+  });
+  const cues: Cue[] = useMemo(
+    () => cueListQuery.data?.cues ?? [],
+    [cueListQuery.data],
+  );
+
+  const summaryQuery = useQuery({
+    queryKey: ["cueSummary", service?.id],
+    queryFn: () => ipc.service.cueSummary(service!.id),
+    enabled: !!service,
+  });
+  const itemTitles = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const it of summaryQuery.data?.items ?? [])
+      m.set(it.service_item_id, it.title);
+    return m;
+  }, [summaryQuery.data]);
+
+  // service_item_id → first cue index, for "click an item → stage its start".
+  const itemFirstIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    cues.forEach((cue, i) => {
+      const id = cueServiceItemId(cue);
+      if (id && !m.has(id)) m.set(id, i);
+    });
+    return m;
+  }, [cues]);
+
+  const appearanceQuery = useQuery({
+    queryKey: ["outputAppearance"],
+    queryFn: () => ipc.output.appearance(),
+  });
+  const appearance: OutputAppearance =
+    appearanceQuery.data ?? DEFAULT_OUTPUT_APPEARANCE;
+
+  const stagePresetsQuery = useQuery({
+    queryKey: ["stagePresets"],
+    queryFn: () => ipc.live.stagePresets(),
+  });
+  const stagePresets = useMemo(
+    () => stagePresetsQuery.data ?? [],
+    [stagePresetsQuery.data],
+  );
+  const stagePreset =
+    stagePresets.find((p) => p.id === stagePresetId) ?? stagePresets[0];
+
+  // Reset preview when the service changes.
+  useEffect(() => {
+    setPreviewIndex(0);
+  }, [service?.id]);
+
+  // Keep preview in range as the cue list changes.
+  const clampedPreview = Math.min(previewIndex, Math.max(0, cues.length - 1));
+  useEffect(() => {
+    if (clampedPreview !== previewIndex) setPreviewIndex(clampedPreview);
+  }, [clampedPreview, previewIndex]);
+
+  // Drive the projector windows from the live frame.
+  useOutputBridge(session?.frame ?? null, isLive);
+
+  // Crash recovery: detect a session that ended abnormally (Phase 6.1).
+  useEffect(() => {
+    ipc.live
+      .recover()
+      .then((v) => v && setRecoverable(v))
+      .catch(() => {});
+  }, []);
+
+  const liveIndex = session?.index ?? null;
+  const focusedItemId = cues[clampedPreview]
+    ? cueServiceItemId(cues[clampedPreview])
+    : null;
+
+  // ── Live actions ──────────────────────────────────────────────────────────
+  const dispatch = useCallback((action: LiveAction) => {
+    ipc.live
+      .dispatch(action)
+      .then((next) => setSession(next))
+      .catch(() => {});
+  }, []);
+
+  const startSession =
+    useCallback(async (): Promise<LiveSessionView | null> => {
+      if (!service) return null;
+      try {
+        const v = await ipc.live.start(service.id);
+        setSession(v);
+        // Open the projector window if a monitor is assigned (mirrors the old
+        // console's auto-open). Best-effort; preview-only when no Tauri/displays.
+        try {
+          const cfg = await ipc.output.config();
+          if (cfg.assignments.some((a) => a.role !== "off"))
+            await ipc.output.open();
+        } catch {
+          /* not in Tauri / no external display */
+        }
+        void qc.invalidateQueries({ queryKey: ["services", library.id] });
+        return v;
+      } catch {
+        return null;
+      }
+    }, [service, qc, library.id]);
+
+  const stopSession = useCallback(() => {
+    void ipc.live.end().finally(() => setSession(null));
+  }, []);
+
+  // Promote the staged slide to live, then stage the next one (worship flow).
+  const go = useCallback(async () => {
+    if (cues.length === 0) return;
+    const target = clampedPreview;
+    let s = session;
+    if (!s) s = await startSession();
+    if (!s) return;
+    dispatch({ type: "go_to", index: target });
+    setPreviewIndex(Math.min(target + 1, cues.length - 1));
+  }, [cues.length, clampedPreview, session, startSession, dispatch]);
+
+  const resumeRecovered = useCallback(async () => {
+    if (!recoverable) return;
+    setSelectedServiceId(recoverable.service_id);
+    try {
+      const v = await ipc.live.state();
+      if (v) setSession(v);
+    } finally {
+      setRecoverable(null);
+    }
+  }, [recoverable]);
+
+  // ── Hotkeys ─────────────────────────────────────────────────────────────
+  const anyOverlayOpen =
+    !!browser ||
+    settingsOpen ||
+    scheduleEditorOpen ||
+    jumpOpen ||
+    stageOpen ||
+    exportOpen;
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        if (isLive) setJumpOpen((o) => !o);
+        return;
+      }
+      if (e.metaKey || e.ctrlKey) return; // leave ⌘K etc. to their handlers
+      if (anyOverlayOpen) return;
+      switch (e.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          e.preventDefault();
+          setPreviewIndex((i) => Math.min(i + 1, cues.length - 1));
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          e.preventDefault();
+          setPreviewIndex((i) => Math.max(i - 1, 0));
+          break;
+        case " ":
+        case "Enter":
+          e.preventDefault();
+          void go();
+          break;
+        case "Escape":
+          if (isLive) {
+            e.preventDefault();
+            dispatch({ type: "blackout" });
+          }
+          break;
+        case "l":
+        case "L":
+          if (isLive) dispatch({ type: "show_logo" });
+          break;
+        case "Home":
+          setPreviewIndex(0);
+          break;
+        case "End":
+          setPreviewIndex(Math.max(0, cues.length - 1));
+          break;
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [anyOverlayOpen, cues.length, go, dispatch, isLive]);
+
+  // ── Command palette routing ───────────────────────────────────────────────
+  const onNavigate = useCallback((route: Route) => {
+    switch (route) {
+      case "library":
+        setBrowser({ tab: "songs" });
+        break;
+      case "bible":
+        setBrowser({ tab: "scripture" });
+        break;
+      case "decks":
+        setBrowser({ tab: "decks" });
+        break;
+      case "design":
+        setBrowser({ tab: "themes" });
+        break;
+      case "media":
+        setMediaOpen(true);
+        break;
+      case "settings":
+        setSettingsOpen(true);
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const onOpenResult = useCallback((route: Route, id: string) => {
+    if (route === "services") {
+      setSelectedServiceId(id);
+    } else if (route === "library") {
+      setBrowserSongId(id);
+      setBrowser({ tab: "songs" });
+    } else if (route === "bible") {
+      setBrowser({ tab: "scripture" });
+    }
+  }, []);
+
+  return (
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
+      <TransportBar
+        services={services}
+        service={service}
+        onSelectService={setSelectedServiceId}
+        onNewService={() => setScheduleEditorOpen(true)}
+        onOpenBrowser={() => setBrowser({ tab: "songs" })}
+        isLive={isLive}
+        canGoLive={cues.length > 0}
+        outputState={session?.output ?? null}
+        onGoLive={() => void startSession()}
+        onStop={stopSession}
+        onBlackout={() => dispatch({ type: "blackout" })}
+        onLogo={() => dispatch({ type: "show_logo" })}
+        onJump={() => isLive && setJumpOpen(true)}
+        onStage={() => isLive && setStageOpen(true)}
+        onExport={() => isLive && setExportOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
+      />
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {service ? (
+          <div className="grid min-h-0 flex-1 grid-cols-[280px_1fr_340px]">
+            <ScheduleRail
+              service={service}
+              focusedItemId={focusedItemId}
+              onFocusItem={(itemId) => {
+                const idx = itemFirstIndex.get(itemId);
+                if (idx != null) setPreviewIndex(idx);
+              }}
+              onEditSchedule={() => setScheduleEditorOpen(true)}
+            />
+            <main className="min-h-0 overflow-hidden bg-[var(--color-bg)]">
+              <SlideGrid
+                cues={cues}
+                appearance={appearance}
+                previewIndex={clampedPreview}
+                liveIndex={liveIndex}
+                itemTitles={itemTitles}
+                onPreview={setPreviewIndex}
+              />
+            </main>
+            <PreviewLivePanel
+              cues={cues}
+              appearance={appearance}
+              previewIndex={clampedPreview}
+              liveFrame={session?.frame ?? null}
+              liveIndex={liveIndex}
+              isLive={isLive}
+              notes={service.notes}
+              onGo={() => void go()}
+            />
+          </div>
+        ) : (
+          <div className="grid flex-1 place-items-center text-center">
+            <div className="max-w-sm">
+              <h1 className="text-[var(--text-ui-2xl)] font-bold">
+                {t("wsNoServiceTitle")}
+              </h1>
+              <p className="mt-2 text-sm text-[var(--color-fg-muted)]">
+                {t("wsNoServiceBody")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setScheduleEditorOpen(true)}
+                className="mt-5 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110"
+              >
+                {t("svcNewService")}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <MediaDrawer
+        library={library}
+        open={mediaOpen}
+        onToggle={() => setMediaOpen((o) => !o)}
+      />
+
+      {/* Overlays */}
+      <LibraryBrowser
+        library={library}
+        open={!!browser}
+        initialTab={browser?.tab ?? "songs"}
+        openSongId={browserSongId}
+        onDeepLinkDone={() => setBrowserSongId(null)}
+        onClose={() => setBrowser(null)}
+      />
+
+      {scheduleEditorOpen && (
+        <ModalShell onClose={() => setScheduleEditorOpen(false)} wide>
+          <ServicesPage
+            library={library}
+            openServiceId={service?.id ?? null}
+            onGoLive={(svc) => {
+              setSelectedServiceId(svc.id);
+              setScheduleEditorOpen(false);
+              void startSession();
+            }}
+          />
+        </ModalShell>
+      )}
+
+      {settingsOpen && (
+        <ModalShell onClose={() => setSettingsOpen(false)} wide>
+          <SettingsPage />
+        </ModalShell>
+      )}
+
+      {jumpOpen && (
+        <JumpModal
+          cues={cues}
+          onPick={(i) => {
+            setPreviewIndex(i);
+            dispatch({ type: "go_to", index: i });
+            setJumpOpen(false);
+          }}
+          onClose={() => setJumpOpen(false)}
+        />
+      )}
+
+      {stageOpen && session && stagePreset && (
+        <StageDisplay
+          session={session}
+          cues={cues}
+          serviceName={service?.name ?? ""}
+          notes={service?.notes ?? null}
+          preset={stagePreset}
+          presets={stagePresets}
+          onPreset={setStagePresetId}
+          onClose={() => setStageOpen(false)}
+        />
+      )}
+
+      {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
+
+      {recoverable && (
+        <RecoveryBanner
+          session={recoverable}
+          onResume={() => void resumeRecovered()}
+          onDiscard={() => {
+            void ipc.live.end();
+            setRecoverable(null);
+          }}
+        />
+      )}
+
+      <CommandPalette
+        onNavigate={onNavigate}
+        onOpenResult={onOpenResult}
+        libraryId={library.id}
+      />
+    </div>
+  );
+}
+
+/** A centered modal shell that hosts a full-page feature reused as a dialog. */
+function ModalShell({
+  children,
+  onClose,
+  wide,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  wide?: boolean;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4 sm:p-8">
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        className={
+          "relative flex h-full max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)] " +
+          (wide ? "max-w-[1100px]" : "max-w-2xl")
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function RecoveryBanner({
+  session,
+  onResume,
+  onDiscard,
+}: {
+  session: LiveSessionView;
+  onResume: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div className="fixed bottom-4 left-1/2 z-50 w-[min(90vw,560px)] -translate-x-1/2 rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] p-4 shadow-[var(--shadow-elevated)]">
+      <p className="text-sm font-semibold">Forrige live-økt ble avbrutt</p>
+      <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+        En live-økt ble ikke avsluttet normalt. Du kan gjenoppta nøyaktig der du
+        var — cue {session.index + 1} av {session.total}.
+      </p>
+      <div className="mt-3 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="rounded-md px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          Forkast
+        </button>
+        <button
+          type="button"
+          onClick={onResume}
+          className="rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110"
+        >
+          Gjenoppta
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -60,6 +60,16 @@
   --color-accent-fg: var(--color-sunday-blue-900); /* text on the gold accent */
   --color-brand: var(--color-sunday-blue-600);
 
+  /* Operator console — Preview/Live monitor surfaces. A near-black "video
+   * monitor" backdrop that reads as broadcast hardware, separating the slide
+   * panes from the navy chrome. The same in light mode: monitors stay dark, so
+   * what the operator sees matches the room. Gold is reserved for the on-air
+   * signal and the active selection — see OperatorWorkspace. */
+  --color-stage-black: oklch(0.16 0.01 252);
+  --color-on-air: var(--color-sunday-gold-400);
+  --color-on-air-ring: oklch(0.84 0.16 85 / 0.55);
+  --color-console: var(--color-sunday-blue-950);
+
   /* Status */
   --color-success: oklch(0.74 0.18 145);
   --color-warning: oklch(0.8 0.16 75);
