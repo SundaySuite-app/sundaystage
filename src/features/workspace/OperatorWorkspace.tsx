@@ -28,8 +28,7 @@ import type {
 } from "@/lib/bindings";
 import { useT } from "@/lib/i18n";
 import { DEFAULT_OUTPUT_APPEARANCE, useOutputBridge } from "@/lib/outputBridge";
-import { CommandPalette } from "@/components/CommandPalette";
-import type { Route } from "@/components/Sidebar";
+import { CommandPalette, type Route } from "@/components/CommandPalette";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ServicesPage } from "@/features/services/ServicesPage";
 import { StageDisplay } from "@/features/live/StageDisplay";

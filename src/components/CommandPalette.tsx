@@ -24,7 +24,18 @@ import {
 
 import { ipc } from "@/lib/ipc";
 import { useT } from "@/lib/i18n";
-import type { Route } from "./Sidebar";
+
+/** Navigation targets the palette can jump to. The operator workspace maps
+ *  these onto its overlays (library browser tab, media drawer, settings). */
+export type Route =
+  | "library"
+  | "decks"
+  | "services"
+  | "bible"
+  | "media"
+  | "settings"
+  | "dashboard"
+  | "design";
 
 interface CommandPaletteProps {
   onNavigate: (route: Route) => void;
