@@ -35,6 +35,8 @@ import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { useOutputBridge } from "@/lib/outputBridge";
+import { useLiveBridge, type LiveBridgeTransports } from "@/lib/useLiveBridge";
+import type { BridgeCue, LiveBridgeContext } from "@/lib/liveBridge";
 import { StageDisplay } from "./StageDisplay";
 import { ExportModal } from "./ExportModal";
 import { OutputControls } from "./OutputControls";
@@ -44,9 +46,23 @@ interface Props {
   onExit: () => void;
   /** Attach to an already-recovered session instead of starting a fresh one. */
   resume?: boolean;
+  /**
+   * Bridge wiring (Stage → Rec live cues + Stage → Song usage). Optional and
+   * OFF by default: the frontend has no church/tenant id yet, so until a caller
+   * supplies a `LiveBridgeContext` (+ NETWORK-UNVERIFIED transports) the driver
+   * runs but publishes nowhere. See `useLiveBridge`.
+   */
+  bridgeContext?: LiveBridgeContext | null;
+  bridgeTransports?: LiveBridgeTransports;
 }
 
-export function LivePreview({ service, onExit, resume = false }: Props) {
+export function LivePreview({
+  service,
+  onExit,
+  resume = false,
+  bridgeContext = null,
+  bridgeTransports = {},
+}: Props) {
   const t = useT();
   const [session, setSession] = useState<LiveSessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +83,12 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
     () => cueListQuery.data?.cues ?? [],
     [cueListQuery.data],
   );
+
+  // Project the operator cues onto the minimal shape the bridge driver needs.
+  const bridgeCues = useMemo<BridgeCue[]>(() => cues.map(toBridgeCue), [cues]);
+  const bridge = useLiveBridge(bridgeContext, bridgeCues, bridgeTransports);
+  // The bridge "go live" fires once, the first time we hold a session.
+  const wentLive = useRef(false);
 
   const stagePresetsQuery = useQuery({
     queryKey: ["stagePresets"],
@@ -99,18 +121,38 @@ export function LivePreview({ service, onExit, resume = false }: Props) {
   }, [service.id, resume]);
 
   const exit = useCallback(() => {
+    bridge.end();
     void ipc.live.end().finally(onExit);
-  }, [onExit]);
+  }, [onExit, bridge]);
 
-  const dispatch = useCallback((action: LiveAction) => {
-    ipc.live
-      .dispatch(action)
-      .then(setSession)
-      .catch((e) => setError(String(e)));
-  }, []);
+  const dispatch = useCallback(
+    (action: LiveAction) => {
+      ipc.live
+        .dispatch(action)
+        .then((next) => {
+          setSession((prev) => {
+            // Diff the index against the *previous* session so the bridge sees
+            // exactly the same movement the operator made. Blackout/logo keep
+            // the index, so the driver naturally emits nothing for them.
+            if (prev) bridge.cueChange(prev.index, next.index, next.total);
+            return next;
+          });
+        })
+        .catch((e) => setError(String(e)));
+    },
+    [bridge],
+  );
 
   // Drive the live output windows (Phase 5.2): broadcast each frame + heartbeat.
   useOutputBridge(session?.frame ?? null, !!session);
+
+  // Announce "service is live" + the opening cue exactly once per mount, the
+  // first time we hold a session. Subsequent cue moves go through `dispatch`.
+  useEffect(() => {
+    if (!session || wentLive.current) return;
+    wentLive.current = true;
+    bridge.goLive(session.index, session.total, Number(session.started_at));
+  }, [session, bridge]);
 
   // Going live should put the slide on the projector without the operator
   // hunting for a button. Once per session: if any monitor is assigned an
@@ -611,6 +653,19 @@ function Subhead({ children }: { children: React.ReactNode }) {
       {children}
     </h3>
   );
+}
+
+/** Project a compiled `Cue` onto the minimal shape the live bridge needs. */
+function toBridgeCue(cue: Cue): BridgeCue {
+  if (cue.kind === "show_slide") {
+    return {
+      serviceItemId: cue.source.service_item_id,
+      displayLabel: cue.source.display_label,
+      sectionLabel: cue.slide_content.section_label,
+    };
+  }
+  // black_out / show_logo / pause carry no service item — non-song cues.
+  return { serviceItemId: "", displayLabel: "", sectionLabel: null };
 }
 
 function cueId(cue: Cue): string {
