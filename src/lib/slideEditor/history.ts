@@ -66,6 +66,28 @@ export function replaceDocCommand(before: SlideDoc, after: SlideDoc): Command {
   };
 }
 
+/**
+ * A coarse, doc-scoped command for whole-document layout transforms (reorder,
+ * align, distribute, group nudges) computed in `transform.ts`. Captures the
+ * before/after docs so it inverts exactly, with a caller-chosen label so the
+ * undo menu reads naturally ("Juster venstre", "Fordel vannrett", …).
+ *
+ * Use this for multi-block geometry where a per-block `updateBlockCommand`
+ * would be noisy; it stays block-scoped-equivalent because the transforms
+ * themselves only touch the affected blocks.
+ */
+export function layoutCommand(
+  label: string,
+  before: SlideDoc,
+  after: SlideDoc,
+): Command {
+  return {
+    label,
+    apply: () => after,
+    invert: () => before,
+  };
+}
+
 /** Bundle several commands into one undo step (e.g. moving a multi-selection). */
 export function compositeCommand(label: string, cmds: Command[]): Command {
   return {
