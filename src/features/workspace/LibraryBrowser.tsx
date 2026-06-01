@@ -18,7 +18,7 @@ import type { Library } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 import { LibraryPage } from "@/features/library/LibraryPage";
-import { BiblePage } from "@/features/bible/BiblePage";
+import { BiblePage, type BibleDeepLink } from "@/features/bible/BiblePage";
 import { DecksPage } from "@/features/decks/DecksPage";
 
 export type BrowserTab = "songs" | "scripture" | "decks" | "themes";
@@ -37,6 +37,9 @@ interface Props {
   /** Deep-link a song open in the Songs tab. */
   openSongId?: string | null;
   onDeepLinkDone?: () => void;
+  /** Deep-link a bible passage open in the Scripture tab. */
+  bibleDeepLink?: BibleDeepLink | null;
+  onBibleDeepLinkDone?: () => void;
   onClose: () => void;
 }
 
@@ -46,6 +49,8 @@ export function LibraryBrowser({
   initialTab = "songs",
   openSongId,
   onDeepLinkDone,
+  bibleDeepLink,
+  onBibleDeepLinkDone,
   onClose,
 }: Props) {
   const t = useT();
@@ -111,7 +116,11 @@ export function LibraryBrowser({
               onDeepLinkDone={onDeepLinkDone}
             />
           ) : tab === "scripture" ? (
-            <BiblePage library={library} />
+            <BiblePage
+              library={library}
+              deepLink={bibleDeepLink}
+              onDeepLinkDone={onBibleDeepLinkDone}
+            />
           ) : tab === "decks" ? (
             <DecksPage library={library} />
           ) : (

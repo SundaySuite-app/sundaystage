@@ -40,7 +40,9 @@ import { PreviewLivePanel } from "./PreviewLivePanel";
 import { LibraryBrowser, type BrowserTab } from "./LibraryBrowser";
 import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
-import { cueServiceItemId } from "./cueUtils";
+import { ShortcutsModal } from "./ShortcutsModal";
+import { cueServiceItemId, parseBibleRef } from "./cueUtils";
+import type { BibleDeepLink } from "@/features/bible/BiblePage";
 
 export function OperatorWorkspace({ library }: { library: Library }) {
   const t = useT();
@@ -56,10 +58,14 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   // Overlays
   const [browser, setBrowser] = useState<{ tab: BrowserTab } | null>(null);
   const [browserSongId, setBrowserSongId] = useState<string | null>(null);
+  const [bibleDeepLink, setBibleDeepLink] = useState<BibleDeepLink | null>(
+    null,
+  );
   const [mediaOpen, setMediaOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [stagePresetId, setStagePresetId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -223,6 +229,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     settingsOpen ||
     scheduleEditorOpen ||
     jumpOpen ||
+    shortcutsOpen ||
     stageOpen ||
     exportOpen;
   useEffect(() => {
@@ -239,6 +246,12 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         return;
       }
       if (e.metaKey || e.ctrlKey) return; // leave ⌘K etc. to their handlers
+      // "?" opens the shortcuts modal even when other overlays are open
+      if (e.key === "?") {
+        e.preventDefault();
+        setShortcutsOpen((o) => !o);
+        return;
+      }
       if (anyOverlayOpen) return;
       switch (e.key) {
         case "ArrowRight":
@@ -253,10 +266,14 @@ export function OperatorWorkspace({ library }: { library: Library }) {
           break;
         case " ":
         case "Enter":
+        case "g":
+        case "G":
           e.preventDefault();
           void go();
           break;
         case "Escape":
+        case "b":
+        case "B":
           if (isLive) {
             e.preventDefault();
             dispatch({ type: "blackout" });
@@ -315,6 +332,21 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     }
   }, []);
 
+  /** Open the bible browser pre-navigated to the current preview cue's passage. */
+  const openBibleCue = useCallback(() => {
+    const cue = cues[clampedPreview];
+    if (!cue || cue.kind !== "show_slide") return;
+    const ref = parseBibleRef(cue.source.display_label);
+    if (!ref) return;
+    setBibleDeepLink({
+      book: ref.book,
+      chapter: ref.chapter,
+      verseStart: ref.verseStart,
+      verseEnd: ref.verseEnd,
+    });
+    setBrowser({ tab: "scripture" });
+  }, [cues, clampedPreview]);
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
       <TransportBar
@@ -334,6 +366,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onStage={() => isLive && setStageOpen(true)}
         onExport={() => isLive && setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
+        onShortcuts={() => setShortcutsOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -367,6 +400,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
               isLive={isLive}
               notes={service.notes}
               onGo={() => void go()}
+              onOpenBibleCue={openBibleCue}
             />
           </div>
         ) : (
@@ -403,6 +437,8 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         initialTab={browser?.tab ?? "songs"}
         openSongId={browserSongId}
         onDeepLinkDone={() => setBrowserSongId(null)}
+        bibleDeepLink={bibleDeepLink}
+        onBibleDeepLinkDone={() => setBibleDeepLink(null)}
         onClose={() => setBrowser(null)}
       />
 
@@ -452,6 +488,10 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       )}
 
       {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
+
+      {shortcutsOpen && (
+        <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
+      )}
 
       {recoverable && (
         <RecoveryBanner

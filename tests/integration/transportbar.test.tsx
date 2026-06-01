@@ -32,6 +32,7 @@ function renderTransport() {
         onStage={noop}
         onExport={noop}
         onSettings={noop}
+        onShortcuts={noop}
       />
     </QueryClientProvider>,
   );

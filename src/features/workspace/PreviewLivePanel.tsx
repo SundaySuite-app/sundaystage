@@ -7,14 +7,14 @@
  * Live is an explicit "Go" (button, Enter or Space). The Live pane wears an
  * unmistakable gold ● LIVE when the session is armed.
  */
-import { Play } from "lucide-react";
+import { BookOpen, Play } from "lucide-react";
 
 import type { Cue, LiveFrame, OutputAppearance } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { SlideView } from "@/components/SlideView";
-import { cueDisplayLabel, cueId, frameFromCue } from "./cueUtils";
+import { cueDisplayLabel, cueId, frameFromCue, isBibleCue } from "./cueUtils";
 
 interface Props {
   cues: Cue[];
@@ -26,6 +26,8 @@ interface Props {
   isLive: boolean;
   notes: string | null;
   onGo: () => void;
+  /** Called when the operator wants to open the bible browser for the current scripture cue. */
+  onOpenBibleCue?: () => void;
 }
 
 export function PreviewLivePanel({
@@ -37,9 +39,11 @@ export function PreviewLivePanel({
   isLive,
   notes,
   onGo,
+  onOpenBibleCue,
 }: Props) {
   const t = useT();
   const previewCue = cues[previewIndex] ?? null;
+  const previewIsBible = previewCue ? isBibleCue(previewCue) : false;
   const upcoming = cues.slice(
     (liveIndex ?? previewIndex) + 1,
     (liveIndex ?? previewIndex) + 6,
@@ -49,18 +53,31 @@ export function PreviewLivePanel({
     <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
       {/* PREVIEW */}
       <div>
-        <div className="mb-1.5 flex items-center justify-between">
+        <div className="mb-1.5 flex items-center justify-between gap-1">
           <Subhead>{t("wsPreviewLabel")}</Subhead>
-          <button
-            type="button"
-            onClick={onGo}
-            disabled={!previewCue}
-            title={t("wsGoHint")}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-xs font-bold text-[var(--color-sunday-blue-900)] transition-all hover:brightness-110 active:translate-y-px disabled:opacity-40"
-          >
-            <Play size={12} aria-hidden fill="currentColor" />
-            {t("wsGo")}
-          </button>
+          <div className="flex items-center gap-1">
+            {previewIsBible && onOpenBibleCue && (
+              <button
+                type="button"
+                onClick={onOpenBibleCue}
+                title={t("wsOpenVerse")}
+                className="flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-fg)]"
+              >
+                <BookOpen size={11} aria-hidden />
+                {t("wsOpenVerse")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onGo}
+              disabled={!previewCue}
+              title={t("wsGoHint")}
+              className="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-xs font-bold text-[var(--color-sunday-blue-900)] transition-all hover:brightness-110 active:translate-y-px disabled:opacity-40"
+            >
+              <Play size={12} aria-hidden fill="currentColor" />
+              {t("wsGo")}
+            </button>
+          </div>
         </div>
         <div className="aspect-video overflow-hidden rounded-[var(--radius-md)] bg-[var(--color-stage-black)] ring-1 ring-[var(--color-accent)]/40">
           <SlideView

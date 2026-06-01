@@ -505,6 +505,25 @@ const en: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Ending",
+
+  // ── Keyboard shortcuts modal ────────────────────────────────────────────
+  kbModalTitle: "Keyboard shortcuts",
+  kbShowShortcuts: "Keyboard shortcuts (?)",
+  kbGroupPlayback: "Playback",
+  kbGroupOutput: "Output",
+  kbGroupWorkspace: "Workspace",
+  kbGo: "Send preview to live (Go)",
+  kbPrev: "Previous slide",
+  kbNext: "Next / stage slide",
+  kbFirst: "First slide",
+  kbLast: "Last slide",
+  kbBlackout: "Blackout screen",
+  kbLogo: "Show logo",
+  kbJump: "Jump to cue",
+  kbShortcutsHelp: "Show this help",
+
+  // ── Bible verse deep-open ───────────────────────────────────────────────
+  wsOpenVerse: "Open verse in Bible browser",
 };
 
 const no: Catalog = {
@@ -997,6 +1016,25 @@ const no: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Slutt",
+
+  // ── Hurtigtaster-modal ──────────────────────────────────────────────────
+  kbModalTitle: "Hurtigtaster",
+  kbShowShortcuts: "Hurtigtaster (?)",
+  kbGroupPlayback: "Avspilling",
+  kbGroupOutput: "Utgang",
+  kbGroupWorkspace: "Arbeidsflate",
+  kbGo: "Send forhåndsvisning til live (Go)",
+  kbPrev: "Forrige lysbilde",
+  kbNext: "Neste / forhåndsvis lysbilde",
+  kbFirst: "Første lysbilde",
+  kbLast: "Siste lysbilde",
+  kbBlackout: "Svart skjerm",
+  kbLogo: "Vis logo",
+  kbJump: "Hopp til cue",
+  kbShortcutsHelp: "Vis denne hjelpen",
+
+  // ── Bibel-vers deep-open ────────────────────────────────────────────────
+  wsOpenVerse: "Åpne vers i Bibel-panelet",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review

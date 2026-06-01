@@ -11,6 +11,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Clapperboard,
+  Keyboard,
   Menu,
   Monitor,
   Play,
@@ -44,6 +45,7 @@ interface Props {
   onStage: () => void;
   onExport: () => void;
   onSettings: () => void;
+  onShortcuts: () => void;
 }
 
 export function TransportBar({
@@ -63,6 +65,7 @@ export function TransportBar({
   onStage,
   onExport,
   onSettings,
+  onShortcuts,
 }: Props) {
   const t = useT();
   const lang = useLocale((s) => s.lang);
@@ -175,6 +178,11 @@ export function TransportBar({
           icon={SettingsIcon}
           label={t("navSettings")}
           onClick={onSettings}
+        />
+        <IconButton
+          icon={Keyboard}
+          label={t("kbShowShortcuts")}
+          onClick={onShortcuts}
         />
         <ThemeToggle />
         <SyncBadge />

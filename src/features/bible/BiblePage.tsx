@@ -16,11 +16,23 @@ import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { Button, Select } from "@/components/ui";
 
-interface Props {
-  library: Library;
+/** A pre-resolved bible reference used to open a specific passage directly. */
+export interface BibleDeepLink {
+  book: string;
+  chapter: number;
+  verseStart: number | null;
+  verseEnd: number | null;
 }
 
-export function BiblePage({ library }: Props) {
+interface Props {
+  library: Library;
+  /** When set, the browser navigates to this passage on mount (or change). */
+  deepLink?: BibleDeepLink | null;
+  /** Called after the deep-link has been applied so the parent can clear it. */
+  onDeepLinkDone?: () => void;
+}
+
+export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
   const t = useT();
   const [primaryId, setPrimaryId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -44,6 +56,23 @@ export function BiblePage({ library }: Props) {
       setPrimaryId(translations.data[0].id);
     }
   }, [translations.data, primaryId]);
+
+  // Apply a deep-link (open the specific passage) when the prop is set.
+  useEffect(() => {
+    if (!deepLink) return;
+    setBook(deepLink.book);
+    setChapter(deepLink.chapter);
+    setHits(null);
+    if (deepLink.verseStart != null) {
+      setRange({
+        start: deepLink.verseStart,
+        end: deepLink.verseEnd ?? deepLink.verseStart,
+      });
+    } else {
+      setRange(null);
+    }
+    onDeepLinkDone?.();
+  }, [deepLink, onDeepLinkDone]);
 
   const books = useQuery({
     queryKey: ["bibleBooks", primaryId],
