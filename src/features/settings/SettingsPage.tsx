@@ -44,14 +44,16 @@ import {
   Select,
 } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { OutputSettingsPanel } from "./OutputSettingsPanel";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 
-type Tab = "general" | "output" | "ai" | "advanced";
+type Tab = "general" | "output" | "output_display" | "ai" | "advanced";
 
 const TABS: Array<{ id: Tab; labelKey: TKey; icon: typeof Settings2 }> = [
   { id: "general", labelKey: "setGeneral", icon: Settings2 },
   { id: "output", labelKey: "setTabOutput", icon: Monitor },
+  { id: "output_display", labelKey: "setTabOutputDisplay", icon: Monitor },
   { id: "ai", labelKey: "setTabAi", icon: Sparkles },
   { id: "advanced", labelKey: "setAdvanced", icon: ShieldAlert },
 ];
@@ -93,6 +95,11 @@ export function SettingsPage() {
         <div className="mx-auto max-w-3xl px-8 py-8">
           {tab === "general" && <GeneralSettings />}
           {tab === "output" && <OutputSettings />}
+          {tab === "output_display" && (
+            <div className="space-y-6">
+              <OutputSettingsPanel />
+            </div>
+          )}
           {tab === "ai" && <AiSettings />}
           {tab === "advanced" && <AdvancedSettings />}
         </div>

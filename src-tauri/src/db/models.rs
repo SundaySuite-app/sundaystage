@@ -284,6 +284,44 @@ pub struct SearchResult {
     pub rank: f64,
 }
 
+// ── ServiceTemplate ─────────────────────────────────────────────────────────
+
+/// A single slot specification inside a service template.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/CueSpec.ts")]
+pub struct CueSpec {
+    /// The kind of cue this slot expects.
+    pub kind: String, // "song" | "bible" | "prayer" | "announcement" | "media"
+    /// Human-readable label shown in the queue.
+    pub label: String,
+    /// Optional planning notes for this slot.
+    pub notes: Option<String>,
+}
+
+/// A reusable service template: an ordered list of cue-specs that can be
+/// applied to any service to seed its queue in one click.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/ServiceTemplate.ts")]
+pub struct ServiceTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    /// JSON-serialised `Vec<CueSpec>`.
+    pub cue_specs: String,
+    pub is_builtin: i64, // 0/1 SQLite bool
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// Input for creating a user-defined service template.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/ServiceTemplateInput.ts")]
+pub struct ServiceTemplateInput {
+    pub name: String,
+    pub description: Option<String>,
+    pub cue_specs: Vec<CueSpec>,
+}
+
 /// Helper for converting any `DateTime<Utc>` to unix-ms.
 #[allow(dead_code)]
 pub fn to_unix_ms(dt: DateTime<Utc>) -> i64 {

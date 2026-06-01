@@ -68,11 +68,15 @@ pub fn run() {
             let db_path: PathBuf = data_dir.join("sundaystage.db");
 
             // Open the database synchronously — Tauri's setup is not async.
-            // Seed the bundled Bible translations (idempotent) while we're here.
+            // Seed the bundled Bible translations and built-in service
+            // templates (both operations are idempotent).
             let db = tauri::async_runtime::block_on(async move {
                 let db = Database::open(&db_path).await?;
                 crate::db::repositories::BibleRepo::new(&db.pool)
                     .seed()
+                    .await?;
+                crate::db::repositories::ServiceTemplateRepo::new(&db.pool)
+                    .seed_builtins()
                     .await?;
                 crate::error::AppResult::Ok(db)
             })?;
@@ -158,6 +162,13 @@ pub fn run() {
             commands::output::output_is_open,
             commands::output::output_appearance,
             commands::output::output_set_appearance,
+            commands::output::output_display_config,
+            commands::output::output_set_display_config,
+            // Service templates
+            commands::service_templates::svc_template_create,
+            commands::service_templates::svc_template_list,
+            commands::service_templates::svc_template_delete,
+            commands::service_templates::svc_template_apply,
             // Service
             commands::services::service_create,
             commands::services::service_get,

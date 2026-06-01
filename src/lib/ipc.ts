@@ -25,6 +25,7 @@ import type {
   ChapterMarker,
   ClaudeModel,
   CueList,
+  CueSpec,
   CueSummary,
   CustomDeck,
   DemoSummary,
@@ -40,12 +41,15 @@ import type {
   MonitorInfo,
   OutputAppearance,
   OutputConfig,
+  OutputDisplayConfig,
   PlanImportResult,
   SearchResult,
   StageDisplayConfig,
   Service,
   ServiceItem,
   ServicePlan,
+  ServiceTemplate,
+  ServiceTemplateInput,
   Slide,
   SlideDoc,
   Song,
@@ -353,7 +357,30 @@ export const output = {
   appearance: () => call<OutputAppearance>("output_appearance"),
   setAppearance: (appearance: OutputAppearance) =>
     call<OutputAppearance>("output_set_appearance", { appearance }),
+  displayConfig: () => call<OutputDisplayConfig>("output_display_config"),
+  setDisplayConfig: (config: OutputDisplayConfig) =>
+    call<OutputDisplayConfig>("output_set_display_config", { config }),
 };
+
+// ── Service templates ─────────────────────────────────────────────────────────
+
+export const serviceTemplate = {
+  list: () => call<ServiceTemplate[]>("svc_template_list"),
+  create: (input: ServiceTemplateInput) =>
+    call<ServiceTemplate>("svc_template_create", { input }),
+  delete: (id: string) => call<void>("svc_template_delete", { id }),
+  apply: (templateId: string, serviceId: string) =>
+    call<ServiceItem[]>("svc_template_apply", { templateId, serviceId }),
+};
+
+/** Parse the JSON `cue_specs` field of a `ServiceTemplate` into typed objects. */
+export function parseCueSpecs(template: ServiceTemplate): CueSpec[] {
+  try {
+    return JSON.parse(template.cue_specs) as CueSpec[];
+  } catch {
+    return [];
+  }
+}
 
 // ── Universal search (Phase 2.3) ─────────────────────────────────────────────
 
@@ -432,4 +459,6 @@ export const ipc = {
   crash,
   bible,
   search,
+  serviceTemplate,
+  parseCueSpecs,
 };

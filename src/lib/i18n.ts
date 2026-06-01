@@ -524,6 +524,58 @@ const en: Catalog = {
 
   // ── Bible verse deep-open ───────────────────────────────────────────────
   wsOpenVerse: "Open verse in Bible browser",
+
+  // ── Service templates ─────────────────────────────────────────────────────
+  navTemplates: "Templates",
+  tmplPageTitle: "Service templates",
+  tmplBuiltin: "Built-in",
+  tmplCustom: "Custom",
+  tmplEmptyTitle: "No custom templates yet",
+  tmplEmptyBody:
+    "Create a template from a service structure you use often — name each slot and apply it to future services in one click.",
+  tmplCreate: "New template",
+  tmplDelete: "Delete template",
+  tmplConfirmDeleteTitle: "Delete template?",
+  tmplConfirmDeleteBody: "«{name}» will be permanently removed.",
+  tmplApply: "Use in service",
+  tmplApplied: "Template applied",
+  tmplApplySelectService: "Select a service to apply the template to:",
+  tmplCueSpecs: "{n} slots",
+  tmplApplying: "Applying…",
+  tmplApplyDone: "Applied {n} items to «{service}»",
+  tmplNewName: "Template name",
+  tmplNewDescription: "Description (optional)",
+  tmplNewSlots: "Slots",
+  tmplAddSlot: "Add slot",
+  tmplSlotKind: "Kind",
+  tmplSlotLabel: "Label",
+  tmplSlotNotes: "Notes (optional)",
+  tmplKindSong: "Song",
+  tmplKindBible: "Bible",
+  tmplKindPrayer: "Prayer",
+  tmplKindAnnouncement: "Announcement",
+  tmplKindMedia: "Media",
+
+  // ── Output display configuration ──────────────────────────────────────────
+  setTabOutputDisplay: "Display",
+  setOutDispTitle: "Output display settings",
+  setOutDispDesc:
+    "Technical display settings — resolution, safe zone, transitions. These affect how the output window renders.",
+  setOutDispPrimaryDisplay: "Primary display index",
+  setOutDispPrimaryDisplayDesc:
+    "Which monitor index (0-based) to use as the primary output.",
+  setOutDispResolution: "Output resolution",
+  setOutDispSafeZone: "Text safe zone",
+  setOutDispSafeZoneDesc:
+    "Percentage of the screen to keep clear of text on each edge (5–20%).",
+  setOutDispTransition: "Slide transition",
+  setOutDispTransitionMs: "Transition duration",
+  setOutDispTransitionMsDesc: "Duration in milliseconds (0–1000).",
+  setOutDispTransitionCut: "Cut",
+  setOutDispTransitionFade: "Fade",
+  setOutDispTransitionSlideLeft: "Slide left",
+  setOutDispTransitionSlideRight: "Slide right",
+  setOutDispSaved: "Saved",
 };
 
 const no: Catalog = {
@@ -1035,6 +1087,58 @@ const no: Catalog = {
 
   // ── Bibel-vers deep-open ────────────────────────────────────────────────
   wsOpenVerse: "Åpne vers i Bibel-panelet",
+
+  // ── Gudstjeneste-maler ───────────────────────────────────────────────────
+  navTemplates: "Maler",
+  tmplPageTitle: "Gudstjeneste-maler",
+  tmplBuiltin: "Innebygd",
+  tmplCustom: "Egne",
+  tmplEmptyTitle: "Ingen egne maler enda",
+  tmplEmptyBody:
+    "Lag en mal fra en gudstjenestestruktur du bruker ofte — navngi hvert spor og bruk det på fremtidige gudstjenester med ett klikk.",
+  tmplCreate: "Ny mal",
+  tmplDelete: "Slett mal",
+  tmplConfirmDeleteTitle: "Slette malen?",
+  tmplConfirmDeleteBody: "«{name}» fjernes permanent.",
+  tmplApply: "Bruk på gudstjeneste",
+  tmplApplied: "Mal brukt",
+  tmplApplySelectService: "Velg en gudstjeneste å bruke malen på:",
+  tmplCueSpecs: "{n} spor",
+  tmplApplying: "Bruker…",
+  tmplApplyDone: "Brukte {n} elementer på «{service}»",
+  tmplNewName: "Malnavn",
+  tmplNewDescription: "Beskrivelse (valgfri)",
+  tmplNewSlots: "Spor",
+  tmplAddSlot: "Legg til spor",
+  tmplSlotKind: "Type",
+  tmplSlotLabel: "Etikett",
+  tmplSlotNotes: "Notater (valgfri)",
+  tmplKindSong: "Sang",
+  tmplKindBible: "Bibel",
+  tmplKindPrayer: "Bønn",
+  tmplKindAnnouncement: "Kunngjøring",
+  tmplKindMedia: "Media",
+
+  // ── Utgangs-visningskonfigurasjon ─────────────────────────────────────────
+  setTabOutputDisplay: "Visning",
+  setOutDispTitle: "Utgangs-visningsinnstillinger",
+  setOutDispDesc:
+    "Tekniske visningsinnstillinger — oppløsning, sikker sone, overganger. Disse påvirker hvordan utgangsvinduet gjengir.",
+  setOutDispPrimaryDisplay: "Primær skjermindeks",
+  setOutDispPrimaryDisplayDesc:
+    "Hvilken skjermindeks (0-basert) som skal brukes som primærutgang.",
+  setOutDispResolution: "Utgangsoppløsning",
+  setOutDispSafeZone: "Tekst sikker sone",
+  setOutDispSafeZoneDesc:
+    "Prosent av skjermen som skal holdes fri for tekst på hver kant (5–20 %).",
+  setOutDispTransition: "Lysbildeovergang",
+  setOutDispTransitionMs: "Overgangsvarighet",
+  setOutDispTransitionMsDesc: "Varighet i millisekunder (0–1000).",
+  setOutDispTransitionCut: "Kutt",
+  setOutDispTransitionFade: "Fade",
+  setOutDispTransitionSlideLeft: "Skyv venstre",
+  setOutDispTransitionSlideRight: "Skyv høyre",
+  setOutDispSaved: "Lagret",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review

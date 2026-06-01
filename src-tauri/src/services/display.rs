@@ -119,6 +119,73 @@ pub struct OutputConfig {
     pub assignments: Vec<DisplayAssignment>,
 }
 
+/// The slide transition effect used when advancing cues on the output.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "../../src/lib/bindings/OutputTransition.ts")]
+pub enum OutputTransition {
+    #[default]
+    Cut,
+    Fade,
+    SlideLeft,
+    SlideRight,
+}
+
+/// Target resolution for the output window.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/OutputResolution.ts")]
+pub enum OutputResolution {
+    #[default]
+    #[serde(rename = "1920x1080")]
+    Hd1080,
+    #[serde(rename = "1280x720")]
+    Hd720,
+    #[serde(rename = "3840x2160")]
+    Uhd4K,
+}
+
+/// User-facing output display configuration persisted to
+/// `output_display_config.json`. Covers the technical aspects of how the
+/// output window is presented (resolution, safe-zone, transitions) separately
+/// from the visual appearance (colours, fonts) which lives in
+/// `OutputAppearance`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/OutputDisplayConfig.ts")]
+pub struct OutputDisplayConfig {
+    /// Which monitor to use as the primary output (0-based index). Overridden
+    /// by the `OutputConfig` role assignments when those are set.
+    pub primary_display_index: u32,
+    /// The render resolution the output window targets.
+    pub output_resolution: OutputResolution,
+    /// Percentage (5–20) of the screen to keep clear of text on each side.
+    pub text_safe_zone_percent: f32,
+    /// The transition applied when advancing from one cue to the next.
+    pub transition: OutputTransition,
+    /// Duration of the transition in milliseconds (only used for non-cut transitions).
+    pub transition_ms: u32,
+}
+
+impl Default for OutputDisplayConfig {
+    fn default() -> Self {
+        Self {
+            primary_display_index: 0,
+            output_resolution: OutputResolution::default(),
+            text_safe_zone_percent: 10.0,
+            transition: OutputTransition::default(),
+            transition_ms: 300,
+        }
+    }
+}
+
+impl OutputDisplayConfig {
+    /// Clamp all numeric fields to valid ranges.
+    pub fn sanitized(mut self) -> Self {
+        self.text_safe_zone_percent = self.text_safe_zone_percent.clamp(5.0, 20.0);
+        self.transition_ms = self.transition_ms.min(1000);
+        self
+    }
+}
+
 /// First sensible setup for a fresh machine: the first *external* screen becomes
 /// the main output; everything else (including the operator's primary) is off.
 /// With a single screen, nothing is driven — the operator uses the in-app

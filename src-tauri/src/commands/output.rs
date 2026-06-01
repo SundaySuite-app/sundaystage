@@ -10,7 +10,7 @@ use tauri::{AppHandle, State};
 
 use crate::error::{AppError, AppResult};
 use crate::output::window;
-use crate::services::display::{self, MonitorInfo, OutputAppearance, OutputConfig};
+use crate::services::display::{self, MonitorInfo, OutputAppearance, OutputConfig, OutputDisplayConfig};
 use crate::AppState;
 
 fn config_path(state: &AppState) -> PathBuf {
@@ -19,6 +19,10 @@ fn config_path(state: &AppState) -> PathBuf {
 
 fn appearance_path(state: &AppState) -> PathBuf {
     state.data_dir.join("output_appearance.json")
+}
+
+fn display_config_path(state: &AppState) -> PathBuf {
+    state.data_dir.join("output_display_config.json")
 }
 
 fn load_config(state: &AppState) -> OutputConfig {
@@ -109,5 +113,30 @@ pub fn output_set_appearance(
     let s =
         serde_json::to_string_pretty(&clean).map_err(|e| AppError::Validation(e.to_string()))?;
     std::fs::write(appearance_path(&state), s).map_err(|e| AppError::Validation(e.to_string()))?;
+    Ok(clean)
+}
+
+/// The saved output display configuration (resolution, safe-zone, transitions)
+/// or sensible defaults on a fresh machine.
+#[tauri::command]
+pub fn output_display_config(state: State<'_, AppState>) -> OutputDisplayConfig {
+    std::fs::read_to_string(display_config_path(&state))
+        .ok()
+        .and_then(|s| serde_json::from_str::<OutputDisplayConfig>(&s).ok())
+        .unwrap_or_default()
+        .sanitized()
+}
+
+/// Persist the output display configuration.
+#[tauri::command]
+pub fn output_set_display_config(
+    state: State<'_, AppState>,
+    config: OutputDisplayConfig,
+) -> AppResult<OutputDisplayConfig> {
+    let clean = config.sanitized();
+    let s = serde_json::to_string_pretty(&clean)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+    std::fs::write(display_config_path(&state), s)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
     Ok(clean)
 }
