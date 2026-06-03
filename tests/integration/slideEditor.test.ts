@@ -29,7 +29,13 @@ import {
   compositeCommand,
   removeBlocksCommand,
 } from "@/lib/slideEditor/history";
-import { snapMove, buildTargets, SNAP_THRESHOLD } from "@/lib/slideEditor/snap";
+import {
+  snapMove,
+  snapResize,
+  buildTargets,
+  MIN_RESIZE,
+  SNAP_THRESHOLD,
+} from "@/lib/slideEditor/snap";
 import {
   defaultTokens,
   applyThemeToDoc,
@@ -289,6 +295,55 @@ describe("slideEditor/snap", () => {
 
   it("SNAP_THRESHOLD is the documented ~1% of the frame", () => {
     expect(SNAP_THRESHOLD).toBeCloseTo(0.01, 6);
+  });
+});
+
+// ── snap.ts: corner-handle resize snapping (wired into SlideCanvas) ───────────
+//
+// The canvas now feeds the four CORNER handles (nw/ne/sw/se) through snapResize
+// so a resized corner snaps to frame/sibling guides while the opposite corner
+// stays anchored; edge handles (n/s/e/w) deliberately resize freely. These
+// cases pin the corner-snap behaviour that the canvas relies on.
+describe("slideEditor/snap resize (corner handles)", () => {
+  it("snaps the dragged SE corner to the frame edge and lights a guide", () => {
+    // SE corner sits at (0.993, 0.991) — both within threshold of 1.0.
+    const res = snapResize({ x: 0.4, y: 0.4, w: 0.593, h: 0.591 }, "se", []);
+    expect(res.rect.x + res.rect.w).toBeCloseTo(1, 6);
+    expect(res.rect.y + res.rect.h).toBeCloseTo(1, 6);
+    // The anchor (NW corner) never drifts.
+    expect(res.rect.x).toBeCloseTo(0.4, 6);
+    expect(res.rect.y).toBeCloseTo(0.4, 6);
+    expect(res.guidesX).toContain(1);
+    expect(res.guidesY).toContain(1);
+  });
+
+  it("snaps an NW corner onto a sibling's right/bottom edges", () => {
+    const sib = { x: 0.2, y: 0.2, w: 0.3, h: 0.3 }; // right=0.5, bottom=0.5
+    // Drag the NW corner near the sibling's far edges (0.503, 0.504).
+    const res = snapResize({ x: 0.503, y: 0.504, w: 0.3, h: 0.3 }, "nw", [sib]);
+    expect(res.rect.x).toBeCloseTo(0.5, 6);
+    expect(res.rect.y).toBeCloseTo(0.5, 6);
+    expect(res.guidesX).toContain(0.5);
+    expect(res.guidesY).toContain(0.5);
+  });
+
+  it("never inverts or collapses below MIN_RESIZE when the corner crosses over", () => {
+    // Drag the SE corner back past the NW anchor: width/height floor at MIN.
+    const res = snapResize({ x: 0.4, y: 0.4, w: -0.5, h: -0.5 }, "se", []);
+    expect(res.rect.w).toBeGreaterThanOrEqual(MIN_RESIZE - 1e-9);
+    expect(res.rect.h).toBeGreaterThanOrEqual(MIN_RESIZE - 1e-9);
+  });
+
+  it("leaves a corner alone when nothing is within threshold", () => {
+    const rect = { x: 0.31, y: 0.33, w: 0.22, h: 0.21 };
+    const res = snapResize(rect, "ne", []);
+    // Geometry is preserved (the anchor-recompute can introduce FP drift).
+    expect(res.rect.x).toBeCloseTo(rect.x, 6);
+    expect(res.rect.y).toBeCloseTo(rect.y, 6);
+    expect(res.rect.w).toBeCloseTo(rect.w, 6);
+    expect(res.rect.h).toBeCloseTo(rect.h, 6);
+    expect(res.guidesX).toEqual([]);
+    expect(res.guidesY).toEqual([]);
   });
 });
 

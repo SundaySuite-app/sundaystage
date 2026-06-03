@@ -12,7 +12,7 @@
  * against the live bounding box.
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import type { SlideBlock, SlideDoc } from "@/lib/bindings";
 import {
@@ -24,8 +24,8 @@ import {
   replaceBlock,
   textBlockStyle,
 } from "@/lib/slideEditor/doc";
-import type { Rect } from "@/lib/slideEditor/snap";
-import { snapMove } from "@/lib/slideEditor/snap";
+import type { Rect, ResizeHandle } from "@/lib/slideEditor/snap";
+import { snapMove, snapResize } from "@/lib/slideEditor/snap";
 import {
   type Command,
   compositeCommand,
@@ -36,6 +36,17 @@ import { cn } from "@/lib/cn";
 type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 const HANDLES: HandleId[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_SIZE = 0.02;
+
+/** The 4 corner handles snap (via `snapResize`); edge handles resize freely. */
+const CORNER_HANDLES: ReadonlySet<HandleId> = new Set<HandleId>([
+  "nw",
+  "ne",
+  "sw",
+  "se",
+]);
+function isCorner(h: HandleId): h is ResizeHandle {
+  return CORNER_HANDLES.has(h);
+}
 
 interface Norm {
   nx: number;
@@ -77,6 +88,13 @@ interface SlideCanvasProps {
   onSelect?: (id: string | null, additive: boolean) => void;
   onPreview?: (doc: SlideDoc) => void;
   onCommit?: (cmd: Command) => void;
+  /**
+   * Raised when a direct-manipulation drag/resize starts (true) and ends
+   * (false). The parent uses this to suppress undo/redo while a preview is in
+   * flight: an undo mid-drag would invert against the transient preview doc and
+   * desync the history stack from the live document.
+   */
+  onInteractingChange?: (interacting: boolean) => void;
 }
 
 function resizeRect(
@@ -114,6 +132,7 @@ export function SlideCanvas({
   onSelect,
   onPreview,
   onCommit,
+  onInteractingChange,
 }: SlideCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const docRef = useRef(doc);
@@ -187,9 +206,26 @@ export function SlideCanvas({
     (d: Extract<DragState, { mode: "resize" }>, p: Norm) => {
       const block = findBlock(d.baseDoc, d.id);
       if (!block) return { doc: d.baseDoc, guides: { x: [], y: [] } };
-      const nr = resizeRect(d.startRect, d.handle, p.nx, p.ny);
+      // The free-drag rect from the pointer, then (for corner handles) snap the
+      // dragged corner to frame/sibling guides while holding the opposite corner
+      // fixed. Edge handles (n/s/e/w) resize freely — there is no single corner
+      // to snap, so they keep the raw rect and draw no guides.
+      const raw = resizeRect(d.startRect, d.handle, p.nx, p.ny);
+      if (isCorner(d.handle)) {
+        const siblings = d.baseDoc.blocks
+          .filter((b) => b.id !== d.id)
+          .map((b) => b.rect);
+        const snapped = snapResize(raw, d.handle, siblings);
+        return {
+          doc: replaceBlock(d.baseDoc, {
+            ...block,
+            rect: clampRect(snapped.rect),
+          }),
+          guides: { x: snapped.guidesX, y: snapped.guidesY },
+        };
+      }
       return {
-        doc: replaceBlock(d.baseDoc, { ...block, rect: nr }),
+        doc: replaceBlock(d.baseDoc, { ...block, rect: raw }),
         guides: { x: [], y: [] },
       };
     },
@@ -212,13 +248,17 @@ export function SlideCanvas({
     [toNorm, computeMove, computeResize, drawGuides, onPreview],
   );
 
+  // Tear down a drag: drop the window listeners, clear guides, release the
+  // drag ref and signal the parent that interaction ended. Stored in a ref so
+  // every handler removes the *same* function instances even though the
+  // listener callbacks are recreated when their deps change.
+  const teardownRef = useRef<() => void>(() => {});
+  const cancelRef = useRef<() => void>(() => {});
+
   const onPointerUp = useCallback(
     (e: PointerEvent) => {
       const d = dragRef.current;
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      dragRef.current = null;
-      drawGuides({ x: [], y: [] });
+      teardownRef.current();
       if (!d || !d.moved) return;
 
       const p = toNorm(e);
@@ -240,25 +280,71 @@ export function SlideCanvas({
         if (after) onCommit?.(updateBlockCommand(d.before, after));
       }
     },
-    [
-      toNorm,
-      computeMove,
-      computeResize,
-      drawGuides,
-      onPreview,
-      onCommit,
-      onPointerMove,
-    ],
+    [toNorm, computeMove, computeResize, onPreview, onCommit],
   );
+
+  // Abandon the in-flight drag without committing: restore the pre-drag doc so
+  // the live preview matches what history believes. Used on Escape, on
+  // `pointercancel` (e.g. the OS steals the pointer), and on unmount.
+  const cancelDrag = useCallback(() => {
+    const d = dragRef.current;
+    teardownRef.current();
+    if (d) onPreview?.(d.baseDoc);
+  }, [onPreview]);
+  cancelRef.current = cancelDrag;
+
+  // Escape during a drag cancels it; capture phase so we win before the
+  // editor's window keydown (which would otherwise undo against the preview).
+  const onKeyDownDuringDrag = useCallback((e: KeyboardEvent) => {
+    if (!dragRef.current) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelRef.current();
+    }
+  }, []);
+
+  const teardown = useCallback(() => {
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", cancelDrag);
+    window.removeEventListener("keydown", onKeyDownDuringDrag, true);
+    drawGuides({ x: [], y: [] });
+    const wasDragging = dragRef.current !== null;
+    dragRef.current = null;
+    if (wasDragging) onInteractingChange?.(false);
+  }, [
+    onPointerMove,
+    onPointerUp,
+    cancelDrag,
+    onKeyDownDuringDrag,
+    drawGuides,
+    onInteractingChange,
+  ]);
+  teardownRef.current = teardown;
 
   const beginDrag = useCallback(
     (state: DragState) => {
+      // A stray pointerdown while already dragging: cancel the old one first.
+      if (dragRef.current) teardownRef.current();
       dragRef.current = state;
+      onInteractingChange?.(true);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", cancelDrag);
+      window.addEventListener("keydown", onKeyDownDuringDrag, true);
     },
-    [onPointerMove, onPointerUp],
+    [
+      onPointerMove,
+      onPointerUp,
+      cancelDrag,
+      onKeyDownDuringDrag,
+      onInteractingChange,
+    ],
   );
+
+  // Clean up any in-flight drag if the canvas unmounts mid-gesture.
+  useEffect(() => () => teardownRef.current(), []);
 
   const onBlockPointerDown = useCallback(
     (e: React.PointerEvent, block: SlideBlock) => {

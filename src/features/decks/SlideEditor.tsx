@@ -77,6 +77,10 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   const selRef = useRef(selectedIds);
   selRef.current = selectedIds;
   const lastSavedRef = useRef<string>("");
+  // True while the canvas has a drag/resize preview in flight. Undo/redo and
+  // other history mutations are suppressed during this window: they would
+  // invert/apply against the transient preview doc and desync the stack.
+  const draggingRef = useRef(false);
 
   const loadSlide = useCallback(
     (slide: Slide) => {
@@ -197,6 +201,10 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // A drag/resize is mid-flight (live preview): ignore every history
+      // mutation so a rapid ⌘Z can't invert against the transient preview doc.
+      // Escape is consumed by the canvas itself (capture phase) to cancel.
+      if (draggingRef.current) return;
       const tgt = e.target as HTMLElement | null;
       if (
         tgt &&
@@ -414,6 +422,9 @@ export function SlideEditor({ deck, onBack }: SlideEditorProps) {
                 onSelect={onSelectBlock}
                 onPreview={history.preview}
                 onCommit={history.apply}
+                onInteractingChange={(active) => {
+                  draggingRef.current = active;
+                }}
               />
             </div>
           ) : (
