@@ -6,8 +6,8 @@
 // passage, highlights the matched verse (full opacity vs. the dimmed rest),
 // updates the reading header to the verse reference, and scrolls the verse
 // into view. The Tauri IPC layer is mocked so the test runs without a backend.
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { BiblePage } from "@/features/bible/BiblePage";
@@ -72,6 +72,10 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
+// Unmount each render so multiple deep-open cases don't leave stale BiblePage
+// instances in the DOM (testing-library has no implicit auto-cleanup here).
+afterEach(cleanup);
+
 // ── formatVerseSuffix (pure) ──────────────────────────────────────────────────
 
 describe("formatVerseSuffix", () => {
@@ -97,16 +101,42 @@ describe("BiblePage deep-open", () => {
       expect(screen.getByRole("heading", { name: /John 3:16/ })).toBeVisible(),
     );
 
-    // The matched verse renders at full opacity; out-of-range verses are dimmed.
+    // The matched verse renders at full opacity *and* carries the explicit
+    // accent highlight; out-of-range verses are dimmed and never highlighted.
     const matched = await screen.findByText(/For God so loved the world/);
     const matchedRow = matched.closest("[data-verse]") as HTMLElement;
     expect(matchedRow).toHaveAttribute("data-verse", "16");
+    expect(matchedRow).toHaveAttribute("data-matched", "true");
     expect(matchedRow.className).not.toContain("opacity-40");
+    expect(matchedRow.className).toContain("ring-[var(--color-accent)]");
 
     const dimmed = screen
       .getByText(/And as Moses lifted up/)
       .closest("[data-verse]") as HTMLElement;
     expect(dimmed.className).toContain("opacity-40");
+    expect(dimmed).not.toHaveAttribute("data-matched");
+    expect(dimmed.className).not.toContain("ring-[var(--color-accent)]");
+  });
+
+  it("highlights every verse in a multi-verse range", async () => {
+    renderBible({ book: "John", chapter: 3, verseStart: 15, verseEnd: 16 });
+
+    await screen.findByText(/For God so loved the world/);
+    const v15 = screen
+      .getByText(/That whosoever believeth/)
+      .closest("[data-verse]") as HTMLElement;
+    const v16 = screen
+      .getByText(/For God so loved the world/)
+      .closest("[data-verse]") as HTMLElement;
+    expect(v15).toHaveAttribute("data-matched", "true");
+    expect(v16).toHaveAttribute("data-matched", "true");
+
+    // A verse outside the range is dimmed and unhighlighted.
+    const v17 = screen
+      .getByText(/condemn the world/)
+      .closest("[data-verse]") as HTMLElement;
+    expect(v17).not.toHaveAttribute("data-matched");
+    expect(v17.className).toContain("opacity-40");
   });
 
   it("scrolls the matched verse into view (centered)", async () => {
