@@ -174,6 +174,7 @@ pub fn run() {
             commands::services::service_get,
             commands::services::service_upcoming,
             commands::services::service_items,
+            commands::services::songs_by_item,
             commands::services::service_rename,
             commands::services::service_set_notes,
             commands::services::service_set_starts_at,

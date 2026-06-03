@@ -1,8 +1,10 @@
 //! Tauri commands for Service + ServiceItem.
 
+use std::collections::HashMap;
+
 use tauri::State;
 
-use crate::db::models::{Service, ServiceItem};
+use crate::db::models::{Service, ServiceItem, ServiceItemSong};
 use crate::db::repositories::ServiceRepo;
 use crate::error::AppResult;
 use crate::services::cue_list::{CueCompiler, CueSummary};
@@ -44,6 +46,19 @@ pub async fn service_items(
     service_id: String,
 ) -> AppResult<Vec<ServiceItem>> {
     ServiceRepo::new(&state.db.pool).items(&service_id).await
+}
+
+/// The song behind each *song* service item, keyed by `service_item.id`. Feeds
+/// the live → SundaySong usage bridge at "Go Live" so it can report which song
+/// each cue actually shows. Non-song items are absent from the map.
+#[tauri::command]
+pub async fn songs_by_item(
+    state: State<'_, AppState>,
+    service_id: String,
+) -> AppResult<HashMap<String, ServiceItemSong>> {
+    ServiceRepo::new(&state.db.pool)
+        .get_songs_by_item(&service_id)
+        .await
 }
 
 #[tauri::command]

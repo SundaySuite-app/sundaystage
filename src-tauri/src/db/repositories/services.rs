@@ -4,9 +4,11 @@
 //! a flat list of cues for the live engine. Keep queries here aligned with
 //! that downstream consumer.
 
+use std::collections::HashMap;
+
 use sqlx::SqlitePool;
 
-use crate::db::models::{Service, ServiceItem};
+use crate::db::models::{Service, ServiceItem, ServiceItemSong};
 use crate::db::{new_id, now_ms};
 use crate::error::{AppError, AppResult};
 
@@ -79,6 +81,54 @@ impl<'a> ServiceRepo<'a> {
         .fetch_all(self.pool)
         .await?;
         Ok(rows)
+    }
+
+    /// The song behind each *song* service item, keyed by `service_item.id`.
+    ///
+    /// Powers the live → SundaySong usage bridge (Phase 3 consumer): when the
+    /// operator goes live we hand the bridge driver a `serviceItemId → song`
+    /// map so it can report which catalog song was actually shown. Only song
+    /// items appear — scripture/deck/gap items have no SundaySong id, so they
+    /// are simply absent from the map (the bridge treats absence as "non-song").
+    ///
+    /// `variant_id` is the item's arrangement override when set (the arrangement
+    /// is the song variant SundaySong tracks usage against).
+    pub async fn get_songs_by_item(
+        &self,
+        service_id: &str,
+    ) -> AppResult<HashMap<String, ServiceItemSong>> {
+        // Left-join keeps us robust to a dangling song_id (a deleted/stub song),
+        // but we only emit a map entry once a title actually resolves.
+        let rows = sqlx::query_as::<_, (String, Option<String>, Option<String>, Option<String>)>(
+            r#"
+            SELECT si.id, si.song_id, si.arrangement_id, s.title
+            FROM service_item si
+            LEFT JOIN song s ON s.id = si.song_id
+            WHERE si.service_id = ?1 AND si.kind = 'song'
+            ORDER BY si.position
+            "#,
+        )
+        .bind(service_id)
+        .fetch_all(self.pool)
+        .await?;
+
+        let mut map = HashMap::new();
+        for (item_id, song_id, arrangement_id, title) in rows {
+            // A song item missing its song_id/title is a malformed/stub item —
+            // skip it rather than report a bridge entry we can't identify.
+            let (Some(song_id), Some(title)) = (song_id, title) else {
+                continue;
+            };
+            map.insert(
+                item_id,
+                ServiceItemSong {
+                    song_id,
+                    title,
+                    variant_id: arrangement_id,
+                },
+            );
+        }
+        Ok(map)
     }
 
     /// Append an item to a service. `kind` must be one of the schema's allowed
@@ -435,6 +485,66 @@ mod tests {
         assert_eq!(cleared.notes, None);
 
         assert!(repo.update_item("missing", None, None, None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn songs_by_item_maps_only_song_items_with_titles_and_variants() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let repo = ServiceRepo::new(&db.pool);
+        let svc = repo.create(&lib.id, "Svc", now_ms()).await.unwrap();
+
+        // Two song items — the first names an arrangement (variant), the second
+        // does not — interleaved with two non-song items the map must ignore.
+        let song_a = song_in(&db, &lib.id, "Amazing Grace").await;
+        let song_b = song_in(&db, &lib.id, "Oceans").await;
+        let arr_a = crate::db::repositories::ArrangementRepo::new(&db.pool)
+            .create(&song_a, "Acoustic")
+            .await
+            .unwrap();
+        let item_a = repo
+            .add_item(
+                &svc.id,
+                0,
+                "song",
+                Some(&song_a),
+                Some(&arr_a.id),
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        repo.add_item(&svc.id, 1, "scripture", None, None, None, None, None)
+            .await
+            .unwrap();
+        let item_b = repo
+            .add_item(&svc.id, 2, "song", Some(&song_b), None, None, None, None)
+            .await
+            .unwrap();
+        repo.add_item(&svc.id, 3, "gap", None, None, None, None, None)
+            .await
+            .unwrap();
+
+        let map = repo.get_songs_by_item(&svc.id).await.unwrap();
+        // Exactly the two song items, keyed by service_item.id.
+        assert_eq!(map.len(), 2);
+
+        let a = map.get(&item_a.id).expect("song item A present");
+        assert_eq!(a.song_id, song_a);
+        assert_eq!(a.title, "Amazing Grace");
+        assert_eq!(a.variant_id.as_deref(), Some(arr_a.id.as_str()));
+
+        let b = map.get(&item_b.id).expect("song item B present");
+        assert_eq!(b.song_id, song_b);
+        assert_eq!(b.title, "Oceans");
+        assert_eq!(b.variant_id, None);
     }
 
     #[tokio::test]

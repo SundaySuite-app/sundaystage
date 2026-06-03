@@ -185,6 +185,21 @@ pub struct Service {
     pub deleted_at: Option<i64>,
 }
 
+/// The SundaySong catalog entry behind one *song* service item, keyed back to
+/// the item it plays in. The live → SundaySong usage bridge (Phase 3 consumer)
+/// needs the song id + title per service item; the planner already holds it, so
+/// this is just the join surfaced. Non-song items carry no entry.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/ServiceItemSong.ts")]
+pub struct ServiceItemSong {
+    /// Canonical SundaySong catalog id.
+    pub song_id: String,
+    /// Display title (for the `now_playing` bridge event).
+    pub title: String,
+    /// Arrangement/translation variant shown, if the item names one.
+    pub variant_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]
 #[ts(export, export_to = "../../src/lib/bindings/ServiceItem.ts")]
 pub struct ServiceItem {
