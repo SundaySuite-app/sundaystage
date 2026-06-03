@@ -138,6 +138,7 @@ function OutputSettings() {
       text_lines: [t("setSampleLine1"), t("setSampleLine2")],
       translation_lines: null,
       reference: null,
+      sensitive_slide: false,
     },
   };
   const [draft, setDraft] = useState<OutputAppearance>(

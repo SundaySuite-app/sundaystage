@@ -19,6 +19,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 use crate::db::Database;
+use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::live_session::LiveSession;
 
 /// Tauri-managed shared state.
@@ -30,6 +31,11 @@ pub struct AppState {
     /// advance mutates it from command handlers; guards are never held across
     /// an `.await`.
     pub live: Mutex<Option<LiveSession>>,
+    /// Phase 12.2 — the companion broadcaster for the running session, if any.
+    /// Created on `live_start`, fed on `live_dispatch`, terminated on
+    /// `live_end`. The network transport is a no-op until the cloud layer is
+    /// configured, so it is always safe to drive.
+    pub companion: Mutex<Option<CompanionBroadcaster<RealtimeTransport>>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -85,6 +91,7 @@ pub fn run() {
                 db,
                 data_dir,
                 live: std::sync::Mutex::new(None),
+                companion: std::sync::Mutex::new(None),
             });
             tracing::info!("SundayStage backend ready");
             Ok(())
@@ -193,6 +200,8 @@ pub fn run() {
             commands::live::live_state,
             commands::live::live_end,
             commands::live::live_recover,
+            commands::live::companion_channel,
+            commands::live::companion_broadcast,
             commands::live::stage_presets,
             // SundayRec bridge (Phase 10)
             commands::live::bridge_protocol_version,

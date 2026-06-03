@@ -365,6 +365,7 @@ mod tests {
                 text_lines: lines.iter().map(|s| s.to_string()).collect(),
                 translation_lines: None,
                 reference: None,
+                sensitive_slide: false,
             },
         }
     }

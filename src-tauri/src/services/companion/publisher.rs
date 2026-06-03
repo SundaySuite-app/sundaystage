@@ -42,7 +42,13 @@ pub struct BroadcastFrame {
 /// neutral placeholder so private content never reaches phones. Media is never
 /// included — text only.
 pub fn to_broadcast(frame: &LiveFrame, seq: u32, sensitive: bool) -> BroadcastFrame {
-    if sensitive {
+    // A slide can carry its own `sensitive_slide` flag (set in the editor); the
+    // caller may also force-gate. Either gates the broadcast.
+    let slide_sensitive = match frame {
+        LiveFrame::Slide { slide_content } => slide_content.sensitive_slide,
+        _ => false,
+    };
+    if sensitive || slide_sensitive {
         return BroadcastFrame {
             v: BROADCAST_SCHEMA_VERSION,
             kind: BroadcastKind::Announcement,
@@ -94,12 +100,22 @@ mod tests {
     use crate::services::cue_list::SlideContent;
 
     fn slide(lines: &[&str], section: Option<&str>, reference: Option<&str>) -> LiveFrame {
+        slide_flagged(lines, section, reference, false)
+    }
+
+    fn slide_flagged(
+        lines: &[&str],
+        section: Option<&str>,
+        reference: Option<&str>,
+        sensitive_slide: bool,
+    ) -> LiveFrame {
         LiveFrame::Slide {
             slide_content: SlideContent {
                 section_label: section.map(Into::into),
                 text_lines: lines.iter().map(|s| s.to_string()).collect(),
                 translation_lines: None,
                 reference: reference.map(Into::into),
+                sensitive_slide,
             },
         }
     }
@@ -143,6 +159,22 @@ mod tests {
         assert_eq!(b.text, "Tjeneste pågår");
         assert!(!b.text.contains("Secret"));
         assert_eq!(b.seq, 7);
+    }
+
+    #[test]
+    fn slide_flagged_sensitive_collapses_even_without_caller_gate() {
+        // The slide carries its own `sensitive_slide` flag; the caller passes
+        // `sensitive = false`, yet the broadcast must still collapse.
+        let b = to_broadcast(
+            &slide_flagged(&["Pastoral prayer text"], Some("verse"), None, true),
+            4,
+            false,
+        );
+        assert_eq!(b.kind, BroadcastKind::Announcement);
+        assert_eq!(b.text, "Tjeneste pågår");
+        assert!(!b.text.contains("Pastoral"));
+        assert_eq!(b.section_label, None);
+        assert_eq!(b.seq, 4);
     }
 
     #[test]

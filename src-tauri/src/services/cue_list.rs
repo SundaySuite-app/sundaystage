@@ -67,6 +67,13 @@ pub struct SlideContent {
     pub translation_lines: Option<Vec<String>>,
     /// Reference text shown small (e.g. "John 3:16").
     pub reference: Option<String>,
+    /// Phase 12.2 — when true the companion broadcast collapses this slide to a
+    /// neutral placeholder so private content (e.g. a pastoral prayer or
+    /// communion liturgy) never reaches congregation phones. The main output is
+    /// unaffected; this gates only the companion transport. Defaults to false so
+    /// pre-12.2 persisted sessions deserialize unchanged.
+    #[serde(default)]
+    pub sensitive_slide: bool,
 }
 
 /// Where in the source data this cue came from. Used by the operator UI
@@ -305,6 +312,7 @@ impl<'a> CueCompiler<'a> {
                         text_lines: slide_lines,
                         translation_lines: None,
                         reference: None,
+                        sensitive_slide: false,
                     },
                     theme_id: None,
                     template_id: None,
@@ -374,6 +382,7 @@ impl<'a> CueCompiler<'a> {
                     text_lines: chunk.to_vec(),
                     translation_lines: None,
                     reference: Some(display.clone()),
+                    sensitive_slide: false,
                 },
                 theme_id: None,
                 template_id: None,
@@ -427,6 +436,7 @@ impl<'a> CueCompiler<'a> {
                     text_lines: lines,
                     translation_lines: None,
                     reference: None,
+                    sensitive_slide: false,
                 },
                 theme_id: slide.theme_id.clone(),
                 template_id: slide.template_id.clone(),
