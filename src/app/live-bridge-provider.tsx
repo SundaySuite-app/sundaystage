@@ -19,52 +19,19 @@
  *    publishers/loggers that capture emissions while the real factories wrap a
  *    Supabase Realtime broadcast and a `postUsageEvent` POST (both
  *    NETWORK-UNVERIFIED — they have never run against a live backend here).
+ *
+ * The non-component half (`buildTransports`, `LiveBridgeConfig`, the context,
+ * and `useLiveBridgeTransports`) lives in `live-bridge-provider.utils.ts` so
+ * this file exports *only* the component — React Fast Refresh requires that.
  */
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
-import type { LivePublisher } from "@/lib/liveEmitter";
-import type { UsageClientConfig } from "@/lib/usageEmitter";
-import type { LiveBridgeTransports } from "@/lib/useLiveBridge";
-
-/**
- * Connection settings the host app feeds in (from env / settings / a Supabase
- * client). Everything is optional: an absent field leaves that transport off.
- */
-export interface LiveBridgeConfig {
-  /**
-   * Realtime broadcaster (Stage → Rec). A function that puts one `LiveEvent`
-   * on a channel. NETWORK-UNVERIFIED: the real one wraps a Supabase Realtime
-   * `channel(name).send({ type: "broadcast", ... })`. Absent ⇒ cues not
-   * published.
-   */
-  publish?: LivePublisher;
-  /**
-   * SundaySong usage API config (Stage → Song). Absent ⇒ usage not logged.
-   * NETWORK-UNVERIFIED until it runs against a live SundaySong instance.
-   */
-  usage?: UsageClientConfig;
-  /** Injectable clock — defaults to `Date.now` (overridable in tests). */
-  now?: () => number;
-}
-
-/**
- * Pure: turn host config into the transports the hook consumes. Kept separate
- * from the React layer so it is unit-testable on its own. Fields stay
- * `undefined` (not present) when the host did not supply them, so the hook's
- * "omit ⇒ off" contract holds.
- */
-export function buildTransports(
-  config: LiveBridgeConfig,
-): LiveBridgeTransports {
-  const transports: LiveBridgeTransports = {};
-  if (config.publish) transports.publish = config.publish;
-  if (config.usage) transports.usage = config.usage;
-  if (config.now) transports.now = config.now;
-  return transports;
-}
-
-const Ctx = createContext<LiveBridgeTransports | null>(null);
+import {
+  buildTransports,
+  LiveBridgeContext,
+  type LiveBridgeConfig,
+} from "./live-bridge-provider.utils";
 
 interface ProviderProps {
   /** Host-supplied connection settings; omit for the default OFF transports. */
@@ -78,14 +45,9 @@ interface ProviderProps {
  */
 export function LiveBridgeProvider({ config = {}, children }: ProviderProps) {
   const transports = useMemo(() => buildTransports(config), [config]);
-  return <Ctx.Provider value={transports}>{children}</Ctx.Provider>;
-}
-
-/**
- * Read the injected transports. Returns `{}` (everything off) when no provider
- * is mounted, so callers never crash for lack of wiring — they just publish
- * nowhere, which is the safe default.
- */
-export function useLiveBridgeTransports(): LiveBridgeTransports {
-  return useContext(Ctx) ?? {};
+  return (
+    <LiveBridgeContext.Provider value={transports}>
+      {children}
+    </LiveBridgeContext.Provider>
+  );
 }

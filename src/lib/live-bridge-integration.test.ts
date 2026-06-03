@@ -32,7 +32,7 @@ import {
 } from "@/lib/usageEmitter";
 import { useLiveBridge, type LiveBridgeTransports } from "@/lib/useLiveBridge";
 import type { BridgeCue, LiveBridgeContext } from "@/lib/liveBridge";
-import { buildTransports } from "@/app/live-bridge-provider";
+import { buildTransports } from "@/app/live-bridge-provider.utils";
 
 // ───────────────────────── fixtures / harness ─────────────────────────────
 
