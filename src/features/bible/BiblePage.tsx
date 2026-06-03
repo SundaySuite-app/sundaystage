@@ -292,27 +292,37 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
                 )}
               </div>
               <div className="max-w-3xl space-y-2">
-                {(passage.data ?? []).map((v) => (
-                  <div
-                    key={v.id}
-                    data-verse={Number(v.verse)}
-                    className={cn(
-                      "grid grid-cols-[2rem_1fr] gap-2 rounded px-1 py-0.5",
-                      !inRange(Number(v.verse)) && "opacity-40",
-                      compareId && "md:grid-cols-[2rem_1fr_1fr]",
-                    )}
-                  >
-                    <span className="pt-0.5 text-right font-mono text-[11px] text-[var(--color-accent)]">
-                      {v.verse}
-                    </span>
-                    <p className="text-sm leading-relaxed">{v.text}</p>
-                    {compareId && (
-                      <p className="border-l border-[var(--color-border)] pl-2 text-sm leading-relaxed text-[var(--color-fg-muted)]">
-                        {compareByVerse.get(Number(v.verse)) ?? "—"}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                {(passage.data ?? []).map((v) => {
+                  // When a range is active, the matched verse(s) get an explicit
+                  // accent highlight (matching the selected-row treatment used
+                  // across the workspace) so the deep-opened passage pops, not
+                  // just sits brighter than the dimmed rest.
+                  const matched = range != null && inRange(Number(v.verse));
+                  return (
+                    <div
+                      key={v.id}
+                      data-verse={Number(v.verse)}
+                      data-matched={matched ? "true" : undefined}
+                      className={cn(
+                        "grid grid-cols-[2rem_1fr] gap-2 rounded px-1 py-0.5",
+                        !inRange(Number(v.verse)) && "opacity-40",
+                        matched &&
+                          "bg-[var(--color-accent)]/15 ring-1 ring-[var(--color-accent)]",
+                        compareId && "md:grid-cols-[2rem_1fr_1fr]",
+                      )}
+                    >
+                      <span className="pt-0.5 text-right font-mono text-[11px] text-[var(--color-accent)]">
+                        {v.verse}
+                      </span>
+                      <p className="text-sm leading-relaxed">{v.text}</p>
+                      {compareId && (
+                        <p className="border-l border-[var(--color-border)] pl-2 text-sm leading-relaxed text-[var(--color-fg-muted)]">
+                          {compareByVerse.get(Number(v.verse)) ?? "—"}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ) : (

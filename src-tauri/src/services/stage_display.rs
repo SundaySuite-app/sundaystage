@@ -37,6 +37,79 @@ pub struct StageDisplayConfig {
     pub show_notes: bool,
 }
 
+/// The output role a service template targets — *who* watches the stage
+/// display when the template runs. Templates carry this so the operator can see,
+/// per template, which panel layout the screen will surface. The frontend
+/// persists the per-template assignment (per device); this enum + mapping is the
+/// shared source of truth for the panel layout each role gets, mirrored in
+/// `src/features/services/templateRoles.ts`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/TemplateRole.ts")]
+#[serde(rename_all = "kebab-case")]
+pub enum TemplateRole {
+    WorshipLeader,
+    Musician,
+    Operator,
+    Congregation,
+}
+
+impl TemplateRole {
+    /// Panel layout this role's stage display shows. The `name`/`id` fields are
+    /// placeholders — only the panel toggles are role-meaningful here.
+    pub fn stage_config(self) -> StageDisplayConfig {
+        match self {
+            // Worship leader steers the set: everything visible.
+            TemplateRole::WorshipLeader => StageDisplayConfig {
+                id: "role-worship-leader".into(),
+                name: "Lovsangsleder".into(),
+                show_current_slide: true,
+                show_next_slide: true,
+                lyrics_large: true,
+                show_section_label: true,
+                show_clock: true,
+                show_service_timer: true,
+                show_notes: true,
+            },
+            // Musician: lyrics + section label, no clock/timer/notes clutter.
+            TemplateRole::Musician => StageDisplayConfig {
+                id: "role-musician".into(),
+                name: "Musiker".into(),
+                show_current_slide: true,
+                show_next_slide: true,
+                lyrics_large: true,
+                show_section_label: true,
+                show_clock: false,
+                show_service_timer: false,
+                show_notes: false,
+            },
+            // Operator: cue-list confidence — current + next + timing + notes.
+            TemplateRole::Operator => StageDisplayConfig {
+                id: "role-operator".into(),
+                name: "Operatør".into(),
+                show_current_slide: true,
+                show_next_slide: true,
+                lyrics_large: false,
+                show_section_label: true,
+                show_clock: true,
+                show_service_timer: true,
+                show_notes: true,
+            },
+            // Congregation: just the slide on screen, nothing else.
+            TemplateRole::Congregation => StageDisplayConfig {
+                id: "role-congregation".into(),
+                name: "Menighet".into(),
+                show_current_slide: true,
+                show_next_slide: false,
+                lyrics_large: true,
+                show_section_label: false,
+                show_clock: false,
+                show_service_timer: false,
+                show_notes: false,
+            },
+        }
+    }
+}
+
 /// Built-in presets covering the common roles.
 pub fn builtin_stage_presets() -> Vec<StageDisplayConfig> {
     vec![
@@ -113,5 +186,58 @@ mod tests {
         assert!(p.show_notes);
         assert!(p.show_clock);
         assert!(!p.show_current_slide);
+    }
+
+    #[test]
+    fn template_role_serialises_kebab_case() {
+        // Must match the frontend `TemplateRole` string union exactly.
+        let json = serde_json::to_string(&TemplateRole::WorshipLeader).unwrap();
+        assert_eq!(json, "\"worship-leader\"");
+        let back: TemplateRole = serde_json::from_str("\"congregation\"").unwrap();
+        assert_eq!(back, TemplateRole::Congregation);
+    }
+
+    #[test]
+    fn musician_role_hides_clock_keeps_section_label() {
+        let c = TemplateRole::Musician.stage_config();
+        assert!(c.show_section_label);
+        assert!(!c.show_clock);
+        assert!(!c.show_service_timer);
+        assert!(!c.show_notes);
+    }
+
+    #[test]
+    fn congregation_role_shows_only_current_slide() {
+        let c = TemplateRole::Congregation.stage_config();
+        assert!(c.show_current_slide);
+        assert!(!c.show_next_slide);
+        assert!(!c.show_section_label);
+        assert!(!c.show_clock);
+        assert!(!c.show_notes);
+    }
+
+    #[test]
+    fn each_role_has_a_distinct_panel_layout() {
+        use TemplateRole::*;
+        let roles = [WorshipLeader, Musician, Operator, Congregation];
+        let mut sigs: Vec<_> = roles
+            .iter()
+            .map(|r| {
+                let c = r.stage_config();
+                (
+                    c.show_current_slide,
+                    c.show_next_slide,
+                    c.lyrics_large,
+                    c.show_section_label,
+                    c.show_clock,
+                    c.show_service_timer,
+                    c.show_notes,
+                )
+            })
+            .collect();
+        let n = sigs.len();
+        sigs.sort();
+        sigs.dedup();
+        assert_eq!(sigs.len(), n, "each role must map to a distinct layout");
     }
 }
