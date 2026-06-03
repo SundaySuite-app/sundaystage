@@ -73,6 +73,53 @@ export interface LiveBridgeContext {
   songsByItem: Readonly<Record<string, ServiceItemSong>>;
 }
 
+/**
+ * The `songs_by_item` IPC wire shape (the ts-rs `ServiceItemSong` binding,
+ * snake_case). Kept local so the bridge module owns the snake→camel mapping in
+ * one place rather than scattering it across the React layer.
+ */
+export interface WireServiceItemSong {
+  song_id: string;
+  title: string;
+  variant_id: string | null;
+}
+
+/** Map the `songs_by_item` IPC record onto the driver's camelCase shape. */
+export function serviceSongsToBridge(
+  rec: Readonly<Record<string, WireServiceItemSong>>,
+): Record<string, ServiceItemSong> {
+  const out: Record<string, ServiceItemSong> = {};
+  for (const [itemId, s] of Object.entries(rec)) {
+    out[itemId] = {
+      songId: s.song_id,
+      title: s.title,
+      variantId: s.variant_id,
+    };
+  }
+  return out;
+}
+
+/**
+ * Assemble the per-session `LiveBridgeContext` from the service being taken
+ * live plus its `songs_by_item` map. Pure: the caller owns the IPC fetch.
+ *
+ * There is no church/tenant id locally yet, so we fall back to the library id
+ * (`churchId`); `serviceDate` is the service start (unix-ms), and `wasStreamed`
+ * defaults false until SundayRec reports it back over the bridge.
+ */
+export function buildLiveBridgeContext(
+  service: { id: string; library_id: string; starts_at: number },
+  songsByItem: Readonly<Record<string, WireServiceItemSong>>,
+): LiveBridgeContext {
+  return {
+    churchId: service.library_id,
+    serviceId: service.id,
+    serviceDate: service.starts_at,
+    wasStreamed: false,
+    songsByItem: serviceSongsToBridge(songsByItem),
+  };
+}
+
 /** Everything the driver decided to emit for one transition. */
 export interface BridgeEmission {
   liveEvents: LiveEvent[];

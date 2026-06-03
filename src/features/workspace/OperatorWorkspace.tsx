@@ -28,6 +28,12 @@ import type {
 } from "@/lib/bindings";
 import { useT } from "@/lib/i18n";
 import { DEFAULT_OUTPUT_APPEARANCE, useOutputBridge } from "@/lib/outputBridge";
+import { useLiveBridge, type LiveBridgeTransports } from "@/lib/useLiveBridge";
+import {
+  buildLiveBridgeContext,
+  type BridgeCue,
+  type LiveBridgeContext,
+} from "@/lib/liveBridge";
 import { CommandPalette, type Route } from "@/components/CommandPalette";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ServicesPage } from "@/features/services/ServicesPage";
@@ -54,6 +60,10 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [session, setSession] = useState<LiveSessionView | null>(null);
   const [recoverable, setRecoverable] = useState<LiveSessionView | null>(null);
+  // Per-session bridge context (Stage → Rec/Song), assembled at "Go Live".
+  const [bridgeContext, setBridgeContext] = useState<LiveBridgeContext | null>(
+    null,
+  );
 
   // Overlays
   const [browser, setBrowser] = useState<{ tab: BrowserTab } | null>(null);
@@ -99,6 +109,14 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     () => cueListQuery.data?.cues ?? [],
     [cueListQuery.data],
   );
+
+  // Live → SundaySong/Rec bridge (Phase 3 consumer). The driver is pure and the
+  // transports default OFF, so it never touches the live output: it runs and is
+  // fully tested, but until real transports are injected its events go nowhere.
+  // `bridgeContext` is assembled at "Go Live" (it needs the per-item song map).
+  const bridgeCues = useMemo<BridgeCue[]>(() => cues.map(toBridgeCue), [cues]);
+  const bridgeTransports: LiveBridgeTransports = useMemo(() => ({}), []);
+  const bridge = useLiveBridge(bridgeContext, bridgeCues, bridgeTransports);
 
   const summaryQuery = useQuery({
     queryKey: ["cueSummary", service?.id],
@@ -168,12 +186,23 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     : null;
 
   // ── Live actions ──────────────────────────────────────────────────────────
-  const dispatch = useCallback((action: LiveAction) => {
-    ipc.live
-      .dispatch(action)
-      .then((next) => setSession(next))
-      .catch(() => {});
-  }, []);
+  const dispatch = useCallback(
+    (action: LiveAction) => {
+      ipc.live
+        .dispatch(action)
+        .then((next) =>
+          setSession((prev) => {
+            // Diff against the *previous* index so the bridge sees exactly the
+            // movement the operator made. Blackout/logo keep the index, so the
+            // driver naturally emits nothing for them.
+            if (prev) bridge.cueChange(prev.index, next.index, next.total);
+            return next;
+          }),
+        )
+        .catch(() => {});
+    },
+    [bridge],
+  );
 
   const startSession =
     useCallback(async (): Promise<LiveSessionView | null> => {
@@ -181,6 +210,26 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       try {
         const v = await ipc.live.start(service.id);
         setSession(v);
+        // Assemble the per-session bridge context: the planner already holds the
+        // song behind each item — fetch the map and hand it to the driver so it
+        // can report which song each cue showed. Best-effort: a failure here
+        // leaves the bridge context null (driver no-ops) without blocking live.
+        try {
+          const songsByItem = await ipc.service.songsByItem(service.id);
+          setBridgeContext(
+            buildLiveBridgeContext(
+              {
+                id: service.id,
+                library_id: service.library_id,
+                starts_at: Number(service.starts_at),
+              },
+              songsByItem,
+            ),
+          );
+          bridge.goLive(v.index, v.total, Number(v.started_at));
+        } catch {
+          /* usage map unavailable — bridge stays off, live proceeds */
+        }
         // Open the projector window if a monitor is assigned (mirrors the old
         // console's auto-open). Best-effort; preview-only when no Tauri/displays.
         try {
@@ -195,11 +244,13 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       } catch {
         return null;
       }
-    }, [service, qc, library.id]);
+    }, [service, qc, library.id, bridge]);
 
   const stopSession = useCallback(() => {
+    bridge.end();
+    setBridgeContext(null);
     void ipc.live.end().finally(() => setSession(null));
-  }, []);
+  }, [bridge]);
 
   // Promote the staged slide to live, then stage the next one (worship flow).
   const go = useCallback(async () => {
@@ -328,6 +379,17 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       setBrowserSongId(id);
       setBrowser({ tab: "songs" });
     } else if (route === "bible") {
+      // For bible hits `id` is the reference string ("John 3:16"); parse it so
+      // the scripture browser opens that exact passage (matching openBibleCue).
+      const ref = parseBibleRef(id);
+      if (ref) {
+        setBibleDeepLink({
+          book: ref.book,
+          chapter: ref.chapter,
+          verseStart: ref.verseStart,
+          verseEnd: ref.verseEnd,
+        });
+      }
       setBrowser({ tab: "scripture" });
     }
   }, []);
@@ -511,6 +573,19 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       />
     </div>
   );
+}
+
+/** Project a compiled `Cue` onto the minimal shape the live bridge needs. */
+function toBridgeCue(cue: Cue): BridgeCue {
+  if (cue.kind === "show_slide") {
+    return {
+      serviceItemId: cue.source.service_item_id,
+      displayLabel: cue.source.display_label,
+      sectionLabel: cue.slide_content.section_label,
+    };
+  }
+  // black_out / show_logo / pause carry no service item — non-song cues.
+  return { serviceItemId: "", displayLabel: "", sectionLabel: null };
 }
 
 /** A centered modal shell that hosts a full-page feature reused as a dialog. */

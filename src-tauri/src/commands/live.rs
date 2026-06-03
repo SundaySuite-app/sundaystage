@@ -10,6 +10,7 @@ use tauri::State;
 
 use crate::db::now_ms;
 use crate::error::{AppError, AppResult};
+use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::cue_list::{CueCompiler, CueList};
 use crate::services::live_session::{LiveAction, LiveSession, LiveSessionView};
 use crate::services::session_store::SessionStore;
@@ -79,8 +80,48 @@ pub async fn live_start(
     let view = session.view();
     // Best-effort WAL; a failed write must never block going live.
     let _ = store(&state).begin(&session);
+    // Phase 12.2 — stand up the companion broadcaster for this service. The
+    // transport is a no-op until the cloud layer is configured, so this never
+    // affects the live output.
+    *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::new(
+        &view.service_id,
+        RealtimeTransport::local_only(),
+    ));
     *state.live.lock().expect("live mutex") = Some(session);
     Ok(view)
+}
+
+/// The Supabase Realtime channel the companion PWA must join for the running
+/// service, or `None` if no service is live (Phase 12.2).
+#[tauri::command]
+pub fn companion_channel(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    Ok(state
+        .companion
+        .lock()
+        .expect("companion mutex")
+        .as_ref()
+        .map(|b| b.channel().to_string()))
+}
+
+/// Re-broadcast the current frame to the companion channel (Phase 12.2). Used
+/// when a phone joins mid-service and needs the current slide, or to manually
+/// re-push. Returns the assigned `seq`, or an error if no service is live.
+#[tauri::command]
+pub fn companion_broadcast(state: State<'_, AppState>) -> AppResult<u32> {
+    let frame = {
+        let guard = state.live.lock().expect("live mutex");
+        let session = guard
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
+        session.current_frame()
+    };
+    let mut guard = state.companion.lock().expect("companion mutex");
+    let broadcaster = guard
+        .as_mut()
+        .ok_or_else(|| AppError::Validation("ingen aktiv companion-kringkasting".into()))?;
+    broadcaster
+        .on_cue_advance(&frame, false)
+        .map_err(AppError::Internal)
 }
 
 /// Apply one operator action to the running session.
@@ -94,7 +135,17 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
     // show (worst case: recovery loses the last action).
     let _ = store(&state).record(&action);
     session.dispatch(action, now_ms());
-    Ok(session.view())
+    let view = session.view();
+    // Phase 12.2 — best-effort companion broadcast of the new frame. The slide
+    // carries its own `sensitive_slide` gate; a failed publish is logged and
+    // never breaks the show (the companion is off the critical live path).
+    drop(guard);
+    if let Some(broadcaster) = state.companion.lock().expect("companion mutex").as_mut() {
+        if let Err(e) = broadcaster.on_cue_advance(&view.frame, false) {
+            tracing::warn!("companion broadcast failed: {e}");
+        }
+    }
+    Ok(view)
 }
 
 /// Snapshot of the current session, or `None` if not live.
@@ -111,6 +162,14 @@ pub fn live_state(state: State<'_, AppState>) -> AppResult<Option<LiveSessionVie
 /// End the session and clear the recovery log (marks a clean shutdown).
 #[tauri::command]
 pub fn live_end(state: State<'_, AppState>) -> AppResult<()> {
+    // Phase 12.2 — tell phones the service is over, then tear down the
+    // broadcaster. Best-effort: a failed publish must not block ending.
+    if let Some(broadcaster) = state.companion.lock().expect("companion mutex").as_mut() {
+        if let Err(e) = broadcaster.on_service_end() {
+            tracing::warn!("companion service-end broadcast failed: {e}");
+        }
+    }
+    *state.companion.lock().expect("companion mutex") = None;
     *state.live.lock().expect("live mutex") = None;
     store(&state).clear();
     Ok(())
@@ -124,6 +183,11 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
         return Ok(None);
     };
     let view = session.view();
+    // Re-establish the companion broadcaster for the recovered service.
+    *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::new(
+        &view.service_id,
+        RealtimeTransport::local_only(),
+    ));
     *state.live.lock().expect("live mutex") = Some(session);
     Ok(Some(view))
 }

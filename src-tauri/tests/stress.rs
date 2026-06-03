@@ -39,6 +39,7 @@ fn slide_cue(i: usize) -> Cue {
             text_lines: vec![format!("Line {i} a"), format!("Line {i} b")],
             translation_lines: None,
             reference: None,
+            sensitive_slide: false,
         },
         theme_id: None,
         template_id: None,

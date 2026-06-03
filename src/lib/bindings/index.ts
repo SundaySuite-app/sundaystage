@@ -57,6 +57,7 @@ export type { SearchResult }      from "./SearchResult";
 export type { ServicePlan }       from "./ServicePlan";
 export type { Service }           from "./Service";
 export type { ServiceItem }       from "./ServiceItem";
+export type { ServiceItemSong }   from "./ServiceItemSong";
 export type { ServiceTemplate }   from "./ServiceTemplate";
 export type { ServiceTemplateInput } from "./ServiceTemplateInput";
 export type { Slide }             from "./Slide";

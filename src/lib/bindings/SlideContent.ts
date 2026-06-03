@@ -19,4 +19,12 @@ translation_lines: Array<string> | null,
 /**
  * Reference text shown small (e.g. "John 3:16").
  */
-reference: string | null, };
+reference: string | null, 
+/**
+ * Phase 12.2 — when true the companion broadcast collapses this slide to a
+ * neutral placeholder so private content (e.g. a pastoral prayer or
+ * communion liturgy) never reaches congregation phones. The main output is
+ * unaffected; this gates only the companion transport. Defaults to false so
+ * pre-12.2 persisted sessions deserialize unchanged.
+ */
+sensitive_slide: boolean, };

@@ -225,6 +225,7 @@ mod tests {
                 text_lines: vec![text.to_string()],
                 translation_lines: None,
                 reference: None,
+                sensitive_slide: false,
             },
             theme_id: None,
             template_id: None,

@@ -47,6 +47,7 @@ import type {
   StageDisplayConfig,
   Service,
   ServiceItem,
+  ServiceItemSong,
   ServicePlan,
   ServiceTemplate,
   ServiceTemplateInput,
@@ -166,6 +167,9 @@ export const service = {
     call<Service[]>("service_upcoming", { libraryId, from, limit }),
   items: (serviceId: string) =>
     call<ServiceItem[]>("service_items", { serviceId }),
+  // serviceItemId → song behind it (Phase 3 usage bridge). Non-song items absent.
+  songsByItem: (serviceId: string) =>
+    call<Record<string, ServiceItemSong>>("songs_by_item", { serviceId }),
   rename: (id: string, name: string) =>
     call<Service>("service_rename", { id, name }),
   setNotes: (id: string, notes: string) =>
