@@ -287,4 +287,190 @@ mod tests {
             .unwrap();
         assert!(import_plan(&db.pool, &lib.id, "not json").await.is_err());
     }
+
+    /// Spin up an in-memory DB + library so each edge-case test is isolated.
+    async fn fresh_lib() -> (Database, String) {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "T".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let id = lib.id.clone();
+        (db, id)
+    }
+
+    // ── defaults for a near-empty plan ──────────────────────────────────────
+
+    #[tokio::test]
+    async fn missing_name_and_start_get_defaults() {
+        let (db, lib) = fresh_lib().await;
+        let before = now_ms();
+        // No name, no starts_at, no items at all.
+        let res = import_plan(&db.pool, &lib, "{}").await.unwrap();
+        let after = now_ms();
+
+        assert_eq!(res.service.name, "Importert plan", "name default applied");
+        assert!(
+            res.service.starts_at >= before && res.service.starts_at <= after,
+            "starts_at fell back to now_ms()"
+        );
+        assert!(res.service.notes.is_none(), "no notes set");
+        assert_eq!(res.matched_songs, 0);
+        assert!(res.created_songs.is_empty());
+        assert!(res.warnings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn blank_name_falls_back_to_default() {
+        let (db, lib) = fresh_lib().await;
+        // Whitespace-only name must be treated as missing, not stored verbatim.
+        let res = import_plan(&db.pool, &lib, r#"{ "name": "   " }"#)
+            .await
+            .unwrap();
+        assert_eq!(res.service.name, "Importert plan");
+    }
+
+    // ── SundayPlan's real export field names (serde aliases) ─────────────────
+
+    #[tokio::test]
+    async fn accepts_sundayplan_export_field_aliases() {
+        let (db, lib) = fresh_lib().await;
+        // SundayPlan exports starts_at_utc / scripture_ref / key_override; if any
+        // alias regresses, the cross-app handoff silently drops that field.
+        let json = r#"{
+            "name": "Plan",
+            "starts_at_utc": 1718352000000,
+            "items": [
+                { "kind": "song", "title": "New Song", "key_override": "A" },
+                { "kind": "scripture", "scripture_ref": "Romans 8:28" }
+            ]
+        }"#;
+        let res = import_plan(&db.pool, &lib, json).await.unwrap();
+
+        assert_eq!(res.service.starts_at, 1718352000000, "starts_at_utc alias");
+
+        let items = ServiceRepo::new(&db.pool)
+            .items(&res.service.id)
+            .await
+            .unwrap();
+        assert_eq!(
+            items[0].key_override.as_deref(),
+            Some("A"),
+            "key_override alias"
+        );
+        assert_eq!(
+            items[1].notes.as_deref(),
+            Some("Romans 8:28"),
+            "scripture_ref alias landed as the placeholder reference"
+        );
+    }
+
+    // ── song item with no usable title ──────────────────────────────────────
+
+    #[tokio::test]
+    async fn song_without_title_is_skipped_with_warning() {
+        let (db, lib) = fresh_lib().await;
+        let json = r#"{
+            "items": [
+                { "kind": "song" },
+                { "kind": "song", "title": "   " },
+                { "kind": "song", "title": "Real" }
+            ]
+        }"#;
+        let res = import_plan(&db.pool, &lib, json).await.unwrap();
+
+        // Two untitled songs warned + skipped; only the real one created.
+        assert_eq!(res.warnings.len(), 2);
+        assert!(res.warnings.iter().all(|w| w.contains("mangler tittel")));
+        assert_eq!(res.created_songs, vec!["Real"]);
+
+        let items = ServiceRepo::new(&db.pool)
+            .items(&res.service.id)
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1, "only the titled song landed");
+        assert_eq!(items[0].kind, "song");
+    }
+
+    // ── scripture reference fallback chain ──────────────────────────────────
+
+    #[tokio::test]
+    async fn scripture_falls_back_to_title_then_generic_label() {
+        let (db, lib) = fresh_lib().await;
+        let json = r#"{
+            "items": [
+                { "kind": "scripture", "title": "Salme 23" },
+                { "kind": "scripture" }
+            ]
+        }"#;
+        let res = import_plan(&db.pool, &lib, json).await.unwrap();
+
+        let items = ServiceRepo::new(&db.pool)
+            .items(&res.service.id)
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 2);
+        // No `reference`, so it falls back to `title`…
+        assert_eq!(items[0].notes.as_deref(), Some("Salme 23"));
+        // …and with neither, to the generic "Skrift".
+        assert_eq!(items[1].notes.as_deref(), Some("Skrift"));
+        // Both scripture items raise the wire-it-up-in-Bibel warning.
+        assert_eq!(res.warnings.len(), 2);
+    }
+
+    // ── unknown kind: label → notes → title → kind ──────────────────────────
+
+    #[tokio::test]
+    async fn unknown_kind_resolves_label_chain() {
+        let (db, lib) = fresh_lib().await;
+        let json = r#"{
+            "items": [
+                { "kind": "announcement", "label": "Kunngjøring" },
+                { "kind": "announcement", "notes": "Fra notatfeltet" },
+                { "kind": "announcement", "title": "Fra tittel" },
+                { "kind": "offering" }
+            ]
+        }"#;
+        let res = import_plan(&db.pool, &lib, json).await.unwrap();
+
+        let items = ServiceRepo::new(&db.pool)
+            .items(&res.service.id)
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 4);
+        assert!(
+            items.iter().all(|it| it.kind == "gap"),
+            "all placed as gaps"
+        );
+        assert_eq!(items[0].notes.as_deref(), Some("Kunngjøring"));
+        assert_eq!(items[1].notes.as_deref(), Some("Fra notatfeltet"));
+        assert_eq!(items[2].notes.as_deref(), Some("Fra tittel"));
+        // Nothing usable → the kind itself becomes the label.
+        assert_eq!(items[3].notes.as_deref(), Some("offering"));
+        // Unknown kinds aren't warned about — they land cleanly as placeholders.
+        assert!(res.warnings.is_empty());
+    }
+
+    // ── kind omitted defaults to "song" ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn item_without_kind_defaults_to_song() {
+        let (db, lib) = fresh_lib().await;
+        let res = import_plan(
+            &db.pool,
+            &lib,
+            r#"{ "items": [ { "title": "Untitled Default" } ] }"#,
+        )
+        .await
+        .unwrap();
+        assert_eq!(res.created_songs, vec!["Untitled Default"]);
+        let items = ServiceRepo::new(&db.pool)
+            .items(&res.service.id)
+            .await
+            .unwrap();
+        assert_eq!(items[0].kind, "song");
+    }
 }
