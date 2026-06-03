@@ -6,7 +6,7 @@
  * translations side by side, and add a passage to a service (which the cue
  * compiler turns into slides).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Plus, Search } from "lucide-react";
 
@@ -15,6 +15,7 @@ import type { BibleVerse, Library } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { Button, Select } from "@/components/ui";
+import { formatVerseSuffix } from "./bibleFormat";
 
 /** A pre-resolved bible reference used to open a specific passage directly. */
 export interface BibleDeepLink {
@@ -44,6 +45,7 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<BibleVerse[] | null>(null);
   const [addMsg, setAddMsg] = useState<string | null>(null);
+  const readingRef = useRef<HTMLElement | null>(null);
 
   const translations = useQuery({
     queryKey: ["bibleTranslations"],
@@ -100,6 +102,18 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
     for (const v of comparePassage.data ?? []) map.set(Number(v.verse), v.text);
     return map;
   }, [comparePassage.data]);
+
+  // When a verse range is active (deep-link or a reference lookup), bring the
+  // first matched verse into view so the highlighted passage is never scrolled
+  // off-screen in a long chapter. Runs once the passage rows have rendered.
+  useEffect(() => {
+    if (!range) return;
+    if (!(passage.data && passage.data.length > 0)) return;
+    const target = readingRef.current?.querySelector(
+      `[data-verse="${range.start}"]`,
+    );
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [range, passage.data]);
 
   function selectChapter(b: string, c: number) {
     setBook(b);
@@ -253,7 +267,7 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
         </aside>
 
         {/* Reading / results pane */}
-        <main className="overflow-y-auto p-6">
+        <main ref={readingRef} className="overflow-y-auto p-6">
           {hits ? (
             <SearchResults
               hits={hits}
@@ -266,6 +280,7 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
                   {(books.data ?? []).find((b) => b.book === book)?.display ??
                     book}{" "}
                   {chapter}
+                  {formatVerseSuffix(range)}
                 </h2>
                 <Button size="sm" variant="outline" onClick={addToService}>
                   <Plus size={14} /> {t("bibAddToService")}
@@ -280,6 +295,7 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
                 {(passage.data ?? []).map((v) => (
                   <div
                     key={v.id}
+                    data-verse={Number(v.verse)}
                     className={cn(
                       "grid grid-cols-[2rem_1fr] gap-2 rounded px-1 py-0.5",
                       !inRange(Number(v.verse)) && "opacity-40",
