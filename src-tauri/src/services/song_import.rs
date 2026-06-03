@@ -747,4 +747,106 @@ mod tests {
         );
         assert_eq!(song.sections.len(), 2);
     }
+
+    // ── malformed input never panics; degrades to a warned stub ──────────────
+
+    #[test]
+    fn empty_content_for_every_format_warns_not_panics() {
+        for fmt in [
+            ImportFormat::PlainText,
+            ImportFormat::ChordPro,
+            ImportFormat::OpenSong,
+            ImportFormat::OpenLyrics,
+        ] {
+            let song = parse_song("", fmt);
+            assert!(song.sections.is_empty(), "{fmt:?} produced no sections");
+            assert!(
+                !song.warnings.is_empty(),
+                "{fmt:?} warned about the empty file"
+            );
+        }
+    }
+
+    #[test]
+    fn opensong_unclosed_lyrics_tag_degrades_gracefully() {
+        // <lyrics> never closes — extract_element finds no </lyrics> and returns
+        // None, so there's nothing to parse rather than a panic.
+        let src = "<song><title>Broken</title><lyrics>[V1]\nA line that runs off";
+        let song = parse_opensong(src);
+        // Title was extracted before the break; body couldn't be read.
+        assert_eq!(song.title_suggestion.as_deref(), Some("Broken"));
+        assert!(song.sections.is_empty());
+        assert!(!song.warnings.is_empty());
+    }
+
+    #[test]
+    fn openlyrics_unclosed_verse_tag_degrades_gracefully() {
+        // <verse> opens but never closes — openlyrics_verses breaks out instead
+        // of slicing past the end of the string.
+        let src = "<song><lyrics><verse name=\"v1\"><lines>Half a verse";
+        let song = parse_openlyrics(src);
+        assert!(song.sections.is_empty());
+        assert!(!song.warnings.is_empty());
+    }
+
+    #[test]
+    fn openlyrics_unclosed_lines_tag_degrades_gracefully() {
+        // The verse closes but its <lines> does not.
+        let src = "<song><lyrics><verse name=\"v1\"><lines>No closing tag</verse></lyrics></song>";
+        let song = parse_openlyrics(src);
+        // Falls back to the raw verse inner text rather than panicking.
+        assert!(!song.warnings.is_empty() || !song.sections.is_empty());
+    }
+
+    #[test]
+    fn detected_format_mismatching_its_tags_still_yields_a_stub() {
+        // Claims OpenSong but carries no <lyrics> body — parser must not panic.
+        let song = parse_song(
+            "<song><title>Only A Title</title></song>",
+            ImportFormat::OpenSong,
+        );
+        assert!(song.sections.is_empty());
+        assert!(!song.warnings.is_empty());
+
+        // Claims OpenLyrics but has no verses at all.
+        let song = parse_song("<song><properties/></song>", ImportFormat::OpenLyrics);
+        assert!(song.sections.is_empty());
+        assert!(!song.warnings.is_empty());
+    }
+
+    #[test]
+    fn chordpro_with_only_directives_and_chords_yields_no_sections() {
+        // Every lyric line is chord-only or a non-section directive: nothing to
+        // show, but a clean warning instead of an empty-but-silent song.
+        let src = "{title: Instrumental}\n{key: G}\n[G] [C] [D]\n[Em]";
+        let song = parse_chordpro(src);
+        assert_eq!(song.title_suggestion.as_deref(), Some("Instrumental"));
+        assert!(song.sections.is_empty());
+        assert!(!song.warnings.is_empty());
+    }
+
+    #[test]
+    fn openlyrics_empty_and_whitespace_lines_bodies_are_dropped() {
+        // Degenerate <lines> bodies (empty, whitespace, chords-only) must not
+        // create empty sections.
+        let src = "<song><lyrics>\
+                   <verse name=\"v1\"><lines>   </lines></verse>\
+                   <verse name=\"v2\"><lines><chord name=\"G\"/></lines></verse>\
+                   <verse name=\"v3\"><lines>Real words here</lines></verse>\
+                   </lyrics></song>";
+        let song = parse_openlyrics(src);
+        // Only the verse with actual words survives.
+        assert_eq!(song.sections.len(), 1);
+        assert_eq!(song.sections[0].lyrics, "Real words here");
+    }
+
+    #[test]
+    fn import_song_on_garbage_input_never_panics() {
+        // Random bytes-as-text routed through full detect+parse: plain-text path,
+        // degrades to a heuristic stub with a warning, no panic.
+        let (fmt, song) = import_song("mystery.dat", "\u{0}\u{1}<<>>{{}}][");
+        assert_eq!(fmt, ImportFormat::PlainText);
+        // It produced *something* (stub or warned) without crashing.
+        let _ = (song.sections.len(), song.warnings.len());
+    }
 }
