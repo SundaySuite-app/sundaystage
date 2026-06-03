@@ -379,6 +379,17 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       setBrowserSongId(id);
       setBrowser({ tab: "songs" });
     } else if (route === "bible") {
+      // For bible hits `id` is the reference string ("John 3:16"); parse it so
+      // the scripture browser opens that exact passage (matching openBibleCue).
+      const ref = parseBibleRef(id);
+      if (ref) {
+        setBibleDeepLink({
+          book: ref.book,
+          chapter: ref.chapter,
+          verseStart: ref.verseStart,
+          verseEnd: ref.verseEnd,
+        });
+      }
       setBrowser({ tab: "scripture" });
     }
   }, []);

@@ -134,6 +134,64 @@ describe("isBibleCue", () => {
   });
 });
 
+// ── Bible search hit → deep-link resolution (pure logic) ──────────────────────
+
+import type { BibleDeepLink } from "@/features/bible/BiblePage";
+import type { Route } from "@/components/CommandPalette";
+
+/**
+ * Mirrors the bible branch of `OperatorWorkspace.onOpenResult`: a bible search
+ * hit carries its reference ("John 3:16") as the result id, which we parse into
+ * a `BibleDeepLink` so the scripture browser opens that exact passage. Returns
+ * the deep-link that would be set, or null when the reference does not parse.
+ */
+function resolveOpenResult(route: Route, id: string): BibleDeepLink | null {
+  if (route !== "bible") return null;
+  const ref = parseBibleRef(id);
+  if (!ref) return null;
+  return {
+    book: ref.book,
+    chapter: ref.chapter,
+    verseStart: ref.verseStart,
+    verseEnd: ref.verseEnd,
+  };
+}
+
+describe("bible search hit deep-link resolution", () => {
+  it("turns a single-verse hit into a deep-link", () => {
+    expect(resolveOpenResult("bible", "John 3:16")).toEqual({
+      book: "John",
+      chapter: 3,
+      verseStart: 16,
+      verseEnd: null,
+    });
+  });
+
+  it("turns a verse-range hit into a deep-link", () => {
+    expect(resolveOpenResult("bible", "1 Corinthians 13:4-7")).toEqual({
+      book: "1 Corinthians",
+      chapter: 13,
+      verseStart: 4,
+      verseEnd: 7,
+    });
+  });
+
+  it("returns null (no deep-link) for an unparseable reference", () => {
+    expect(resolveOpenResult("bible", "")).toBeNull();
+    expect(resolveOpenResult("bible", "not a reference!")).toBeNull();
+  });
+
+  it("does not resolve a deep-link for non-bible routes", () => {
+    expect(resolveOpenResult("library", "song-id")).toBeNull();
+    expect(resolveOpenResult("services", "service-id")).toBeNull();
+  });
+
+  it("does not throw on any input", () => {
+    expect(() => resolveOpenResult("bible", "John 3:16")).not.toThrow();
+    expect(() => resolveOpenResult("bible", "")).not.toThrow();
+  });
+});
+
 // ── Keyboard shortcut key mapping (pure logic) ────────────────────────────────
 
 /**

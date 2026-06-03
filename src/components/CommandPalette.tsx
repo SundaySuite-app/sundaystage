@@ -155,7 +155,9 @@ export function CommandPalette({
                       icon={<BookOpen size={14} />}
                       title={h.title}
                       subtitle={h.subtitle}
-                      onSelect={() => go(KIND_ROUTE.bible)}
+                      // A bible hit's title *is* its reference ("John 3:16"),
+                      // which the workspace parses to open that exact passage.
+                      onSelect={() => openHit(KIND_ROUTE.bible, h.title)}
                     />
                   ))}
                 </Group>
