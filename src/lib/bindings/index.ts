@@ -75,6 +75,7 @@ export type { StageDisplayConfig } from "./StageDisplayConfig";
 export type { SyncStatus }        from "./SyncStatus";
 export type { Tag }               from "./Tag";
 export type { Template }          from "./Template";
+export type { TemplateRole }      from "./TemplateRole";
 export type { TemplateLayout }    from "./TemplateLayout";
 export type { TemplateSlot }      from "./TemplateSlot";
 export type { TextStyle }         from "./TextStyle";

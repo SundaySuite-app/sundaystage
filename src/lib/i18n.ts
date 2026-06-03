@@ -556,6 +556,24 @@ const en: Catalog = {
   tmplKindAnnouncement: "Announcement",
   tmplKindMedia: "Media",
 
+  // ── Template stage-display role (Phase 8) ─────────────────────────────────
+  tmplRole: "Stage role",
+  tmplRoleHint: "Who watches the stage display when this template runs",
+  tmplRoleWorshipLeader: "Worship leader",
+  tmplRoleMusician: "Musician",
+  tmplRoleOperator: "Operator",
+  tmplRoleCongregation: "Congregation",
+  tmplRolePreviewTitle: "Stage display preview",
+  tmplRolePreviewHint: "Panels this role sees on their screen",
+  tmplRolePanelCurrentSlide: "Current slide",
+  tmplRolePanelNextSlide: "Next slide",
+  tmplRolePanelLyricsLarge: "Large lyrics",
+  tmplRolePanelSectionLabel: "Section label",
+  tmplRolePanelClock: "Clock",
+  tmplRolePanelServiceTimer: "Service timer",
+  tmplRolePanelNotes: "Notes",
+  tmplRoleSelectHint: "Select a template to preview its stage role.",
+
   // ── Output display configuration ──────────────────────────────────────────
   setTabOutputDisplay: "Display",
   setOutDispTitle: "Output display settings",
@@ -1118,6 +1136,24 @@ const no: Catalog = {
   tmplKindPrayer: "Bønn",
   tmplKindAnnouncement: "Kunngjøring",
   tmplKindMedia: "Media",
+
+  // ── Mal-sceneskjermrolle (Fase 8) ─────────────────────────────────────────
+  tmplRole: "Scenerolle",
+  tmplRoleHint: "Hvem ser sceneskjermen når denne malen kjører",
+  tmplRoleWorshipLeader: "Lovsangsleder",
+  tmplRoleMusician: "Musiker",
+  tmplRoleOperator: "Operatør",
+  tmplRoleCongregation: "Menighet",
+  tmplRolePreviewTitle: "Forhåndsvisning av sceneskjerm",
+  tmplRolePreviewHint: "Paneler denne rollen ser på skjermen sin",
+  tmplRolePanelCurrentSlide: "Nåværende lysbilde",
+  tmplRolePanelNextSlide: "Neste lysbilde",
+  tmplRolePanelLyricsLarge: "Stor tekst",
+  tmplRolePanelSectionLabel: "Seksjonsetikett",
+  tmplRolePanelClock: "Klokke",
+  tmplRolePanelServiceTimer: "Gudstjenestetid",
+  tmplRolePanelNotes: "Notater",
+  tmplRoleSelectHint: "Velg en mal for å forhåndsvise scenerollen.",
 
   // ── Utgangs-visningskonfigurasjon ─────────────────────────────────────────
   setTabOutputDisplay: "Visning",

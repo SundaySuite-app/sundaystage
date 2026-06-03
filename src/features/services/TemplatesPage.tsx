@@ -25,6 +25,16 @@ import type { CueSpec, ServiceTemplate } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui";
+import {
+  DEFAULT_ROLE,
+  TEMPLATE_ROLES,
+  getTemplateRole,
+  panelsForRole,
+  roleLabelKey,
+  setTemplateRole,
+  type RolePanels,
+  type TemplateRole,
+} from "./templateRoles";
 
 const KIND_ICON: Record<string, typeof Music> = {
   song: Music,
@@ -51,6 +61,20 @@ export function TemplatesPage({
   const [confirmDelete, setConfirmDelete] = useState<ServiceTemplate | null>(
     null,
   );
+  // The template whose stage-display role is being inspected/edited.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Per-device role assignments, keyed by template id. Hydrated lazily from
+  // localStorage; the inspector preview re-renders the instant this changes.
+  const [roles, setRoles] = useState<Record<string, TemplateRole>>({});
+
+  function roleFor(id: string): TemplateRole {
+    return roles[id] ?? getTemplateRole(id);
+  }
+
+  function assignRole(id: string, role: TemplateRole) {
+    setTemplateRole(id, role);
+    setRoles((prev) => ({ ...prev, [id]: role }));
+  }
 
   const templatesQuery = useQuery({
     queryKey: ["serviceTemplates"],
@@ -98,55 +122,75 @@ export function TemplatesPage({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
-        {/* Built-in templates */}
-        <section className="mb-8">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">
-            {t("tmplBuiltin")}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {builtins.map((tmpl) => (
-              <TemplateCard
-                key={tmpl.id}
-                template={tmpl}
-                onApply={() => setApplyTemplate(tmpl)}
-                onDelete={null}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* Custom templates */}
-        <section>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">
-            {t("tmplCustom")}
-          </h2>
-          {custom.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[var(--color-border)] p-8 text-center">
-              <p className="font-semibold text-[var(--color-fg-muted)]">
-                {t("tmplEmptyTitle")}
-              </p>
-              <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-                {t("tmplEmptyBody")}
-              </p>
-              <Button className="mt-4" onClick={() => setCreating(true)}>
-                <Plus size={14} aria-hidden />
-                {t("tmplCreate")}
-              </Button>
-            </div>
-          ) : (
+      <div className="flex min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          {/* Built-in templates */}
+          <section className="mb-8">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">
+              {t("tmplBuiltin")}
+            </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {custom.map((tmpl) => (
+              {builtins.map((tmpl) => (
                 <TemplateCard
                   key={tmpl.id}
                   template={tmpl}
+                  role={roleFor(tmpl.id)}
+                  selected={tmpl.id === selectedId}
+                  onSelect={() => setSelectedId(tmpl.id)}
+                  onRoleChange={(role) => assignRole(tmpl.id, role)}
                   onApply={() => setApplyTemplate(tmpl)}
-                  onDelete={() => setConfirmDelete(tmpl)}
+                  onDelete={null}
                 />
               ))}
             </div>
-          )}
-        </section>
+          </section>
+
+          {/* Custom templates */}
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">
+              {t("tmplCustom")}
+            </h2>
+            {custom.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--color-border)] p-8 text-center">
+                <p className="font-semibold text-[var(--color-fg-muted)]">
+                  {t("tmplEmptyTitle")}
+                </p>
+                <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+                  {t("tmplEmptyBody")}
+                </p>
+                <Button className="mt-4" onClick={() => setCreating(true)}>
+                  <Plus size={14} aria-hidden />
+                  {t("tmplCreate")}
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {custom.map((tmpl) => (
+                  <TemplateCard
+                    key={tmpl.id}
+                    template={tmpl}
+                    role={roleFor(tmpl.id)}
+                    selected={tmpl.id === selectedId}
+                    onSelect={() => setSelectedId(tmpl.id)}
+                    onRoleChange={(role) => assignRole(tmpl.id, role)}
+                    onApply={() => setApplyTemplate(tmpl)}
+                    onDelete={() => setConfirmDelete(tmpl)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Stage-display role inspector — live preview of the selected role */}
+        <RoleInspector
+          template={
+            selectedId
+              ? (templates.find((t) => t.id === selectedId) ?? null)
+              : null
+          }
+          role={selectedId ? roleFor(selectedId) : DEFAULT_ROLE}
+        />
       </div>
 
       {/* Create modal */}
@@ -195,10 +239,18 @@ export function TemplatesPage({
 
 function TemplateCard({
   template,
+  role,
+  selected,
+  onSelect,
+  onRoleChange,
   onApply,
   onDelete,
 }: {
   template: ServiceTemplate;
+  role: TemplateRole;
+  selected: boolean;
+  onSelect: () => void;
+  onRoleChange: (role: TemplateRole) => void;
   onApply: () => void;
   onDelete: (() => void) | null;
 }) {
@@ -206,7 +258,15 @@ function TemplateCard({
   const specs = ipc.parseCueSpecs(template);
 
   return (
-    <div className="flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+    <div
+      onClick={onSelect}
+      className={cn(
+        "flex cursor-pointer flex-col rounded-xl border bg-[var(--color-bg-elevated)] p-4 transition-colors",
+        selected
+          ? "border-[var(--color-accent)] ring-1 ring-[var(--color-accent)]"
+          : "border-[var(--color-border)] hover:border-[var(--color-accent)]/50",
+      )}
+    >
       <div className="mb-2 flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold">{template.name}</h3>
@@ -242,16 +302,118 @@ function TemplateCard({
         </div>
       </div>
 
+      {/* Stage-display role assignment */}
+      <label className="mb-3 block" onClick={(e) => e.stopPropagation()}>
+        <span className="mb-1 block text-[11px] text-[var(--color-fg-muted)]">
+          {t("tmplRole")}
+        </span>
+        <select
+          aria-label={t("tmplRole")}
+          value={role}
+          onChange={(e) => onRoleChange(e.target.value as TemplateRole)}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none"
+        >
+          {TEMPLATE_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {t(roleLabelKey(r))}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-3">
         <span className="text-xs text-[var(--color-fg-muted)]">
           {t("tmplCueSpecs", { n: specs.length })}
         </span>
-        <Button size="sm" onClick={onApply}>
+        <Button
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onApply();
+          }}
+        >
           <Play size={12} aria-hidden fill="currentColor" />
           {t("tmplApply")}
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Live preview of the stage display for the selected template's role. Reflects
+ * the same panel toggles as the Rust `StageDisplayConfig` presets, updating the
+ * instant the role changes in the card dropdown.
+ */
+function RoleInspector({
+  template,
+  role,
+}: {
+  template: ServiceTemplate | null;
+  role: TemplateRole;
+}) {
+  const t = useT();
+
+  if (!template) {
+    return (
+      <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-[var(--color-border)] p-5 lg:block">
+        <p className="text-sm text-[var(--color-fg-muted)]">
+          {t("tmplRoleSelectHint")}
+        </p>
+      </aside>
+    );
+  }
+
+  const panels = panelsForRole(role);
+  const rows: { key: keyof RolePanels; label: string }[] = [
+    { key: "showCurrentSlide", label: t("tmplRolePanelCurrentSlide") },
+    { key: "showNextSlide", label: t("tmplRolePanelNextSlide") },
+    { key: "lyricsLarge", label: t("tmplRolePanelLyricsLarge") },
+    { key: "showSectionLabel", label: t("tmplRolePanelSectionLabel") },
+    { key: "showClock", label: t("tmplRolePanelClock") },
+    { key: "showServiceTimer", label: t("tmplRolePanelServiceTimer") },
+    { key: "showNotes", label: t("tmplRolePanelNotes") },
+  ];
+
+  return (
+    <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-[var(--color-border)] p-5 lg:block">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">
+        {t("tmplRolePreviewTitle")}
+      </h2>
+      <p className="mt-1 truncate text-sm font-semibold">{template.name}</p>
+      <p className="mt-0.5 text-xs text-[var(--color-accent)]">
+        {t(roleLabelKey(role))}
+      </p>
+      <p className="mt-3 text-[11px] text-[var(--color-fg-muted)]">
+        {t("tmplRolePreviewHint")}
+      </p>
+      <ul className="mt-2 space-y-1" data-testid="role-preview-panels">
+        {rows.map((r) => (
+          <li
+            key={r.key}
+            data-panel={r.key}
+            data-on={panels[r.key] ? "1" : "0"}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-2 py-1 text-sm",
+              panels[r.key]
+                ? "bg-[var(--color-accent)]/10 text-[var(--color-fg)]"
+                : "text-[var(--color-fg-muted)] line-through opacity-50",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-2 w-2 shrink-0 rounded-full",
+                panels[r.key]
+                  ? "bg-[var(--color-accent)]"
+                  : "bg-[var(--color-border)]",
+              )}
+              aria-hidden
+            />
+            {r.label}
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 
