@@ -14,7 +14,7 @@
  * slide. Clicking a slide stages it; "Go" promotes Preview → Live via the
  * existing `go_to` dispatch. Nothing reaches the projector without Go.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ipc } from "@/lib/ipc";
@@ -48,6 +48,7 @@ import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { cueServiceItemId, parseBibleRef } from "./cueUtils";
+import { SingleFlight } from "./singleFlight";
 import type { BibleDeepLink } from "@/features/bible/BiblePage";
 
 export function OperatorWorkspace({ library }: { library: Library }) {
@@ -81,6 +82,15 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   const [exportOpen, setExportOpen] = useState(false);
 
   const isLive = !!session;
+
+  // Single-flight guard for go-live. `go()` decides whether to start a session
+  // from the `session` React state, which only updates after `ipc.live.start()`
+  // resolves — so two rapid Space/Enter/G presses (auto-repeat, double-tap)
+  // would both see no session and both call `live_start`. The second call
+  // truncates the first's crash-recovery WAL, jumps `started_at`, and re-zeroes
+  // the companion seq. Routing every start through one in-flight promise makes
+  // the round-trip idempotent under double-fire.
+  const startFlight = useRef(new SingleFlight<LiveSessionView | null>());
 
   // ── Data ────────────────────────────────────────────────────────────────
   const servicesQuery = useQuery({
@@ -204,47 +214,51 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     [bridge],
   );
 
-  const startSession =
-    useCallback(async (): Promise<LiveSessionView | null> => {
-      if (!service) return null;
-      try {
-        const v = await ipc.live.start(service.id);
-        setSession(v);
-        // Assemble the per-session bridge context: the planner already holds the
-        // song behind each item — fetch the map and hand it to the driver so it
-        // can report which song each cue showed. Best-effort: a failure here
-        // leaves the bridge context null (driver no-ops) without blocking live.
+  const startSession = useCallback((): Promise<LiveSessionView | null> => {
+    if (!service) return Promise.resolve(null);
+    // Collapse concurrent go-live attempts into one live_start round-trip.
+    return startFlight.current.run(
+      async (): Promise<LiveSessionView | null> => {
         try {
-          const songsByItem = await ipc.service.songsByItem(service.id);
-          setBridgeContext(
-            buildLiveBridgeContext(
-              {
-                id: service.id,
-                library_id: service.library_id,
-                starts_at: Number(service.starts_at),
-              },
-              songsByItem,
-            ),
-          );
-          bridge.goLive(v.index, v.total, Number(v.started_at));
+          const v = await ipc.live.start(service.id);
+          setSession(v);
+          // Assemble the per-session bridge context: the planner already holds the
+          // song behind each item — fetch the map and hand it to the driver so it
+          // can report which song each cue showed. Best-effort: a failure here
+          // leaves the bridge context null (driver no-ops) without blocking live.
+          try {
+            const songsByItem = await ipc.service.songsByItem(service.id);
+            setBridgeContext(
+              buildLiveBridgeContext(
+                {
+                  id: service.id,
+                  library_id: service.library_id,
+                  starts_at: Number(service.starts_at),
+                },
+                songsByItem,
+              ),
+            );
+            bridge.goLive(v.index, v.total, Number(v.started_at));
+          } catch {
+            /* usage map unavailable — bridge stays off, live proceeds */
+          }
+          // Open the projector window if a monitor is assigned (mirrors the old
+          // console's auto-open). Best-effort; preview-only when no Tauri/displays.
+          try {
+            const cfg = await ipc.output.config();
+            if (cfg.assignments.some((a) => a.role !== "off"))
+              await ipc.output.open();
+          } catch {
+            /* not in Tauri / no external display */
+          }
+          void qc.invalidateQueries({ queryKey: ["services", library.id] });
+          return v;
         } catch {
-          /* usage map unavailable — bridge stays off, live proceeds */
+          return null;
         }
-        // Open the projector window if a monitor is assigned (mirrors the old
-        // console's auto-open). Best-effort; preview-only when no Tauri/displays.
-        try {
-          const cfg = await ipc.output.config();
-          if (cfg.assignments.some((a) => a.role !== "off"))
-            await ipc.output.open();
-        } catch {
-          /* not in Tauri / no external display */
-        }
-        void qc.invalidateQueries({ queryKey: ["services", library.id] });
-        return v;
-      } catch {
-        return null;
-      }
-    }, [service, qc, library.id, bridge]);
+      },
+    );
+  }, [service, qc, library.id, bridge]);
 
   const stopSession = useCallback(() => {
     bridge.end();

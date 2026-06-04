@@ -82,11 +82,19 @@ pub async fn live_start(
     let _ = store(&state).begin(&session);
     // Phase 12.2 — stand up the companion broadcaster for this service. The
     // transport is a no-op until the cloud layer is configured, so this never
-    // affects the live output.
-    *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::new(
-        &view.service_id,
-        RealtimeTransport::local_only(),
-    ));
+    // affects the live output. Continue the `seq` stream from any broadcaster
+    // still installed for a re-used service_id: a phone subscribed to
+    // `companion:<svc>` drops frames whose `seq <= lastSeq`, so a restart that
+    // re-zeroed `seq` would freeze every already-connected phone.
+    {
+        let mut guard = state.companion.lock().expect("companion mutex");
+        let start_seq = guard.as_ref().map(|b| b.next_seq()).unwrap_or(0);
+        *guard = Some(CompanionBroadcaster::resuming(
+            &view.service_id,
+            RealtimeTransport::local_only(),
+            start_seq,
+        ));
+    }
     *state.live.lock().expect("live mutex") = Some(session);
     Ok(view)
 }
@@ -183,10 +191,17 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
         return Ok(None);
     };
     let view = session.view();
-    // Re-establish the companion broadcaster for the recovered service.
-    *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::new(
+    // Re-establish the companion broadcaster for the recovered service. Seed the
+    // `seq` above any frame the crashed session could have broadcast so phones
+    // still subscribed to `companion:<svc>` don't discard every post-recover
+    // frame via their `seq <= lastSeq` stale-guard. Each dispatch broadcasts at
+    // most once, so `log_len` is a safe upper bound on the prior session's seqs
+    // (0..log_len), and recovery never depends on the crashed process's state.
+    let resume_seq = view.log_len as u32;
+    *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::resuming(
         &view.service_id,
         RealtimeTransport::local_only(),
+        resume_seq,
     ));
     *state.live.lock().expect("live mutex") = Some(session);
     Ok(Some(view))
