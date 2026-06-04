@@ -22,6 +22,13 @@ import type {
   SlideRect,
   TextStyle,
 } from "@/lib/bindings";
+import {
+  averageAdvanceMeasurer,
+  canvasMeasurer,
+  fitText,
+  type FitParams,
+  type Measure,
+} from "@/lib/slideEditor/textFit";
 
 /** The text variant of a block — the only kind the v1 editor authors. */
 export type TextBlock = Extract<SlideBlock, { type: "text" }>;
@@ -237,5 +244,60 @@ export function textBlockStyle(
     textShadow: block.style.shadow ?? "none",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
+  };
+}
+
+/** Line-height the renderer uses (must match `textBlockStyle`'s `lineHeight`). */
+export const LINE_HEIGHT = 1.15;
+
+/**
+ * Compute the auto-fit font size (in stage-px @1080) for `block`'s text inside
+ * its own rect, using the SHARED {@link fitText} algorithm — the same one the
+ * live output process runs — so the editor preview and the projector agree.
+ *
+ * `block.style.size` is the *base* (largest) size; the fit shrinks it toward
+ * `min` when a long translation / pasted lyrics would overflow the block. Real
+ * glyph metrics come from a runtime canvas measurer; outside the browser
+ * (tests/SSR) it falls back to the deterministic average-advance model, which is
+ * exactly what the headless output uses.
+ *
+ * Pure given its `measure` argument; the default measurer is the only runtime
+ * touch and is injectable for tests.
+ */
+export function autoFitSize(block: TextBlock, measure?: Measure): number {
+  const fontFamily = block.style.family ?? "var(--font-sans)";
+  const m =
+    measure ??
+    canvasMeasurer(fontFamily, LINE_HEIGHT) ??
+    averageAdvanceMeasurer(0.52, LINE_HEIGHT);
+  const params: FitParams = {
+    base: block.style.size,
+    min: Math.min(22, block.style.size),
+    step: 2,
+  };
+  const box = {
+    width: block.rect.w * STAGE_HEIGHT * STAGE_ASPECT,
+    height: block.rect.h * STAGE_HEIGHT,
+    maxLines: null,
+  };
+  return fitText(block.text, box, params, m).size;
+}
+
+/**
+ * Like {@link textBlockStyle} but with the font size auto-fitted to the block's
+ * box via {@link autoFitSize}, so the editor preview never lets a long
+ * translation overflow — matching the live output. `measure` is injectable for
+ * deterministic tests.
+ */
+export function autoFitTextBlockStyle(
+  block: TextBlock,
+  canvasH: number,
+  measure?: Measure,
+): CSSProperties {
+  const scale = canvasH / STAGE_HEIGHT;
+  const fitted = autoFitSize(block, measure);
+  return {
+    ...textBlockStyle(block, canvasH),
+    fontSize: `${fitted * scale}px`,
   };
 }
