@@ -417,6 +417,14 @@ const en: Catalog = {
   tcAccent: "Accent",
   tcDuplicateHint:
     "Duplicate a built-in theme to edit its colours and typography.",
+  tcNewTheme: "New theme",
+  tcNewThemeName: "New theme",
+  tcNewThemePrompt: "Name for the new theme",
+  tcRenamePrompt: "New name for this theme",
+  tcRenameTitle: "Rename this theme",
+  tcDeleteTitle: "Delete this theme",
+  tcDeleteConfirm: 'Delete the theme "{name}"? This cannot be undone.',
+  tcSetDefaultTemplateTitle: "Set as the library's default template",
 
   // ── Bible ───────────────────────────────────────────────────────────────
   bibCompare: "Compare",
@@ -997,6 +1005,14 @@ const no: Catalog = {
   tcAccent: "Aksent",
   tcDuplicateHint:
     "Dupliser et innebygd tema for å redigere fargene og typografien.",
+  tcNewTheme: "Nytt tema",
+  tcNewThemeName: "Nytt tema",
+  tcNewThemePrompt: "Navn på det nye temaet",
+  tcRenamePrompt: "Nytt navn på dette temaet",
+  tcRenameTitle: "Gi temaet nytt navn",
+  tcDeleteTitle: "Slett dette temaet",
+  tcDeleteConfirm: "Slette temaet «{name}»? Dette kan ikke angres.",
+  tcSetDefaultTemplateTitle: "Sett som bibliotekets standardmal",
 
   // ── Bible ───────────────────────────────────────────────────────────────
   bibCompare: "Sammenlign",
@@ -1515,6 +1531,14 @@ const sv: Catalog = {
   tcAccent: "Accent",
   tcDuplicateHint:
     "Duplicera ett inbyggt tema för att redigera dess färger och typografi.",
+  tcNewTheme: "Nytt tema",
+  tcNewThemeName: "Nytt tema",
+  tcNewThemePrompt: "Namn på det nya temat",
+  tcRenamePrompt: "Nytt namn på det här temat",
+  tcRenameTitle: "Byt namn på temat",
+  tcDeleteTitle: "Ta bort det här temat",
+  tcDeleteConfirm: "Ta bort temat ”{name}”? Detta kan inte ångras.",
+  tcSetDefaultTemplateTitle: "Ange som bibliotekets standardmall",
   bibCompare: "Jämför",
   bibNone: "Ingen",
   bibSearchPlaceholder:
@@ -1932,6 +1956,14 @@ const da: Catalog = {
   tcAccent: "Accent",
   tcDuplicateHint:
     "Duplikér et indbygget tema for at redigere dets farver og typografi.",
+  tcNewTheme: "Nyt tema",
+  tcNewThemeName: "Nyt tema",
+  tcNewThemePrompt: "Navn på det nye tema",
+  tcRenamePrompt: "Nyt navn på dette tema",
+  tcRenameTitle: "Omdøb dette tema",
+  tcDeleteTitle: "Slet dette tema",
+  tcDeleteConfirm: "Slet temaet “{name}”? Dette kan ikke fortrydes.",
+  tcSetDefaultTemplateTitle: "Sæt som bibliotekets standardskabelon",
   bibCompare: "Sammenlign",
   bibNone: "Ingen",
   bibSearchPlaceholder:
@@ -2353,6 +2385,15 @@ const de: Catalog = {
   tcAccent: "Akzent",
   tcDuplicateHint:
     "Dupliziere ein integriertes Design, um dessen Farben und Typografie zu bearbeiten.",
+  tcNewTheme: "Neues Design",
+  tcNewThemeName: "Neues Design",
+  tcNewThemePrompt: "Name für das neue Design",
+  tcRenamePrompt: "Neuer Name für dieses Design",
+  tcRenameTitle: "Dieses Design umbenennen",
+  tcDeleteTitle: "Dieses Design löschen",
+  tcDeleteConfirm:
+    "Das Design „{name}“ löschen? Dies kann nicht rückgängig gemacht werden.",
+  tcSetDefaultTemplateTitle: "Als Standardvorlage der Bibliothek festlegen",
   bibCompare: "Vergleichen",
   bibNone: "Keine",
   bibSearchPlaceholder:
@@ -2779,6 +2820,16 @@ const fr: Catalog = {
   tcAccent: "Accent",
   tcDuplicateHint:
     "Dupliquez un thème intégré pour modifier ses couleurs et sa typographie.",
+  tcNewTheme: "Nouveau thème",
+  tcNewThemeName: "Nouveau thème",
+  tcNewThemePrompt: "Nom du nouveau thème",
+  tcRenamePrompt: "Nouveau nom pour ce thème",
+  tcRenameTitle: "Renommer ce thème",
+  tcDeleteTitle: "Supprimer ce thème",
+  tcDeleteConfirm:
+    "Supprimer le thème « {name} » ? Cette action est irréversible.",
+  tcSetDefaultTemplateTitle:
+    "Définir comme modèle par défaut de la bibliothèque",
   bibCompare: "Comparer",
   bibNone: "Aucune",
   bibSearchPlaceholder:
@@ -3198,6 +3249,14 @@ const pl: Catalog = {
   tcAccent: "Akcent",
   tcDuplicateHint:
     "Zduplikuj wbudowany motyw, aby edytować jego kolory i typografię.",
+  tcNewTheme: "Nowy motyw",
+  tcNewThemeName: "Nowy motyw",
+  tcNewThemePrompt: "Nazwa nowego motywu",
+  tcRenamePrompt: "Nowa nazwa tego motywu",
+  tcRenameTitle: "Zmień nazwę tego motywu",
+  tcDeleteTitle: "Usuń ten motyw",
+  tcDeleteConfirm: "Usunąć motyw „{name}”? Tej operacji nie można cofnąć.",
+  tcSetDefaultTemplateTitle: "Ustaw jako domyślny szablon biblioteki",
   bibCompare: "Porównaj",
   bibNone: "Brak",
   bibSearchPlaceholder:
@@ -3283,7 +3342,8 @@ const pl: Catalog = {
   sectionEnding: "Zakończenie",
 };
 
-const CATALOG: Record<Lang, Catalog> = { en, no, sv, da, de, fr, pl };
+/** The full per-language catalog. Exported for parity tests. */
+export const CATALOG: Record<Lang, Catalog> = { en, no, sv, da, de, fr, pl };
 
 export type TKey = keyof typeof en;
 
