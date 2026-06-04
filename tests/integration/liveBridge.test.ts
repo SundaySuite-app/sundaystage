@@ -87,13 +87,14 @@ describe("bridgeOnCueChange", () => {
     expect(seq.current()).toBe(0); // sequence untouched
   });
 
-  it("advancing within one song does not double-log usage", () => {
+  it("advancing within one song emits cue.advanced only (no now_playing, no usage)", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>(["item-a"]); // song A already shown
     const out = bridgeOnCueChange(ctx(), cues, 0, 1, 4, seq, 0, shown);
-    // cue.advanced + now_playing still fire per move (the Rec subscriber dedupes
-    // now_playing on song id); the usage one-shot guard suppresses a second log.
-    expect(types(out.liveEvents)).toEqual(["cue.advanced", "now_playing"]);
+    // The song under the cursor is unchanged, so no now_playing churns (the
+    // contract that keeps SundayRec chapters from advancing slide-by-slide),
+    // and the usage one-shot guard suppresses a second log.
+    expect(types(out.liveEvents)).toEqual(["cue.advanced"]);
     expect(out.usageEvents).toEqual([]);
   });
 

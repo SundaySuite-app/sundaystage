@@ -421,11 +421,35 @@ fn is_repeat_marker(line: &str) -> bool {
         .filter(|c| !matches!(c, '(' | ')' | '[' | ']' | '.'))
         .collect();
     let s = stripped.trim();
-    matches!(
+    if matches!(
         s,
         "x2" | "x3" | "x4" | "2x" | "3x" | "4x" | "repeat" | "gjenta"
-    ) || s.starts_with("repeat ")
-        || s.starts_with("gjenta ")
+    ) {
+        return true;
+    }
+    // "repeat chorus" / "gjenta refreng" etc. are markers, but only when what
+    // follows is a section reference — never an arbitrary lyric line that merely
+    // starts with the word "Repeat"/"Gjenta".
+    if let Some(rest) = s
+        .strip_prefix("repeat ")
+        .or_else(|| s.strip_prefix("gjenta "))
+    {
+        // A marker references a known section (optionally with a number) and is
+        // short. Anything else is real lyrics.
+        const SECTION_WORDS: &[&str] = &[
+            "chorus", "refrain", "refreng", "kor", "verse", "vers", "bridge", "bro", "intro",
+            "outro", "tag", "x2", "x3", "x4", "2x", "3x", "4x",
+        ];
+        let words: Vec<&str> = rest.split_whitespace().collect();
+        if words.len() <= 2
+            && words
+                .iter()
+                .all(|w| SECTION_WORDS.contains(w) || w.chars().all(|c| c.is_ascii_digit()))
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// A chord token like `G`, `Am`, `F#m7`, `C/E`.
@@ -437,11 +461,43 @@ fn is_chord_token(tok: &str) -> bool {
     if !('A'..='G').contains(&first.to_ascii_uppercase()) {
         return false;
     }
-    // Allowed after the root: note letters A–G (slash-bass like `A/E`),
-    // accidentals, extensions, and quality letters — but NOT vowels like
-    // e/o/y that appear in ordinary words ("Came", "Amen", "Holy").
-    const ALLOWED: &str = "ABCDEFG#b0123456789mMajisundg/+()";
-    tok.chars().skip(1).all(|c| ALLOWED.contains(c))
+    // Split off an optional slash-bass suffix (`C/E`, `D/F#`); the bass must be
+    // a note name itself.
+    let (body, bass) = match tok.split_once('/') {
+        Some((b, after)) => (b, Some(after)),
+        None => (tok, None),
+    };
+    if let Some(bass) = bass {
+        // A bass like `E`, `F#`, `Bb` — root note + optional accidental, nothing
+        // word-like.
+        let mut bc = bass.chars();
+        let Some(bn) = bc.next() else { return false };
+        if !('A'..='G').contains(&bn.to_ascii_uppercase()) {
+            return false;
+        }
+        if !bc.all(|c| matches!(c, '#' | 'b')) {
+            return false;
+        }
+    }
+    // Remaining body after the root note: an optional accidental, then a
+    // quality/extension string. Letters here must be real chord-quality
+    // letters, never an arbitrary run that spells a word ("Bad", "Dig", "Dag").
+    let after_root: String = body.chars().skip(1).collect();
+    let after_root = after_root.strip_prefix(['#', 'b']).unwrap_or(&after_root);
+
+    // The alphabetic part must be a recognised quality keyword (or empty);
+    // digits / + / ( ) are free extensions ("Am7", "C9", "Dsus4", "G(add9)").
+    let alpha: String = after_root.chars().filter(|c| c.is_alphabetic()).collect();
+    const QUALITIES: &[&str] = &[
+        "", "m", "maj", "min", "sus", "add", "dim", "aug", "maug", "mmaj", "msus", "madd", "mdim",
+    ];
+    if !QUALITIES.contains(&alpha.as_str()) {
+        return false;
+    }
+    // Any non-alphabetic chars must be valid extension symbols.
+    after_root
+        .chars()
+        .all(|c| c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '+' | '(' | ')'))
 }
 
 /// A chord-only line: several chord tokens, or a single chord with an
@@ -558,6 +614,32 @@ mod tests {
         assert!(is_repeat_marker("(repeat chorus)"));
         assert!(is_repeat_marker("Gjenta refreng"));
         assert!(!is_repeat_marker("excellent"));
+    }
+
+    // Regression: a genuine lyric line whose first word happens to be
+    // "Repeat"/"Gjenta" must NOT be treated as a repetition marker.
+    #[test]
+    fn repeat_marker_does_not_eat_real_lyrics() {
+        assert!(!is_repeat_marker("Repeat after me"));
+        assert!(!is_repeat_marker("Gjenta etter meg"));
+        let f = heuristic_format("Repeat these words O Lord\nwith all my heart");
+        assert_eq!(
+            f.sections[0].lyrics,
+            "Repeat these words O Lord\nwith all my heart"
+        );
+        let g = heuristic_format("Gjenta etter meg\nnoe annet");
+        assert_eq!(g.sections[0].lyrics, "Gjenta etter meg\nnoe annet");
+    }
+
+    // Regression: ordinary multi-word lyric lines made only of letters that
+    // happen to appear in the chord alphabet must not be deleted as chords.
+    #[test]
+    fn chord_line_does_not_eat_real_word_lines() {
+        assert!(!is_chord_line("Big bad bug"));
+        assert!(!is_chord_line("Dad and"));
+        assert!(!is_chord_line("Dag da"));
+        let f = heuristic_format("Big bad bug\nsang a song");
+        assert_eq!(f.sections[0].lyrics, "Big bad bug\nsang a song");
     }
 
     // ── heuristic_format ───────────────────────────────────────────────────────

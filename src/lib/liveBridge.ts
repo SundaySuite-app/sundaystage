@@ -155,7 +155,9 @@ export function bridgeOnGoLive(
       startedAt,
     }),
   );
-  appendCueChange(out, ctx, cues, index, total, seq, at, shownItems);
+  // Go-live: there is no previous cue, so the opening cue is always a song
+  // change (emit the opening now_playing).
+  appendCueChange(out, ctx, cues, null, index, total, seq, at, shownItems);
   return out;
 }
 
@@ -176,7 +178,17 @@ export function bridgeOnCueChange(
 ): BridgeEmission {
   const out = emptyEmission();
   if (nextIndex === prevIndex) return out; // no movement → nothing to publish
-  appendCueChange(out, ctx, cues, nextIndex, total, seq, at, shownItems);
+  appendCueChange(
+    out,
+    ctx,
+    cues,
+    prevIndex,
+    nextIndex,
+    total,
+    seq,
+    at,
+    shownItems,
+  );
   return out;
 }
 
@@ -208,6 +220,7 @@ function appendCueChange(
   out: BridgeEmission,
   ctx: LiveBridgeContext,
   cues: readonly BridgeCue[],
+  prevIndex: number | null,
   index: number,
   total: number,
   seq: LiveSequence,
@@ -232,17 +245,27 @@ function appendCueChange(
   const song = ctx.songsByItem[cue.serviceItemId];
   if (!song) return; // non-song cue (scripture/gap/blackout): no song bridge
 
-  out.liveEvents.push(
-    buildNowPlaying({
-      churchId: ctx.churchId,
-      serviceId: ctx.serviceId,
-      seq: seq.next(),
-      at,
-      title: song.title,
-      songId: song.songId,
-      variantId: song.variantId ?? null,
-    }),
-  );
+  // `now_playing` fires only when the *song* under the cursor changes — never
+  // slide-by-slide within one song — so SundayRec chapters don't churn. A
+  // null prevIndex (go-live) is always a change; a previous non-song cue has
+  // no song id and so also counts as a change.
+  const prevCue = prevIndex === null ? undefined : cues[prevIndex];
+  const prevSongId = prevCue
+    ? (ctx.songsByItem[prevCue.serviceItemId]?.songId ?? null)
+    : null;
+  if (prevSongId !== song.songId) {
+    out.liveEvents.push(
+      buildNowPlaying({
+        churchId: ctx.churchId,
+        serviceId: ctx.serviceId,
+        seq: seq.next(),
+        at,
+        title: song.title,
+        songId: song.songId,
+        variantId: song.variantId ?? null,
+      }),
+    );
+  }
 
   // Log usage once per service item per session (idempotency-keyed anyway).
   if (!shownItems.has(cue.serviceItemId)) {
