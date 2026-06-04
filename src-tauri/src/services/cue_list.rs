@@ -851,4 +851,42 @@ mod tests {
         let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
         assert!(cl.is_empty());
     }
+
+    // ── property: humanize ↔ normalize is a stable round-trip ───────────────────
+
+    // INVARIANT: for every canonical snake_case label the importer/heuristic
+    // formatter emits, normalize_label(humanize_section_label(label)) == label.
+    // This pins the editor↔stage-display↔re-import contract: a section labelled
+    // by the importer, humanized for the operator/musician display, then read
+    // back (e.g. re-imported from a humanized export) must not drift.
+    #[test]
+    fn humanize_normalize_roundtrip_on_canonical_labels() {
+        use crate::services::ai::lyric_format::normalize_label;
+        let bases = [
+            "verse",
+            "chorus",
+            "pre_chorus",
+            "bridge",
+            "intro",
+            "ending",
+            "tag",
+            "instrumental",
+        ];
+        // Numbered forms only apply to the labels normalize_label numbers.
+        let numbered = ["verse", "pre_chorus"];
+        let mut labels: Vec<String> = bases.iter().map(|s| s.to_string()).collect();
+        for b in numbered {
+            for n in [1usize, 2, 9, 10, 23] {
+                labels.push(format!("{b}_{n}"));
+            }
+        }
+        for label in labels {
+            let humanized = humanize_section_label(&label);
+            let back = normalize_label(&humanized);
+            assert_eq!(
+                back, label,
+                "round-trip drift: {label:?} -> {humanized:?} -> {back:?}"
+            );
+        }
+    }
 }
