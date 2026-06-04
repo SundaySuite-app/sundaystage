@@ -14,6 +14,7 @@ pub mod demo;
 pub mod display;
 pub mod live_session;
 pub mod media;
+pub mod scripture_break;
 pub mod session_store;
 pub mod slide_doc;
 pub mod song_import;
