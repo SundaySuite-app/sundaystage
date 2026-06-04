@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import type { SlideBlock, SlideDoc } from "@/lib/bindings";
 import {
+  autoFitTextBlockStyle,
   backgroundStyle,
   blockBoxStyle,
   clampRect,
@@ -434,7 +435,18 @@ export function SlideCanvas({
             onPointerDown={(e) => onBlockPointerDown(e, block)}
           >
             {isTextBlock(block) ? (
-              <div style={textBlockStyle(block, height)}>{block.text}</div>
+              // The non-interactive view mirrors the live output, so it auto-fits
+              // (shared `fitText` ⇒ preview == output). While actively editing we
+              // show the authored size so manual sizing isn't fought by the fit.
+              <div
+                style={
+                  interactive
+                    ? textBlockStyle(block, height)
+                    : autoFitTextBlockStyle(block, height)
+                }
+              >
+                {block.text}
+              </div>
             ) : (
               <div className="grid h-full w-full place-items-center bg-white/5 text-xs text-white/50">
                 {block.type}

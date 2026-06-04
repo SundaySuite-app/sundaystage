@@ -35,6 +35,89 @@ mod render {
     use sundaystage_lib::services::display::OutputAppearance;
     use sundaystage_lib::services::live_session::LiveFrame;
     use sundaystage_lib::services::slide_doc::HAlign;
+    use sundaystage_lib::services::text_fit::{fit_text, FitBox, FitParams};
+
+    /// The virtual stage the fit is computed against (matches `slide_doc` docs
+    /// and the editor's `STAGE_HEIGHT`/`STAGE_ASPECT`). The lyric block occupies
+    /// the same 0.84×0.50 centered region the `Lyrics Centered` template uses, so
+    /// the output's auto-fit lines up with the editor preview.
+    const STAGE_W: f32 = 1920.0;
+    const STAGE_H: f32 = 1080.0;
+    /// Fraction of the frame the lyric block fills (centered lyrics template).
+    const LYRIC_W_FRAC: f32 = 0.84;
+    const LYRIC_H_FRAC: f32 = 0.50;
+    /// Base body size on the stage; the historical `5.5 cqw` ≈ 5.5% of a 1920px
+    /// frame = ~105.6px, but the editor authors at 64px @1080, so we fit against
+    /// the same 64px base scaled by `text_scale` and report the result back in
+    /// cqw for the output's container-query units.
+    const BASE_PX: f32 = 64.0;
+    const MIN_PX: f32 = 22.0;
+    const STEP_PX: f32 = 2.0;
+    /// 1px @1080 stage → this many `cqw` (% of a 1920px-wide frame).
+    const PX_TO_CQW: f32 = 100.0 / STAGE_W;
+
+    /// Measure wrapped lyrics for the output process. Real glyph metrics are a
+    /// runtime concern (the window's layout engine), so headlessly we use a
+    /// conservative average-advance model: each glyph ≈ `size * 0.52` px wide,
+    /// line-height from the appearance. This is the SAME shape the editor's
+    /// canvas-`measureText` closure feeds [`fit_text`]; the size search — the
+    /// part that is unit-tested in `services::text_fit` — is identical, so the
+    /// preview and output agree to within the measurer's accuracy. Wrapping is
+    /// greedy word-wrap; hard `\n` always break.
+    fn measure_lyrics(
+        line_height: f32,
+    ) -> impl Fn(&str, f32, f32) -> sundaystage_lib::services::text_fit::LaidOut {
+        move |text: &str, size: f32, max_width: f32| {
+            let glyph = (size * 0.52).max(0.001);
+            let max_chars = ((max_width / glyph).floor() as usize).max(1);
+            let mut lines: Vec<String> = Vec::new();
+            for hard in text.split('\n') {
+                if hard.is_empty() {
+                    lines.push(String::new());
+                    continue;
+                }
+                let mut cur = String::new();
+                for word in hard.split(' ') {
+                    let candidate = if cur.is_empty() {
+                        word.to_string()
+                    } else {
+                        format!("{cur} {word}")
+                    };
+                    if candidate.chars().count() <= max_chars || cur.is_empty() {
+                        cur = candidate;
+                    } else {
+                        lines.push(std::mem::take(&mut cur));
+                        cur = word.to_string();
+                    }
+                }
+                lines.push(cur);
+            }
+            let height = lines.len() as f32 * size * line_height;
+            sundaystage_lib::services::text_fit::LaidOut { lines, height }
+        }
+    }
+
+    /// Compute the auto-fit font size (in `cqw`) for the slide's lyric lines so a
+    /// long translation / pasted wall of text shrinks to stay on screen instead
+    /// of overflowing. Pure: delegates the search to the shared
+    /// [`fit_text`] algorithm — the editor uses the identical algorithm so the
+    /// preview matches.
+    pub fn fit_lyrics_cqw(lines: &[String], appearance: &OutputAppearance) -> f32 {
+        let text = lines.join("\n");
+        let scale = appearance.text_scale.max(0.1);
+        let bx = FitBox {
+            width: STAGE_W * LYRIC_W_FRAC,
+            height: STAGE_H * LYRIC_H_FRAC,
+            max_lines: None,
+        };
+        let params = FitParams {
+            base: BASE_PX * scale,
+            min: MIN_PX,
+            step: STEP_PX,
+        };
+        let result = fit_text(&text, &bx, &params, &measure_lyrics(appearance.line_height));
+        result.size * PX_TO_CQW
+    }
 
     /// Map [`HAlign`] to its CSS `text-align` value.
     fn align_css(a: HAlign) -> &'static str {
@@ -80,11 +163,15 @@ mod render {
                 } else {
                     "none"
                 };
+                // Auto-fit: a long translation / pasted lyrics would overflow the
+                // fixed slide, so shrink the body size (shared with the editor via
+                // `text_fit`) instead of spilling off-screen.
+                let font_cqw = fit_lyrics_cqw(&slide_content.text_lines, appearance);
                 for line in &slide_content.text_lines {
                     body.push_str(&format!(
                         r#"<p class="line" style="color:{};font-size:{}cqw;line-height:{};text-transform:{}">{}</p>"#,
                         esc(&appearance.text_color),
-                        5.5 * appearance.text_scale,
+                        font_cqw,
                         appearance.line_height,
                         transform,
                         esc(line),
@@ -435,6 +522,43 @@ mod tests {
         assert!(html.contains("Verse 1")); // section label on (default)
         assert!(html.contains("#abcdef"));
         assert!(html.contains("text-transform:uppercase"));
+    }
+
+    #[test]
+    fn long_lyrics_auto_fit_to_a_smaller_size_than_short_ones() {
+        // The output consumes the SHARED `text_fit` algorithm: a wall of pasted
+        // lyrics must render at a smaller font than a one-liner so it stays on
+        // screen. We assert the relationship via the computed cqw size.
+        let appearance = OutputAppearance::default();
+        let short = super::render::fit_lyrics_cqw(&["Amazing grace".to_string()], &appearance);
+        let long_line = "the quick brown fox jumps over the lazy dog ".repeat(8);
+        let long = super::render::fit_lyrics_cqw(
+            &[long_line.clone(), long_line.clone(), long_line],
+            &appearance,
+        );
+        assert!(
+            long < short,
+            "long lyrics ({long}) should fit smaller than short ({short})"
+        );
+    }
+
+    #[test]
+    fn short_lyrics_keep_the_base_output_size() {
+        // A single short line should not be shrunk at all — base 64px @1080
+        // scaled to cqw (100/1920 px→cqw) = 64 * 100 / 1920 ≈ 3.333 cqw.
+        let appearance = OutputAppearance::default();
+        let cqw = super::render::fit_lyrics_cqw(&["Hi".to_string()], &appearance);
+        let expected = 64.0_f32 * 100.0 / 1920.0;
+        assert!((cqw - expected).abs() < 1e-3, "got {cqw}, want {expected}");
+    }
+
+    #[test]
+    fn auto_fit_size_appears_in_rendered_slide_html() {
+        let appearance = OutputAppearance::default();
+        let html = frame_to_html(&slide(&["Amazing grace"]), &appearance);
+        // The static 5.5cqw is gone; the fitted size is present.
+        assert!(!html.contains("5.5cqw"));
+        assert!(html.contains("cqw"));
     }
 
     #[test]

@@ -66,15 +66,21 @@ impl Default for ThemeTokens {
     }
 }
 
-/// What a slot is for — drives which token colors/weights it inherits.
+/// What a slot is for — drives which token colors/weights it inherits and how
+/// the content payload is mapped into it (see [`map_content_to_slots`]).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[ts(export, export_to = "../../src/lib/bindings/SlotRole.ts")]
 pub enum SlotRole {
     Title,
+    /// Free-form prose (sermon body, announcement text, a quote).
+    Body,
     Lyrics,
     Reference,
     Footer,
+    /// A media slot. Filled from the payload's `image` field; rendered as an
+    /// image background-ish block by the bridge (text bridge skips it for now).
+    Image,
 }
 
 /// One named region in a template. Themes style it; content fills it.
@@ -340,7 +346,7 @@ pub fn builtin_templates() -> Vec<StaticTemplate> {
         },
         StaticTemplate {
             id: "builtin-template-two-column".into(),
-            name: "Two Column".into(),
+            name: "Two Column Lyrics".into(),
             layout: TemplateLayout {
                 slots: vec![
                     slot(
@@ -369,11 +375,273 @@ pub fn builtin_templates() -> Vec<StaticTemplate> {
             },
         },
         StaticTemplate {
+            id: "builtin-template-sermon-title".into(),
+            name: "Sermon Title".into(),
+            layout: TemplateLayout {
+                slots: vec![
+                    slot(
+                        "title",
+                        SlotRole::Title,
+                        0.08,
+                        0.3,
+                        0.84,
+                        0.22,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        1.4,
+                    ),
+                    slot(
+                        "body",
+                        SlotRole::Body,
+                        0.12,
+                        0.56,
+                        0.76,
+                        0.22,
+                        HAlign::Center,
+                        VAlign::Top,
+                        0.6,
+                    ),
+                ],
+            },
+        },
+        StaticTemplate {
+            id: "builtin-template-quote".into(),
+            name: "Quote + Attribution".into(),
+            layout: TemplateLayout {
+                slots: vec![
+                    slot(
+                        "body",
+                        SlotRole::Body,
+                        0.1,
+                        0.22,
+                        0.8,
+                        0.5,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.95,
+                    ),
+                    slot(
+                        "footer",
+                        SlotRole::Footer,
+                        0.1,
+                        0.76,
+                        0.8,
+                        0.12,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.5,
+                    ),
+                ],
+            },
+        },
+        StaticTemplate {
+            id: "builtin-template-image-caption".into(),
+            name: "Image + Caption".into(),
+            layout: TemplateLayout {
+                slots: vec![
+                    slot(
+                        "image",
+                        SlotRole::Image,
+                        0.2,
+                        0.12,
+                        0.6,
+                        0.62,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        1.0,
+                    ),
+                    slot(
+                        "footer",
+                        SlotRole::Footer,
+                        0.1,
+                        0.78,
+                        0.8,
+                        0.12,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.5,
+                    ),
+                ],
+            },
+        },
+        StaticTemplate {
+            id: "builtin-template-announcement".into(),
+            name: "Announcement".into(),
+            layout: TemplateLayout {
+                slots: vec![
+                    slot(
+                        "title",
+                        SlotRole::Title,
+                        0.08,
+                        0.16,
+                        0.84,
+                        0.2,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        1.2,
+                    ),
+                    slot(
+                        "body",
+                        SlotRole::Body,
+                        0.12,
+                        0.4,
+                        0.76,
+                        0.4,
+                        HAlign::Center,
+                        VAlign::Top,
+                        0.65,
+                    ),
+                    slot(
+                        "footer",
+                        SlotRole::Footer,
+                        0.1,
+                        0.82,
+                        0.8,
+                        0.1,
+                        HAlign::Center,
+                        VAlign::Middle,
+                        0.45,
+                    ),
+                ],
+            },
+        },
+        StaticTemplate {
+            id: "builtin-template-title-only".into(),
+            name: "Title Only".into(),
+            layout: TemplateLayout {
+                slots: vec![slot(
+                    "title",
+                    SlotRole::Title,
+                    0.08,
+                    0.4,
+                    0.84,
+                    0.2,
+                    HAlign::Center,
+                    VAlign::Middle,
+                    1.4,
+                )],
+            },
+        },
+        StaticTemplate {
             id: "builtin-template-blank".into(),
             name: "Blank".into(),
             layout: TemplateLayout { slots: vec![] },
         },
     ]
+}
+
+// ── Slot mapping (apply-template content fill) ─────────────────────────────────
+
+/// A content payload to be poured into a template's slots. Every field is
+/// optional; a template only consumes the fields whose roles its slots declare.
+///
+/// This is the *source* side of the apply-template flow: the gallery hands a
+/// payload to [`map_content_to_slots`], which resolves it into the
+/// `slot_name -> text` map that [`render_slide`] already understands.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS, PartialEq)]
+#[ts(export, export_to = "../../src/lib/bindings/SlideContentPayload.ts")]
+pub struct SlideContentPayload {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub lyrics: Option<String>,
+    pub reference: Option<String>,
+    pub footer: Option<String>,
+    pub image: Option<String>,
+}
+
+impl SlideContentPayload {
+    /// The payload field that feeds a given slot role.
+    fn field_for(&self, role: SlotRole) -> Option<&str> {
+        let v = match role {
+            SlotRole::Title => &self.title,
+            SlotRole::Body => &self.body,
+            SlotRole::Lyrics => &self.lyrics,
+            SlotRole::Reference => &self.reference,
+            SlotRole::Footer => &self.footer,
+            SlotRole::Image => &self.image,
+        };
+        v.as_deref()
+    }
+}
+
+/// Map a content payload onto a template's named slots, producing the
+/// `slot_name -> text` map that [`render_slide`] consumes.
+///
+/// Rules (kept deterministic and total so it can never panic on a Sunday):
+///   * Each slot pulls from the payload field matching its [`SlotRole`].
+///   * A missing/blank field leaves that slot out of the map → the renderer
+///     skips it (empty slot, not a broken one).
+///   * When a single role appears in *multiple* slots (e.g. a two-column lyrics
+///     template), the source text is split across them paragraph-by-paragraph
+///     (blank-line separated), balanced left-to-right; if it doesn't split,
+///     the first slot gets it all and the rest stay empty.
+pub fn map_content_to_slots(
+    layout: &TemplateLayout,
+    payload: &SlideContentPayload,
+) -> HashMap<String, String> {
+    let mut out: HashMap<String, String> = HashMap::new();
+
+    // Group slot names by role, preserving template order.
+    let mut by_role: Vec<(SlotRole, Vec<&str>)> = Vec::new();
+    for s in &layout.slots {
+        if let Some((_, names)) = by_role.iter_mut().find(|(r, _)| *r == s.role) {
+            names.push(&s.name);
+        } else {
+            by_role.push((s.role, vec![&s.name]));
+        }
+    }
+
+    for (role, names) in by_role {
+        let Some(text) = payload
+            .field_for(role)
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        else {
+            continue;
+        };
+        if names.len() == 1 {
+            out.insert(names[0].to_string(), text.to_string());
+            continue;
+        }
+        // Split across the N slots of this role by paragraph (blank line).
+        let parts = split_into(text, names.len());
+        for (name, part) in names.iter().zip(parts) {
+            if !part.trim().is_empty() {
+                out.insert(name.to_string(), part);
+            }
+        }
+    }
+
+    out
+}
+
+/// Split `text` into at most `n` chunks on blank-line paragraph boundaries,
+/// balancing paragraphs across chunks. If there are fewer paragraphs than
+/// chunks, the leading chunks get one paragraph each and the rest are empty;
+/// if there are no blank-line breaks at all, the whole text goes to chunk 0.
+fn split_into(text: &str, n: usize) -> Vec<String> {
+    if n <= 1 {
+        return vec![text.to_string()];
+    }
+    let paras: Vec<&str> = text
+        .split("\n\n")
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if paras.len() <= 1 {
+        // Can't split meaningfully — first chunk gets everything.
+        let mut v = vec![String::new(); n];
+        v[0] = text.to_string();
+        return v;
+    }
+    let mut chunks = vec![Vec::<&str>::new(); n];
+    // Ceil-divide so the left chunks fill first (balanced, left-heavy).
+    let per = paras.len().div_ceil(n);
+    for (i, para) in paras.iter().enumerate() {
+        let idx = (i / per).min(n - 1);
+        chunks[idx].push(para);
+    }
+    chunks.into_iter().map(|c| c.join("\n\n")).collect()
 }
 
 /// Tokens for a theme id, checking built-ins then the supplied DB themes.
@@ -419,7 +687,9 @@ pub fn layout_for(
 fn slot_color(role: SlotRole, tokens: &ThemeTokens) -> String {
     match role {
         SlotRole::Reference | SlotRole::Footer => tokens.accent_color.clone(),
-        SlotRole::Title | SlotRole::Lyrics => tokens.text_color.clone(),
+        SlotRole::Title | SlotRole::Body | SlotRole::Lyrics | SlotRole::Image => {
+            tokens.text_color.clone()
+        }
     }
 }
 
@@ -435,6 +705,15 @@ pub fn render_slide(
     for s in &layout.slots {
         let text = slot_text.get(&s.name).cloned().unwrap_or_default();
         if text.trim().is_empty() {
+            continue;
+        }
+        // An image slot's value is an asset id / path → render a media block.
+        if s.role == SlotRole::Image {
+            blocks.push(SlideBlock::Image {
+                id: format!("slot:{}", s.name),
+                rect: s.rect,
+                src: text,
+            });
             continue;
         }
         blocks.push(SlideBlock::Text {
@@ -607,6 +886,155 @@ mod tests {
                     assert_eq!(style.color, tokens.text_color);
                 }
             }
+        }
+    }
+
+    // ── Slot mapping ──────────────────────────────────────────────────────────
+
+    fn tmpl(id: &str) -> TemplateLayout {
+        builtin_templates()
+            .into_iter()
+            .find(|t| t.id == id)
+            .unwrap_or_else(|| panic!("missing builtin {id}"))
+            .layout
+    }
+
+    #[test]
+    fn map_fills_each_slot_from_its_role_field() {
+        let layout = tmpl("builtin-template-announcement"); // title + body + footer
+        let payload = SlideContentPayload {
+            title: Some("Youth Camp".into()),
+            body: Some("Sign up after the service".into()),
+            footer: Some("July 12-15".into()),
+            ..Default::default()
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        assert_eq!(map.get("title").map(String::as_str), Some("Youth Camp"));
+        assert_eq!(
+            map.get("body").map(String::as_str),
+            Some("Sign up after the service")
+        );
+        assert_eq!(map.get("footer").map(String::as_str), Some("July 12-15"));
+        assert_eq!(map.len(), 3);
+    }
+
+    #[test]
+    fn map_leaves_missing_content_slot_empty_not_broken() {
+        let layout = tmpl("builtin-template-announcement");
+        let payload = SlideContentPayload {
+            title: Some("Welcome".into()),
+            // body + footer intentionally absent
+            ..Default::default()
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        assert_eq!(map.get("title").map(String::as_str), Some("Welcome"));
+        assert!(!map.contains_key("body"), "missing field => slot omitted");
+        assert!(!map.contains_key("footer"));
+        // And the rendered doc simply skips the empty slots — no panic, no blank block.
+        let doc = render_slide(&layout, &ThemeTokens::default(), &map);
+        assert_eq!(doc.blocks.len(), 1);
+    }
+
+    #[test]
+    fn map_treats_blank_field_as_empty() {
+        let layout = tmpl("builtin-template-title-only");
+        let payload = SlideContentPayload {
+            title: Some("   \n  ".into()),
+            ..Default::default()
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        assert!(map.is_empty(), "whitespace-only field fills no slot");
+    }
+
+    #[test]
+    fn map_ignores_unknown_slot_roles_in_payload() {
+        // title-only template ignores body/lyrics/reference content entirely.
+        let layout = tmpl("builtin-template-title-only");
+        let payload = SlideContentPayload {
+            title: Some("Sermon".into()),
+            body: Some("ignored".into()),
+            lyrics: Some("ignored".into()),
+            reference: Some("ignored".into()),
+            footer: Some("ignored".into()),
+            image: Some("ignored.png".into()),
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("title").map(String::as_str), Some("Sermon"));
+    }
+
+    #[test]
+    fn map_splits_one_role_across_multiple_slots_by_paragraph() {
+        let layout = tmpl("builtin-template-two-column"); // two lyrics slots
+        let payload = SlideContentPayload {
+            lyrics: Some("verse one\nline two\n\nverse three\nline four".into()),
+            ..Default::default()
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        assert_eq!(
+            map.get("left").map(String::as_str),
+            Some("verse one\nline two")
+        );
+        assert_eq!(
+            map.get("right").map(String::as_str),
+            Some("verse three\nline four")
+        );
+    }
+
+    #[test]
+    fn map_unsplittable_multislot_role_puts_all_in_first() {
+        let layout = tmpl("builtin-template-two-column");
+        let payload = SlideContentPayload {
+            lyrics: Some("just one block\nno blank line".into()),
+            ..Default::default()
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        assert_eq!(
+            map.get("left").map(String::as_str),
+            Some("just one block\nno blank line")
+        );
+        assert!(!map.contains_key("right"));
+    }
+
+    #[test]
+    fn map_is_deterministic() {
+        let layout = tmpl("builtin-template-quote");
+        let payload = SlideContentPayload {
+            body: Some("Be still and know".into()),
+            footer: Some("Psalm 46".into()),
+            ..Default::default()
+        };
+        let a = map_content_to_slots(&layout, &payload);
+        let b = map_content_to_slots(&layout, &payload);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn map_then_render_produces_image_block_for_image_slot() {
+        let layout = tmpl("builtin-template-image-caption");
+        let payload = SlideContentPayload {
+            image: Some("asset-123".into()),
+            footer: Some("Baptism Sunday".into()),
+            ..Default::default()
+        };
+        let map = map_content_to_slots(&layout, &payload);
+        let doc = render_slide(&layout, &ThemeTokens::default(), &map);
+        assert_eq!(doc.blocks.len(), 2);
+        let has_image = doc
+            .blocks
+            .iter()
+            .any(|b| matches!(b, SlideBlock::Image { src, .. } if src == "asset-123"));
+        assert!(has_image, "image slot renders a media block, not text");
+    }
+
+    #[test]
+    fn every_builtin_template_has_unique_named_slots() {
+        for t in builtin_templates() {
+            let mut names: Vec<&str> = t.layout.slots.iter().map(|s| s.name.as_str()).collect();
+            let n = names.len();
+            names.sort_unstable();
+            names.dedup();
+            assert_eq!(names.len(), n, "template {} has duplicate slot names", t.id);
         }
     }
 

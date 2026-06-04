@@ -14,7 +14,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CopyPlus, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import {
+  CopyPlus,
+  LayoutTemplate,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+} from "lucide-react";
 
 import type {
   SlideDoc,
@@ -40,6 +47,7 @@ import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { ConfirmModal } from "@/components/ui";
 import { SlideCanvas } from "./SlideCanvas";
+import { TemplateGallery } from "./TemplateGallery";
 
 interface ThemeControlsProps {
   libraryId: string;
@@ -80,6 +88,8 @@ export function ThemeControls({
   const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
   // Theme pending deletion — drives the confirmation modal.
   const [confirmDelete, setConfirmDelete] = useState<Theme | null>(null);
+  // Template gallery open state.
+  const [galleryOpen, setGalleryOpen] = useState(false);
   useEffect(() => {
     setPickedTheme(null);
     setPickedTemplate(null);
@@ -253,15 +263,27 @@ export function ThemeControls({
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => templateId && setDefaultTemplateMut.mutate(templateId)}
-          disabled={!templateId}
-          title={t("tcSetDefaultTemplateTitle")}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-40"
-        >
-          <Star size={13} /> {t("arrSetDefault")}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setGalleryOpen(true)}
+            title={t("galOpenTitle")}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+          >
+            <LayoutTemplate size={13} /> {t("galBrowse")}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              templateId && setDefaultTemplateMut.mutate(templateId)
+            }
+            disabled={!templateId}
+            title={t("tcSetDefaultTemplateTitle")}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-40"
+          >
+            <Star size={13} /> {t("arrSetDefault")}
+          </button>
+        </div>
       </section>
 
       <section className="space-y-2">
@@ -405,6 +427,22 @@ export function ThemeControls({
         <p className="text-[11px] text-[var(--color-fg-muted)]">
           {t("tcDuplicateHint")}
         </p>
+      )}
+
+      {galleryOpen && themeId && (
+        <TemplateGallery
+          libraryId={libraryId}
+          themeId={themeId}
+          doc={doc}
+          templates={templates}
+          themes={themes}
+          onApply={(rendered, appliedTemplateId) => {
+            onReplaceDoc(rendered);
+            onSetSlideTemplate(appliedTemplateId);
+            setPickedTemplate(appliedTemplateId);
+          }}
+          onClose={() => setGalleryOpen(false)}
+        />
       )}
 
       {confirmDelete && (

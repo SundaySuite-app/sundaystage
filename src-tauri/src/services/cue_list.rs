@@ -22,6 +22,7 @@ use ts_rs::TS;
 use crate::db::models::{BibleReference, Service, ServiceItem, Slide, SongSection};
 use crate::db::repositories::{ArrangementRepo, ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
+use crate::services::scripture_break;
 use sqlx::SqlitePool;
 
 /// A single executable step in the live timeline. Discriminated by `kind`.
@@ -369,19 +370,21 @@ impl<'a> CueCompiler<'a> {
                 .unwrap_or_default(),
         );
 
-        // Norwegian + English break verses differently. For v1 we just
-        // chunk by line count. Phase 7.1 wires the per-translation
-        // breaking strategy.
-        let lines: Vec<String> = reference.text.lines().map(|s| s.to_string()).collect();
-        for (cue_idx, chunk) in lines.chunks(DEFAULT_LINES_PER_SLIDE).enumerate() {
+        // Verse-aware auto-break: keep whole verses together within the line
+        // budget (only an over-long single verse spills across slides),
+        // preserving verse order across chapters. See `scripture_break`. The
+        // reference label rides on every produced slide.
+        let verses = scripture_break::verses_from_reference(&reference);
+        let slides = scripture_break::break_passage(&verses, &display, DEFAULT_LINES_PER_SLIDE);
+        for (cue_idx, slide) in slides.into_iter().enumerate() {
             let cue_idx = cue_idx as u32;
             cues.push(Cue::ShowSlide {
                 cue_id: format!("svc:{}:scripture:{}:c:{}", item.service_id, ref_id, cue_idx),
                 slide_content: SlideContent {
                     section_label: None,
-                    text_lines: chunk.to_vec(),
+                    text_lines: slide.lines,
                     translation_lines: None,
-                    reference: Some(display.clone()),
+                    reference: Some(slide.reference_label),
                     sensitive_slide: false,
                 },
                 theme_id: None,
@@ -801,6 +804,86 @@ mod tests {
             }
             _ => panic!("expected ShowSlide"),
         }
+    }
+
+    #[tokio::test]
+    async fn compile_scripture_breaks_verse_aware_into_slide_sequence() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+
+        // Six one-line verses (Psalms 23:1-6), cached one verse per line — the
+        // canonical shape `bible_add_to_service` writes. At the default budget
+        // of 4 lines this must produce [v1..v4], [v5,v6] → exactly 2 cues, and
+        // the reference must ride on every slide.
+        let ref_id = new_id();
+        let now = now_ms();
+        sqlx::query(
+            r#"
+            INSERT INTO bible_reference (id, book, chapter, verse_start, verse_end, translation, text, created_at)
+            VALUES (?1, 'Psalms', 23, 1, 6, 'KJV', ?2, ?3)
+            "#,
+        )
+        .bind(&ref_id)
+        .bind("verse one\nverse two\nverse three\nverse four\nverse five\nverse six")
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib.id, "Scripture service", now)
+            .await
+            .unwrap();
+        let item_id = new_id();
+        sqlx::query(
+            r#"
+            INSERT INTO service_item (id, service_id, position, kind,
+              song_id, arrangement_id, key_override, bible_reference_id,
+              custom_deck_id, media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, 0, 'scripture', NULL, NULL, NULL, ?3, NULL, NULL, NULL, ?4, ?4)
+            "#,
+        )
+        .bind(&item_id)
+        .bind(&svc.id)
+        .bind(&ref_id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
+        assert_eq!(cl.len(), 2, "6 verses @ 4 lines → [v1..v4], [v5,v6]");
+
+        match &cl.cues[0] {
+            Cue::ShowSlide { slide_content, .. } => {
+                assert_eq!(
+                    slide_content.text_lines,
+                    vec!["verse one", "verse two", "verse three", "verse four"]
+                );
+                assert_eq!(slide_content.reference.as_deref(), Some("Psalms 23:1-6"));
+            }
+            _ => panic!("expected ShowSlide"),
+        }
+        match &cl.cues[1] {
+            Cue::ShowSlide { slide_content, .. } => {
+                assert_eq!(slide_content.text_lines, vec!["verse five", "verse six"]);
+                assert_eq!(slide_content.reference.as_deref(), Some("Psalms 23:1-6"));
+            }
+            _ => panic!("expected ShowSlide"),
+        }
+
+        // Reference label present on every produced slide.
+        assert!(cl.cues.iter().all(|c| matches!(
+            c,
+            Cue::ShowSlide { slide_content, .. }
+                if slide_content.reference.as_deref() == Some("Psalms 23:1-6")
+        )));
     }
 
     #[tokio::test]
