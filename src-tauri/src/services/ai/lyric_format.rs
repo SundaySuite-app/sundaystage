@@ -209,7 +209,11 @@ pub fn heuristic_format(raw: &str) -> FormattedSong {
             .map(|l| l.trim_end().to_string())
             .collect();
         let lyrics = kept.join("\n");
-        if lyrics.trim().is_empty() && header.is_none() {
+        // A block with no lyric content is not a section — drop it even when a
+        // header was detected. A bare header ("[Chorus]" / "Verse 1") with no
+        // following words would otherwise create a section with empty lyrics
+        // (and a phantom arrangement slot that produces zero slides at runtime).
+        if lyrics.trim().is_empty() {
             continue;
         }
         parsed.push(Block { header, lyrics });
@@ -802,5 +806,145 @@ mod tests {
         assert_eq!(resolved.len(), 3);
         assert_eq!(resolved[0].label, "verse_1");
         assert_eq!(resolved[2].label, "chorus");
+    }
+
+    // ── regressions found by property fuzzing ──────────────────────────────────
+
+    // A block that reduces to nothing but a section header (no lyric lines
+    // follow it) must NOT become a section with empty lyrics. Found by the
+    // song-import fuzzer: input "&#39;</verse><verse" was detected as a header
+    // ("39 verse verse") leaving an empty body, which produced a phantom
+    // `verse_1`/`chorus` section that renders zero slides at runtime.
+    #[test]
+    fn header_only_block_does_not_create_empty_section() {
+        for raw in ["[Chorus]", "Verse 1", "Refreng", "[Verse 1]\nx2\nG D"] {
+            let f = heuristic_format(raw);
+            assert!(
+                f.sections.iter().all(|s| !s.lyrics.trim().is_empty()),
+                "{raw:?} produced an empty-lyrics section: {:?}",
+                f.sections
+            );
+        }
+        // A header followed by real words still yields exactly that section.
+        let f = heuristic_format("[Verse 1]\n\n[Chorus]\nReal words");
+        assert_eq!(f.sections.len(), 1);
+        assert_eq!(f.sections[0].label, "chorus");
+        assert_eq!(f.sections[0].lyrics, "Real words");
+    }
+
+    // ── property: structural invariants of heuristic_format ─────────────────────
+
+    struct Lcg(u64);
+    impl Lcg {
+        fn u(&mut self) -> u64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            self.0
+        }
+        fn below(&mut self, n: usize) -> usize {
+            (self.u() % n as u64) as usize
+        }
+    }
+
+    const TOKENS: &[&str] = &[
+        "Amazing",
+        "grace",
+        "how",
+        "sweet",
+        "the",
+        "sound",
+        "Du",
+        "er",
+        "hellig",
+        "G",
+        "Am7",
+        "C/E",
+        "x2",
+        "(repeat chorus)",
+        "[Chorus]",
+        "Verse 1",
+        "1",
+        "Repeat",
+        "Bridge",
+        "over",
+        "troubled",
+        "water",
+        "æ",
+        "ø",
+        "å",
+    ];
+
+    fn random_line(rng: &mut Lcg) -> String {
+        let n = 1 + rng.below(5);
+        (0..n)
+            .map(|_| TOKENS[rng.below(TOKENS.len())])
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    // INVARIANT: heuristic_format never deletes a "plain" line — one that is not
+    // a chord line, not a repeat marker, and not a section header. Every such
+    // line must survive verbatim into some section's lyrics. This is the core
+    // "don't silently eat the congregation's words" promise.
+    #[test]
+    fn plain_lines_are_never_deleted() {
+        let mut rng = Lcg(0xDEAD_BEEF_1234_5678);
+        for _ in 0..500 {
+            let line = random_line(&mut rng);
+            let trimmed = line.trim_end();
+            let is_plain = !is_chord_line(trimmed)
+                && !is_repeat_marker(trimmed)
+                && detect_header(trimmed).is_none();
+            if !is_plain {
+                continue;
+            }
+            // Put it in a context that can't be merged away or treated as a header
+            // for a neighbour: a header line above guarantees this line is body.
+            let song = heuristic_format(&format!("[Verse 1]\n{line}"));
+            let found = song
+                .sections
+                .iter()
+                .any(|s| s.lyrics.lines().any(|l| l == trimmed));
+            assert!(
+                found,
+                "plain line {trimmed:?} was deleted; sections={:?}",
+                song.sections
+            );
+        }
+    }
+
+    // INVARIANT: heuristic_format is internally consistent and stable — every
+    // arrangement entry references an existing, non-empty, uniquely-labelled
+    // section, for arbitrary multi-block input.
+    #[test]
+    fn heuristic_output_is_internally_consistent() {
+        use std::collections::HashSet;
+        let mut rng = Lcg(0x0BAD_F00D_CAFE_BABE);
+        for _ in 0..500 {
+            let blocks = 1 + rng.below(5);
+            let mut input = String::new();
+            for _ in 0..blocks {
+                let lines = 1 + rng.below(4);
+                for _ in 0..lines {
+                    input.push_str(&random_line(&mut rng));
+                    input.push('\n');
+                }
+                input.push('\n');
+            }
+            let song = heuristic_format(&input);
+            let labels: HashSet<&str> = song.sections.iter().map(|s| s.label.as_str()).collect();
+            assert_eq!(labels.len(), song.sections.len(), "dup labels: {input:?}");
+            for s in &song.sections {
+                assert!(!s.lyrics.trim().is_empty(), "empty section in {input:?}");
+            }
+            for a in &song.arrangement {
+                assert!(
+                    labels.contains(a.as_str()),
+                    "dangling ref {a:?} in {input:?}"
+                );
+            }
+        }
     }
 }

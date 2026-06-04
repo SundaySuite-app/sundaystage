@@ -850,3 +850,141 @@ mod tests {
         let _ = (song.sections.len(), song.warnings.len());
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+
+    // Deterministic LCG (fixed seed) — no external deps.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next_u64(&mut self) -> u64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            self.0
+        }
+        fn below(&mut self, n: usize) -> usize {
+            (self.next_u64() % n as u64) as usize
+        }
+    }
+
+    // Alphabet of bytes/fragments that exercise the parsers' structural paths,
+    // including multibyte UTF-8 and the delimiter chars the slicers index on.
+    const FRAGS: &[&str] = &[
+        "<",
+        ">",
+        "<verse",
+        "</verse>",
+        "name=\"",
+        "v1",
+        "\"",
+        "<lines>",
+        "</lines>",
+        "<br/>",
+        "<title>",
+        "</title>",
+        "<lyrics>",
+        "</lyrics>",
+        "[V1]",
+        "[C]",
+        "[",
+        "]",
+        "{title:",
+        "{soc}",
+        "}",
+        ".",
+        ";",
+        "\n",
+        " ",
+        "é",
+        "ø",
+        "Å",
+        "字",
+        "🎵",
+        "&amp;",
+        "&#39;",
+        "<![CDATA[",
+        "]]>",
+        "verseOrder",
+        "<verseOrder>",
+        "openlyrics",
+        "/",
+        "\t",
+        "\r",
+        "G",
+        "Am7",
+        "0",
+        "9",
+        "chorus",
+        "verse",
+        "x2",
+    ];
+
+    fn random_input(rng: &mut Lcg) -> String {
+        let n = rng.below(40);
+        let mut s = String::new();
+        for _ in 0..n {
+            // 1/6 of the time inject a raw random byte as a char to stress UTF-8 paths.
+            if rng.below(6) == 0 {
+                let cp = rng.below(0x300) as u32;
+                if let Some(c) = char::from_u32(cp) {
+                    s.push(c);
+                }
+            } else {
+                s.push_str(FRAGS[rng.below(FRAGS.len())]);
+            }
+        }
+        s
+    }
+
+    #[test]
+    fn fuzz_never_panics_and_arrangement_is_consistent() {
+        let mut rng = Lcg(0x5151_4242_7373_9999);
+        let fmts = [
+            ImportFormat::PlainText,
+            ImportFormat::ChordPro,
+            ImportFormat::OpenSong,
+            ImportFormat::OpenLyrics,
+        ];
+        for _ in 0..500 {
+            let input = random_input(&mut rng);
+            // detect + import end-to-end must not panic on arbitrary bytes.
+            let (_fmt, song) = import_song("mystery.dat", &input);
+            check_consistency(&song);
+            // And each explicit format path independently.
+            for fmt in fmts {
+                let song = parse_song(&input, fmt);
+                check_consistency(&song);
+            }
+        }
+    }
+
+    fn check_consistency(song: &FormattedSong) {
+        use std::collections::HashSet;
+        let labels: HashSet<&str> = song.sections.iter().map(|s| s.label.as_str()).collect();
+        // INVARIANT: every arrangement entry references an existing section.
+        for a in &song.arrangement {
+            assert!(
+                labels.contains(a.as_str()),
+                "dangling arrangement ref {a:?}; labels={labels:?}"
+            );
+        }
+        // INVARIANT: labels are unique.
+        assert_eq!(
+            labels.len(),
+            song.sections.len(),
+            "duplicate section labels: {:?}",
+            song.sections.iter().map(|s| &s.label).collect::<Vec<_>>()
+        );
+        // INVARIANT: no section is empty (empty blocks are dropped).
+        for s in &song.sections {
+            assert!(
+                !s.lyrics.trim().is_empty(),
+                "empty section lyrics for {:?}",
+                s.label
+            );
+        }
+    }
+}
