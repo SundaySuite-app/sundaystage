@@ -40,6 +40,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  ErrorToast,
   Input,
   Select,
 } from "@/components/ui";
@@ -47,6 +48,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { OutputSettingsPanel } from "./OutputSettingsPanel";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
+import { useErrorToast } from "@/lib/useErrorToast";
 
 type Tab = "general" | "output" | "output_display" | "ai" | "advanced";
 
@@ -131,6 +133,7 @@ function GeneralSettings() {
 function OutputSettings() {
   const t = useT();
   const qc = useQueryClient();
+  const { message: error, showError, dismiss } = useErrorToast();
   const sampleFrame: LiveFrame = {
     kind: "slide",
     slide_content: {
@@ -175,7 +178,7 @@ function OutputSettings() {
           void emit(OUTPUT_APPEARANCE, saved);
           qc.setQueryData(["outputAppearance"], saved);
         })
-        .catch(() => {});
+        .catch(() => showError(t("setSaveFailed")));
     }, 150);
   }
 
@@ -185,6 +188,7 @@ function OutputSettings() {
 
   return (
     <div className="space-y-6">
+      <ErrorToast message={error} onDismiss={dismiss} />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
