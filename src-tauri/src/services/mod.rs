@@ -22,5 +22,6 @@ pub mod stage_display;
 pub mod sundayplan;
 pub mod sundayrec_bridge;
 pub mod sync;
+pub mod text_fit;
 pub mod theme;
 pub mod tono;
