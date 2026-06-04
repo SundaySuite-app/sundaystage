@@ -24,7 +24,7 @@ import { ipc } from "@/lib/ipc";
 import type { CueSpec, ServiceTemplate } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
-import { Button } from "@/components/ui";
+import { Button, ConfirmModal } from "@/components/ui";
 import {
   DEFAULT_ROLE,
   TEMPLATE_ROLES,
@@ -229,6 +229,7 @@ export function TemplatesPage({
           title={t("tmplConfirmDeleteTitle")}
           body={t("tmplConfirmDeleteBody", { name: confirmDelete.name })}
           confirmLabel={t("actionDelete")}
+          cancelLabel={t("actionCancel")}
           onConfirm={() => deleteTemplate.mutate(confirmDelete.id)}
           onCancel={() => setConfirmDelete(null)}
         />
@@ -671,46 +672,6 @@ function ApplyTemplateModal({
           >
             {applyMutation.isPending ? t("tmplApplying") : t("tmplApply")}
           </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmModal({
-  title,
-  body,
-  confirmLabel,
-  onConfirm,
-  onCancel,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onCancel}
-        aria-hidden
-      />
-      <div className="relative w-[min(90vw,420px)] rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-5 shadow-[var(--shadow-elevated)]">
-        <h2 className="font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">{body}</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
-            Avbryt
-          </Button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded-md bg-[var(--color-danger)] px-4 py-1.5 text-sm font-semibold text-white hover:brightness-110"
-          >
-            {confirmLabel}
-          </button>
         </div>
       </div>
     </div>

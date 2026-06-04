@@ -24,3 +24,5 @@ export { Separator } from "./separator";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { Dialog } from "./dialog";
 export { Tooltip } from "./tooltip";
+export { ConfirmModal, type ConfirmModalProps } from "./confirm-modal";
+export { ErrorToast, type ErrorToastProps } from "./error-toast";
