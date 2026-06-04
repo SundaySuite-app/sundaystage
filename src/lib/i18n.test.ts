@@ -41,6 +41,38 @@ describe("theme-controls i18n parity", () => {
   });
 });
 
+// The template gallery (deep-stage-2) is operator-facing in every locale, so
+// its strings must have full parity rather than leaking the English fall-back.
+const GALLERY_KEYS = [
+  "galBrowse",
+  "galOpenTitle",
+  "galTitle",
+  "galSearch",
+  "galEmpty",
+  "galBuiltins",
+  "galCustom",
+  "galApplying",
+  "galApplyTitle",
+] as const;
+
+describe("template-gallery i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries every gallery key`, () => {
+      const cat = CATALOG[lang];
+      for (const key of GALLERY_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        expect(cat[key].trim().length, `${lang}.${key}`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it("galApplyTitle keeps the {name} placeholder in every locale", () => {
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].galApplyTitle, lang).toContain("{name}");
+    }
+  });
+});
+
 // The settings-save error banner (headless-2) is the only signal an operator
 // gets when a disk write fails, so it must be fully localized — falling back to
 // English here would be a confusing mid-Sunday surprise.
