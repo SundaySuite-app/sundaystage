@@ -421,11 +421,35 @@ fn is_repeat_marker(line: &str) -> bool {
         .filter(|c| !matches!(c, '(' | ')' | '[' | ']' | '.'))
         .collect();
     let s = stripped.trim();
-    matches!(
+    if matches!(
         s,
         "x2" | "x3" | "x4" | "2x" | "3x" | "4x" | "repeat" | "gjenta"
-    ) || s.starts_with("repeat ")
-        || s.starts_with("gjenta ")
+    ) {
+        return true;
+    }
+    // "repeat chorus" / "gjenta refreng" etc. are markers, but only when what
+    // follows is a section reference — never an arbitrary lyric line that merely
+    // starts with the word "Repeat"/"Gjenta".
+    if let Some(rest) = s
+        .strip_prefix("repeat ")
+        .or_else(|| s.strip_prefix("gjenta "))
+    {
+        // A marker references a known section (optionally with a number) and is
+        // short. Anything else is real lyrics.
+        const SECTION_WORDS: &[&str] = &[
+            "chorus", "refrain", "refreng", "kor", "verse", "vers", "bridge", "bro", "intro",
+            "outro", "tag", "x2", "x3", "x4", "2x", "3x", "4x",
+        ];
+        let words: Vec<&str> = rest.split_whitespace().collect();
+        if words.len() <= 2
+            && words
+                .iter()
+                .all(|w| SECTION_WORDS.contains(w) || w.chars().all(|c| c.is_ascii_digit()))
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// A chord token like `G`, `Am`, `F#m7`, `C/E`.
@@ -558,6 +582,21 @@ mod tests {
         assert!(is_repeat_marker("(repeat chorus)"));
         assert!(is_repeat_marker("Gjenta refreng"));
         assert!(!is_repeat_marker("excellent"));
+    }
+
+    // Regression: a genuine lyric line whose first word happens to be
+    // "Repeat"/"Gjenta" must NOT be treated as a repetition marker.
+    #[test]
+    fn repeat_marker_does_not_eat_real_lyrics() {
+        assert!(!is_repeat_marker("Repeat after me"));
+        assert!(!is_repeat_marker("Gjenta etter meg"));
+        let f = heuristic_format("Repeat these words O Lord\nwith all my heart");
+        assert_eq!(
+            f.sections[0].lyrics,
+            "Repeat these words O Lord\nwith all my heart"
+        );
+        let g = heuristic_format("Gjenta etter meg\nnoe annet");
+        assert_eq!(g.sections[0].lyrics, "Gjenta etter meg\nnoe annet");
     }
 
     // ── heuristic_format ───────────────────────────────────────────────────────
