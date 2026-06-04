@@ -461,11 +461,43 @@ fn is_chord_token(tok: &str) -> bool {
     if !('A'..='G').contains(&first.to_ascii_uppercase()) {
         return false;
     }
-    // Allowed after the root: note letters A–G (slash-bass like `A/E`),
-    // accidentals, extensions, and quality letters — but NOT vowels like
-    // e/o/y that appear in ordinary words ("Came", "Amen", "Holy").
-    const ALLOWED: &str = "ABCDEFG#b0123456789mMajisundg/+()";
-    tok.chars().skip(1).all(|c| ALLOWED.contains(c))
+    // Split off an optional slash-bass suffix (`C/E`, `D/F#`); the bass must be
+    // a note name itself.
+    let (body, bass) = match tok.split_once('/') {
+        Some((b, after)) => (b, Some(after)),
+        None => (tok, None),
+    };
+    if let Some(bass) = bass {
+        // A bass like `E`, `F#`, `Bb` — root note + optional accidental, nothing
+        // word-like.
+        let mut bc = bass.chars();
+        let Some(bn) = bc.next() else { return false };
+        if !('A'..='G').contains(&bn.to_ascii_uppercase()) {
+            return false;
+        }
+        if !bc.all(|c| matches!(c, '#' | 'b')) {
+            return false;
+        }
+    }
+    // Remaining body after the root note: an optional accidental, then a
+    // quality/extension string. Letters here must be real chord-quality
+    // letters, never an arbitrary run that spells a word ("Bad", "Dig", "Dag").
+    let after_root: String = body.chars().skip(1).collect();
+    let after_root = after_root.strip_prefix(['#', 'b']).unwrap_or(&after_root);
+
+    // The alphabetic part must be a recognised quality keyword (or empty);
+    // digits / + / ( ) are free extensions ("Am7", "C9", "Dsus4", "G(add9)").
+    let alpha: String = after_root.chars().filter(|c| c.is_alphabetic()).collect();
+    const QUALITIES: &[&str] = &[
+        "", "m", "maj", "min", "sus", "add", "dim", "aug", "maug", "mmaj", "msus", "madd", "mdim",
+    ];
+    if !QUALITIES.contains(&alpha.as_str()) {
+        return false;
+    }
+    // Any non-alphabetic chars must be valid extension symbols.
+    after_root
+        .chars()
+        .all(|c| c.is_alphabetic() || c.is_ascii_digit() || matches!(c, '+' | '(' | ')'))
 }
 
 /// A chord-only line: several chord tokens, or a single chord with an
@@ -597,6 +629,17 @@ mod tests {
         );
         let g = heuristic_format("Gjenta etter meg\nnoe annet");
         assert_eq!(g.sections[0].lyrics, "Gjenta etter meg\nnoe annet");
+    }
+
+    // Regression: ordinary multi-word lyric lines made only of letters that
+    // happen to appear in the chord alphabet must not be deleted as chords.
+    #[test]
+    fn chord_line_does_not_eat_real_word_lines() {
+        assert!(!is_chord_line("Big bad bug"));
+        assert!(!is_chord_line("Dad and"));
+        assert!(!is_chord_line("Dag da"));
+        let f = heuristic_format("Big bad bug\nsang a song");
+        assert_eq!(f.sections[0].lyrics, "Big bad bug\nsang a song");
     }
 
     // ── heuristic_format ───────────────────────────────────────────────────────
