@@ -137,19 +137,19 @@ describe("useLiveBridge with injected transports — live service", () => {
     const channel = liveChannelName(CHURCH, SERVICE);
     expect(cap.liveEmissions.every((e) => e.channel === channel)).toBe(true);
 
-    // Advance within song A (0→1): cue.advanced + now_playing, NO new usage.
+    // Advance within song A (0→1): cue.advanced only — the song under the
+    // cursor is unchanged, so NO now_playing (contract: chapters don't churn
+    // slide-by-slide) and NO new usage.
     act(() => result.current.cueChange(0, 1, cues.length));
     await flush();
-    expect(liveTypes(cap.liveEmissions).slice(3)).toEqual([
-      "cue.advanced",
-      "now_playing",
-    ]);
+    expect(liveTypes(cap.liveEmissions).slice(3)).toEqual(["cue.advanced"]);
     expect(cap.usagePayloads).toHaveLength(1); // still one — guard held
 
-    // Advance to song B (1→2): cue.advanced + now_playing + one new usage.
+    // Advance to song B (1→2): cue.advanced + now_playing (song changed) +
+    // one new usage.
     act(() => result.current.cueChange(1, 2, cues.length));
     await flush();
-    expect(liveTypes(cap.liveEmissions).slice(5)).toEqual([
+    expect(liveTypes(cap.liveEmissions).slice(4)).toEqual([
       "cue.advanced",
       "now_playing",
     ]);
@@ -173,8 +173,9 @@ describe("useLiveBridge with injected transports — live service", () => {
     await flush();
 
     const seqs = cap.liveEmissions.map((e) => e.event.seq);
-    // service.live(1) cue(2) now(3) | cue(4) now(5) | cue(6) now(7) | ended(8)
-    expect(seqs).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    // service.live(1) cue(2) now(3) | cue(4, same song → no now) |
+    // cue(5) now(6, song B) | ended(7)
+    expect(seqs).toEqual([1, 2, 3, 4, 5, 6, 7]);
     // Strictly increasing, no gaps, no repeats.
     for (let i = 1; i < seqs.length; i++) {
       expect(seqs[i]).toBe(seqs[i - 1] + 1);
