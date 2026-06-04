@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CopyPlus, Star } from "lucide-react";
+import { CopyPlus, Pencil, Plus, Star, Trash2 } from "lucide-react";
 
 import type {
   SlideDoc,
@@ -28,9 +28,14 @@ import { newTextBlock } from "@/lib/slideEditor/doc";
 import {
   applyThemeToDoc,
   combinedText,
+  defaultTokens,
   parseLayout,
   parseTokens,
 } from "@/lib/slideEditor/theme";
+import {
+  cleanThemeName,
+  uniqueThemeName,
+} from "@/lib/slideEditor/themeActions";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { SlideCanvas } from "./SlideCanvas";
@@ -130,6 +135,67 @@ export function ThemeControls({
     mutationFn: (id: string) => ipc.theme.setLibraryDefaultTheme(libraryId, id),
   });
 
+  const setDefaultTemplateMut = useMutation({
+    mutationFn: (id: string) =>
+      ipc.theme.setLibraryDefaultTemplate(libraryId, id),
+  });
+
+  const createMut = useMutation({
+    mutationFn: (name: string) =>
+      ipc.theme.create(libraryId, name, defaultTokens()),
+    onSuccess: (created) => {
+      void qc.invalidateQueries({ queryKey: ["themes", libraryId] });
+      setPickedTheme(created.id);
+    },
+  });
+
+  const renameMut = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      ipc.theme.rename(id, name),
+    onSuccess: (saved) => {
+      qc.setQueryData<Theme[]>(["themes", libraryId], (old) =>
+        (old ?? []).map((th) => (th.id === saved.id ? saved : th)),
+      );
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => ipc.theme.delete(id),
+    onSuccess: (_void, id) => {
+      void qc.invalidateQueries({ queryKey: ["themes", libraryId] });
+      // Drop our pin so selection falls back to the slide/first theme.
+      setPickedTheme((cur) => (cur === id ? null : cur));
+    },
+  });
+
+  // ── CRUD handlers (window.prompt/confirm mirrors the sibling SongEditor) ──────
+  const createTheme = () => {
+    const suggested = uniqueThemeName(
+      themes.map((th) => th.name),
+      t("tcNewThemeName"),
+    );
+    const name = cleanThemeName(
+      window.prompt(t("tcNewThemePrompt"), suggested),
+    );
+    if (name) createMut.mutate(name);
+  };
+
+  const renameTheme = () => {
+    if (!selectedTheme || !editable) return;
+    const name = cleanThemeName(
+      window.prompt(t("tcRenamePrompt"), selectedTheme.name),
+    );
+    if (name) renameMut.mutate({ id: selectedTheme.id, name });
+  };
+
+  const deleteTheme = () => {
+    if (!selectedTheme || !editable) return;
+    const ok = window.confirm(
+      t("tcDeleteConfirm", { name: selectedTheme.name }),
+    );
+    if (ok) deleteMut.mutate(selectedTheme.id);
+  };
+
   const updateTokensMut = useMutation({
     mutationFn: ({ id, tokens }: { id: string; tokens: ThemeTokens }) =>
       ipc.theme.updateTokens(id, tokens),
@@ -187,10 +253,28 @@ export function ThemeControls({
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => templateId && setDefaultTemplateMut.mutate(templateId)}
+          disabled={!templateId}
+          title={t("tcSetDefaultTemplateTitle")}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-40"
+        >
+          <Star size={13} /> {t("arrSetDefault")}
+        </button>
       </section>
 
       <section className="space-y-2">
-        <Header>{t("themeLabel")}</Header>
+        <div className="flex items-center justify-between">
+          <Header>{t("themeLabel")}</Header>
+          <button
+            type="button"
+            onClick={createTheme}
+            className="flex items-center gap-1 rounded-md border border-[var(--color-border)] px-1.5 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+          >
+            <Plus size={12} /> {t("tcNewTheme")}
+          </button>
+        </div>
         <select
           value={themeId ?? ""}
           onChange={(e) => {
@@ -226,6 +310,27 @@ export function ThemeControls({
             <Star size={13} /> {t("arrSetDefault")}
           </button>
         </div>
+
+        {editable && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={renameTheme}
+              title={t("tcRenameTitle")}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+            >
+              <Pencil size={13} /> {t("arrRename")}
+            </button>
+            <button
+              type="button"
+              onClick={deleteTheme}
+              title={t("tcDeleteTitle")}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+            >
+              <Trash2 size={13} /> {t("actionDelete")}
+            </button>
+          </div>
+        )}
       </section>
 
       {editable && editTokens ? (
