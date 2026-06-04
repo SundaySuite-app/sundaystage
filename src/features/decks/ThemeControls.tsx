@@ -38,6 +38,7 @@ import {
 } from "@/lib/slideEditor/themeActions";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
+import { ConfirmModal } from "@/components/ui";
 import { SlideCanvas } from "./SlideCanvas";
 
 interface ThemeControlsProps {
@@ -77,6 +78,8 @@ export function ThemeControls({
   // User picker overrides; reset to the slide's own ids when the slide changes.
   const [pickedTheme, setPickedTheme] = useState<string | null>(null);
   const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
+  // Theme pending deletion — drives the confirmation modal.
+  const [confirmDelete, setConfirmDelete] = useState<Theme | null>(null);
   useEffect(() => {
     setPickedTheme(null);
     setPickedTemplate(null);
@@ -190,10 +193,7 @@ export function ThemeControls({
 
   const deleteTheme = () => {
     if (!selectedTheme || !editable) return;
-    const ok = window.confirm(
-      t("tcDeleteConfirm", { name: selectedTheme.name }),
-    );
-    if (ok) deleteMut.mutate(selectedTheme.id);
+    setConfirmDelete(selectedTheme);
   };
 
   const updateTokensMut = useMutation({
@@ -405,6 +405,20 @@ export function ThemeControls({
         <p className="text-[11px] text-[var(--color-fg-muted)]">
           {t("tcDuplicateHint")}
         </p>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title={t("tcDeleteTitle")}
+          body={t("tcDeleteConfirm", { name: confirmDelete.name })}
+          confirmLabel={t("actionDelete")}
+          cancelLabel={t("actionCancel")}
+          onConfirm={() => {
+            deleteMut.mutate(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   );

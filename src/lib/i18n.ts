@@ -72,6 +72,8 @@ const en: Catalog = {
   actionClose: "Close",
   actionSave: "Save",
   actionDelete: "Delete",
+  setSaveFailed:
+    "Couldn't save — your change may not have been stored. Please try again.",
   actionEdit: "Edit",
   actionAdd: "Add",
   actionDone: "Done",
@@ -657,6 +659,8 @@ const no: Catalog = {
   actionClose: "Lukk",
   actionSave: "Lagre",
   actionDelete: "Slett",
+  setSaveFailed:
+    "Kunne ikke lagre – endringen ble kanskje ikke lagret. Prøv igjen.",
   actionEdit: "Rediger",
   actionAdd: "Legg til",
   actionDone: "Ferdig",
@@ -1223,6 +1227,8 @@ const sv: Catalog = {
   actionClose: "Stäng",
   actionSave: "Spara",
   actionDelete: "Ta bort",
+  setSaveFailed:
+    "Det gick inte att spara – ändringen kanske inte sparades. Försök igen.",
   actionEdit: "Redigera",
   actionAdd: "Lägg till",
   actionDone: "Klar",
@@ -1651,6 +1657,8 @@ const da: Catalog = {
   actionClose: "Luk",
   actionSave: "Gem",
   actionDelete: "Slet",
+  setSaveFailed:
+    "Kunne ikke gemme – ændringen blev måske ikke gemt. Prøv igen.",
   actionEdit: "Redigér",
   actionAdd: "Tilføj",
   actionDone: "Færdig",
@@ -2076,6 +2084,8 @@ const de: Catalog = {
   actionClose: "Schließen",
   actionSave: "Speichern",
   actionDelete: "Löschen",
+  setSaveFailed:
+    "Speichern fehlgeschlagen – die Änderung wurde möglicherweise nicht gespeichert. Bitte erneut versuchen.",
   actionEdit: "Bearbeiten",
   actionAdd: "Hinzufügen",
   actionDone: "Fertig",
@@ -2509,6 +2519,8 @@ const fr: Catalog = {
   actionClose: "Fermer",
   actionSave: "Enregistrer",
   actionDelete: "Supprimer",
+  setSaveFailed:
+    "Échec de l'enregistrement – votre modification n'a peut-être pas été enregistrée. Veuillez réessayer.",
   actionEdit: "Modifier",
   actionAdd: "Ajouter",
   actionDone: "Terminé",
@@ -2945,6 +2957,8 @@ const pl: Catalog = {
   actionClose: "Zamknij",
   actionSave: "Zapisz",
   actionDelete: "Usuń",
+  setSaveFailed:
+    "Nie udało się zapisać – zmiana mogła nie zostać zapisana. Spróbuj ponownie.",
   actionEdit: "Edytuj",
   actionAdd: "Dodaj",
   actionDone: "Gotowe",

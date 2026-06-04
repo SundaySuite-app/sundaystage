@@ -40,3 +40,19 @@ describe("theme-controls i18n parity", () => {
     }
   });
 });
+
+// The settings-save error banner (headless-2) is the only signal an operator
+// gets when a disk write fails, so it must be fully localized — falling back to
+// English here would be a confusing mid-Sunday surprise.
+describe("settings save-error i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries a non-empty setSaveFailed`, () => {
+      const cat = CATALOG[lang];
+      expect(cat.setSaveFailed, `${lang}.setSaveFailed`).toBeTruthy();
+      expect(
+        cat.setSaveFailed.trim().length,
+        `${lang}.setSaveFailed`,
+      ).toBeGreaterThan(0);
+    });
+  }
+});
