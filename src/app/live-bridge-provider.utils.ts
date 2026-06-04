@@ -1,13 +1,12 @@
 /**
- * live-bridge-provider.utils — the non-component half of the live-bridge seam.
+ * live-bridge-provider.utils — the pure transport-construction seam.
  *
- * The transport *construction* (`buildTransports`), the host config shape
- * (`LiveBridgeConfig`), the React context, and the reader hook
- * (`useLiveBridgeTransports`) live here so `live-bridge-provider.tsx` can export
- * *only* the `LiveBridgeProvider` component — that keeps React Fast Refresh
- * happy (a file mixing components with constants/functions breaks HMR).
+ * Owns the transport *construction* (`buildTransports`) and the host config
+ * shape (`LiveBridgeConfig`). The operator console builds its own transports
+ * directly from this helper (see `OperatorWorkspace`), so no React context
+ * layer is needed.
  *
- * The same two hard rules from the provider apply:
+ * Two hard rules shape this file:
  *  - The live output is sacrosanct: an absent field leaves that transport off,
  *    so the bridge runs but publishes nowhere — it can never crash a Sunday
  *    morning.
@@ -17,8 +16,6 @@
  *    Supabase Realtime broadcast and a `postUsageEvent` POST (both
  *    NETWORK-UNVERIFIED — they have never run against a live backend here).
  */
-
-import { createContext, useContext } from "react";
 
 import type { LivePublisher } from "@/lib/liveEmitter";
 import type { UsageClientConfig } from "@/lib/usageEmitter";
@@ -59,17 +56,4 @@ export function buildTransports(
   if (config.usage) transports.usage = config.usage;
   if (config.now) transports.now = config.now;
   return transports;
-}
-
-export const LiveBridgeContext = createContext<LiveBridgeTransports | null>(
-  null,
-);
-
-/**
- * Read the injected transports. Returns `{}` (everything off) when no provider
- * is mounted, so callers never crash for lack of wiring — they just publish
- * nowhere, which is the safe default.
- */
-export function useLiveBridgeTransports(): LiveBridgeTransports {
-  return useContext(LiveBridgeContext) ?? {};
 }
