@@ -88,16 +88,37 @@ pub struct CompanionBroadcaster<T: BroadcastTransport> {
 
 impl<T: BroadcastTransport> CompanionBroadcaster<T> {
     pub fn new(service_id: &str, transport: T) -> Self {
+        Self::resuming(service_id, transport, 0)
+    }
+
+    /// Like [`new`](Self::new) but seeds the monotonic `seq` at `start_seq`.
+    ///
+    /// This is the crash/restart-safety seam. A phone drops any frame whose
+    /// `seq <= lastSeq` it has already seen (see `companion/app.js`). If a new
+    /// broadcaster for an already-subscribed service restarted at `seq: 0`
+    /// (after a UI crash + `live_recover`, or a second `live_start` re-using a
+    /// `service_id`), every post-restart frame would be `<=` the phone's stored
+    /// `lastSeq` and silently ignored — freezing the phone on the pre-crash
+    /// slide. Seeding above the previous session's last emitted `seq` keeps the
+    /// stream monotonic across the restart so phones resync.
+    pub fn resuming(service_id: &str, transport: T, start_seq: u32) -> Self {
         Self {
             channel: channel_for(service_id),
             transport,
-            seq: 0,
+            seq: start_seq,
         }
     }
 
     /// The channel topic the PWA must join.
     pub fn channel(&self) -> &str {
         &self.channel
+    }
+
+    /// The next `seq` this broadcaster will assign. Lets the caller continue the
+    /// monotonic stream when replacing one broadcaster with another for the same
+    /// service (e.g. a restart that re-uses the `service_id`).
+    pub fn next_seq(&self) -> u32 {
+        self.seq
     }
 
     /// Publish the current frame after a cue advance. `sensitive` force-gates
@@ -291,6 +312,36 @@ mod tests {
         assert_eq!(err, "offline");
         // seq still advanced so a retry doesn't reuse it.
         assert_eq!(b.on_cue_advance(&lyric_frame("y"), false).unwrap(), 1);
+    }
+
+    #[test]
+    fn resuming_seeds_seq_so_restart_stays_above_a_phones_last_seq() {
+        // Regression: a phone reached lastSeq=40 in the first session. After a
+        // crash + recover, a fresh broadcaster restarted at seq 0 would emit
+        // 0,1,2… which the phone's `seq <= lastSeq` guard discards, freezing it.
+        // Seeding above the prior last seq keeps the stream monotonic.
+        let mut b = CompanionBroadcaster::resuming("svc", RecordingTransport::default(), 41);
+        let first = b
+            .on_cue_advance(&lyric_frame("after recover"), false)
+            .unwrap();
+        assert!(
+            first > 40,
+            "restarted broadcaster must emit seq above the phone's lastSeq (got {first})"
+        );
+        // …and remains monotonic from there.
+        assert_eq!(b.on_cue_advance(&lyric_frame("next"), false).unwrap(), 42);
+    }
+
+    #[test]
+    fn next_seq_lets_a_replacement_continue_the_stream() {
+        let mut a = CompanionBroadcaster::new("svc", RecordingTransport::default());
+        a.on_cue_advance(&lyric_frame("a"), false).unwrap(); // seq 0
+        a.on_cue_advance(&lyric_frame("b"), false).unwrap(); // seq 1
+        assert_eq!(a.next_seq(), 2);
+        // Replacing for the same service continues, never resets.
+        let mut b =
+            CompanionBroadcaster::resuming("svc", RecordingTransport::default(), a.next_seq());
+        assert_eq!(b.on_cue_advance(&lyric_frame("c"), false).unwrap(), 2);
     }
 
     #[test]
