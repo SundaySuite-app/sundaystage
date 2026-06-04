@@ -65,6 +65,7 @@ export type { SlideBackground }   from "./SlideBackground";
 export type { SlideBlock }        from "./SlideBlock";
 export type { SlideContent }      from "./SlideContent";
 export type { SlideDoc }          from "./SlideDoc";
+export type { SlideContentPayload } from "./SlideContentPayload";
 export type { SlideRect }         from "./SlideRect";
 export type { Song }              from "./Song";
 export type { SongArrangement }   from "./SongArrangement";
