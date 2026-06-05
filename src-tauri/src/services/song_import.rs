@@ -405,6 +405,26 @@ fn parse_openlyrics(content: &str) -> FormattedSong {
         }
     }
 
+    // Append any verse present in the file but never referenced by verseOrder.
+    // verseOrder is a *presentation* order, not a content filter (OpenLP and
+    // ProPresenter keep every verse): silently dropping these would lose lyrics
+    // on import. They go after the ordered blocks so the explicit play order is
+    // preserved, and we flag them so the operator can re-sequence if desired.
+    for (name, lyrics) in &verses {
+        let referenced = ordered_names
+            .iter()
+            .any(|n| n.eq_ignore_ascii_case(name));
+        if !referenced {
+            let lines: Vec<String> = lyrics.lines().map(|l| l.to_string()).collect();
+            blocks.push((Some(code_to_label(name)), lines));
+            if !name.trim().is_empty() {
+                warnings.push(format!(
+                    "Vers «{name}» manglet i arrangementet og ble lagt til til slutt."
+                ));
+            }
+        }
+    }
+
     let mut song = finalize(title, &raw_text, blocks);
     song.warnings.extend(warnings);
     song
@@ -720,6 +740,33 @@ mod tests {
         // v1 → c → v1 : two unique sections, arrangement repeats the verse.
         assert_eq!(labels(&song), vec!["verse_1", "chorus"]);
         assert_eq!(song.arrangement, vec!["verse_1", "chorus", "verse_1"]);
+    }
+
+    #[test]
+    fn openlyrics_keeps_verses_omitted_from_verse_order() {
+        // verseOrder lists only v1, but the file also contains v2. OpenLyrics'
+        // verseOrder is a presentation order, not a content filter — OpenLP and
+        // ProPresenter keep every verse in the file. Dropping v2 entirely would
+        // silently lose lyrics on import (data loss).
+        let src = "<song><properties><titles><title>T</title></titles>\
+                   <verseOrder>v1</verseOrder></properties>\
+                   <lyrics>\
+                   <verse name=\"v1\"><lines>First verse</lines></verse>\
+                   <verse name=\"v2\"><lines>Second verse</lines></verse>\
+                   </lyrics></song>";
+        let song = parse_openlyrics(src);
+        // Both verses must survive as sections…
+        assert_eq!(labels(&song), vec!["verse_1", "verse_2"]);
+        let v2 = song
+            .sections
+            .iter()
+            .find(|s| s.label == "verse_2")
+            .expect("v2 must not be lost");
+        assert_eq!(v2.lyrics, "Second verse");
+        // …and the explicit play order is still honoured (v1 first, the
+        // unreferenced verse appended after so nothing vanishes).
+        assert_eq!(song.arrangement.first().map(String::as_str), Some("verse_1"));
+        assert!(song.arrangement.contains(&"verse_2".to_string()));
     }
 
     #[test]

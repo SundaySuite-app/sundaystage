@@ -128,11 +128,17 @@ mod render {
         }
     }
 
-    /// Escape text so lyrics can never inject markup into the output document.
+    /// Escape text so lyrics — and appearance values like colours that land
+    /// inside double-quoted `style="…"` attributes — can never inject markup or
+    /// break out of an attribute in the output document. Quotes are escaped too
+    /// because some call sites interpolate into attribute values; a legitimate
+    /// colour/lyric never contains `"`/`'`.
     fn esc(s: &str) -> String {
         s.replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;")
+            .replace('"', "&quot;")
+            .replace('\'', "&#39;")
     }
 
     /// Render the `<body>` inner HTML for `frame` under `appearance`. Black/Logo
@@ -576,6 +582,34 @@ mod tests {
         let html = frame_to_html(&slide(&["<script>&"]), &OutputAppearance::default());
         assert!(!html.contains("<script>"));
         assert!(html.contains("&lt;script&gt;&amp;"));
+    }
+
+    #[test]
+    fn appearance_colors_cannot_break_out_of_style_attribute() {
+        // A hand-edited / synced appearance JSON whose color contains a double
+        // quote must NOT be able to close the `style="…"` attribute and inject
+        // new attributes/markup into the sacrosanct live output document.
+        let appearance = OutputAppearance {
+            text_color: "#fff\" onload=\"alert(1)".into(),
+            bg_color: "#000\"><script>boom()</script>".into(),
+            ..OutputAppearance::default()
+        };
+        let html = frame_to_html(&slide(&["Amazing grace"]), &appearance);
+        // The raw injected attribute/markup must not survive as live HTML: a
+        // live `onload="` attribute would require an UNescaped quote to have
+        // closed `style="…"` first, and a live `<script>` requires an unescaped
+        // `<`. Both must be escaped, leaving only inert `&quot;`/`&lt;` text.
+        assert!(
+            !html.contains("onload=\""),
+            "color broke out of style attribute: {html}"
+        );
+        assert!(
+            !html.contains("<script>"),
+            "bg color injected markup: {html}"
+        );
+        // The attacker's quote must appear only in escaped form.
+        assert!(!html.contains("#fff\""), "unescaped breakout quote: {html}");
+        assert!(html.contains("&quot;"), "quote was not escaped: {html}");
     }
 
     // ---- message round-trips (the core of the e2e contract) ----------------
