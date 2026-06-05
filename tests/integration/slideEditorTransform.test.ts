@@ -170,6 +170,17 @@ describe("transform/nudgeBlocks", () => {
     const { doc, a } = tripleDoc(); // a at y=0
     expect(rectOf(nudgeBlocks(doc, [a], 0, -0.5), a).y).toBe(0);
   });
+
+  it("moves a multi-selection rigidly: the group stops at the frame edge without deforming", () => {
+    // a is at x=0 (already on the left wall), b at x=0.3. Nudging the *group*
+    // left by 0.2 must move nothing — a can't go past 0, and the group moves as
+    // one unit, so the a→b gap (0.3) is preserved. The bug clamped each block
+    // independently: a stayed at 0 while b slid to 0.1, shrinking the gap.
+    const { doc, a, b } = tripleDoc();
+    const next = nudgeBlocks(doc, [a, b], -0.2, 0);
+    expect(rectOf(next, a).x).toBeCloseTo(0.0, 6);
+    expect(rectOf(next, b).x).toBeCloseTo(0.3, 6); // gap intact, not 0.1
+  });
 });
 
 // ── align ──────────────────────────────────────────────────────────────────────

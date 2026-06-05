@@ -123,8 +123,10 @@ export function duplicateBlocks(
 // ── Bulk geometry: nudge ──────────────────────────────────────────────────────
 
 /**
- * Shift a set of blocks by (dx, dy), clamping each on-frame. The whole group
- * moves rigidly — used for arrow-key nudging of a multi-selection.
+ * Shift a set of blocks by (dx, dy). The whole group moves *rigidly* — used for
+ * arrow-key nudging of a multi-selection. The delta is clamped once against the
+ * selection's bounding box so the group stops as a unit at the frame edge
+ * instead of each block clamping independently (which would shear the layout).
  */
 export function nudgeBlocks(
   doc: SlideDoc,
@@ -133,13 +135,26 @@ export function nudgeBlocks(
   dy: number,
 ): SlideDoc {
   const set = ids instanceof Set ? ids : new Set(ids);
+  const sel = doc.blocks.filter((b) => set.has(b.id));
+  if (sel.length === 0) return doc;
+
+  // Bounding box of the selection, so the whole group can move by at most the
+  // distance that keeps every block on-frame — preserving relative spacing.
+  const { minX, maxX, minY, maxY } = selectionBounds(
+    sel.map((b) => ({ id: b.id, rect: rectOf(b) })),
+  );
+  // Allowed travel on each axis: not past 0 on the near edge, not past 1 on the
+  // far edge. Clamp the requested delta into [lo, hi] so the rigid group stops.
+  const cdx = Math.min(Math.max(dx, -minX), 1 - maxX);
+  const cdy = Math.min(Math.max(dy, -minY), 1 - maxY);
+
   return {
     ...doc,
     blocks: doc.blocks.map((b) =>
       set.has(b.id)
         ? ({
             ...b,
-            rect: clampRect({ ...b.rect, x: b.rect.x + dx, y: b.rect.y + dy }),
+            rect: { ...b.rect, x: b.rect.x + cdx, y: b.rect.y + cdy },
           } as SlideBlock)
         : b,
     ),
