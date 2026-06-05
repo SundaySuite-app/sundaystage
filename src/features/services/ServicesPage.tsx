@@ -17,6 +17,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronDown,
+  ClipboardPaste,
   Eye,
   GripVertical,
   Import,
@@ -51,6 +52,7 @@ import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { DEFAULT_OUTPUT_APPEARANCE } from "@/lib/outputBridge";
 import { SlideView } from "@/components/SlideView";
 import { Button, Select } from "@/components/ui";
+import { PlanPreviewModal } from "./PlanPreviewModal";
 
 interface Props {
   library: Library;
@@ -72,6 +74,7 @@ export function ServicesPage({
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const servicesQuery = useQuery({
@@ -175,6 +178,14 @@ export function ServicesPage({
         </button>
         <button
           type="button"
+          onClick={() => setPlanPreviewOpen(true)}
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <ClipboardPaste size={14} aria-hidden />
+          <span>{t("planPreviewButton")}</span>
+        </button>
+        <button
+          type="button"
           onClick={() => createService.mutate()}
           disabled={createService.isPending}
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
@@ -183,6 +194,12 @@ export function ServicesPage({
           <span>{t("svcNewService")}</span>
         </button>
       </header>
+
+      <PlanPreviewModal
+        library={library}
+        open={planPreviewOpen}
+        onClose={() => setPlanPreviewOpen(false)}
+      />
 
       {toast && (
         <div className="fixed bottom-4 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] px-4 py-2 text-sm shadow-[var(--shadow-elevated)]">

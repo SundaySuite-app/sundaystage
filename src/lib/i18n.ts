@@ -613,6 +613,24 @@ const en: Catalog = {
   setOutDispTransitionSlideLeft: "Slide left",
   setOutDispTransitionSlideRight: "Slide right",
   setOutDispSaved: "Saved",
+
+  // ── Plan preview (paste a SundayPlan → preview cue list) ────────────────
+  planPreviewButton: "Preview pasted plan",
+  planPreviewTitle: "Preview cue list from a plan",
+  planPreviewDescription:
+    "Paste a SundayPlan service plan to preview the cue list it would produce. Nothing is saved.",
+  planPreviewPasteLabel: "Plan JSON",
+  planPreviewPastePlaceholder: "Paste the SundayPlan service plan JSON here…",
+  planPreviewBuild: "Build preview",
+  planPreviewBuilding: "Building…",
+  planPreviewInvalidJson: "Couldn't read the plan JSON: {error}",
+  planPreviewNoItems: "That doesn't look like a plan — no items found.",
+  planPreviewCueCountOne: "{n} cue",
+  planPreviewCueCountMany: "{n} cues",
+  planPreviewFallbacks: "{n} using a fallback arrangement",
+  planPreviewFallbackBadge: "Fallback",
+  planPreviewFallbackHint:
+    "The arrangement this song asked for isn't in your library — the default arrangement is used.",
 };
 
 const no: Catalog = {
@@ -1213,6 +1231,25 @@ const no: Catalog = {
   setOutDispTransitionSlideLeft: "Skyv venstre",
   setOutDispTransitionSlideRight: "Skyv høyre",
   setOutDispSaved: "Lagret",
+
+  // ── Plan-forhåndsvisning (lim inn en SundayPlan → forhåndsvis køen) ──────
+  planPreviewButton: "Forhåndsvis innlimt plan",
+  planPreviewTitle: "Forhåndsvis kø fra en plan",
+  planPreviewDescription:
+    "Lim inn en SundayPlan-gudstjenesteplan for å forhåndsvise køen den ville laget. Ingenting lagres.",
+  planPreviewPasteLabel: "Plan-JSON",
+  planPreviewPastePlaceholder:
+    "Lim inn SundayPlan-gudstjenesteplanens JSON her…",
+  planPreviewBuild: "Bygg forhåndsvisning",
+  planPreviewBuilding: "Bygger…",
+  planPreviewInvalidJson: "Kunne ikke lese plan-JSON-en: {error}",
+  planPreviewNoItems: "Dette ser ikke ut som en plan – fant ingen elementer.",
+  planPreviewCueCountOne: "{n} cue",
+  planPreviewCueCountMany: "{n} cues",
+  planPreviewFallbacks: "{n} bruker en reserve-arrangering",
+  planPreviewFallbackBadge: "Reserve",
+  planPreviewFallbackHint:
+    "Arrangeringen denne sangen ba om finnes ikke i biblioteket ditt – standardarrangeringen brukes.",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -1655,6 +1692,25 @@ const sv: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Avslutning",
+
+  // ── Planförhandsvisning (klistra in en SundayPlan → förhandsgranska kön) ─
+  planPreviewButton: "Förhandsgranska inklistrad plan",
+  planPreviewTitle: "Förhandsgranska kö från en plan",
+  planPreviewDescription:
+    "Klistra in en SundayPlan-gudstjänstplan för att förhandsgranska kön den skulle skapa. Inget sparas.",
+  planPreviewPasteLabel: "Plan-JSON",
+  planPreviewPastePlaceholder:
+    "Klistra in SundayPlan-gudstjänstplanens JSON här…",
+  planPreviewBuild: "Bygg förhandsvisning",
+  planPreviewBuilding: "Bygger…",
+  planPreviewInvalidJson: "Kunde inte läsa plan-JSON: {error}",
+  planPreviewNoItems: "Detta ser inte ut som en plan – inga objekt hittades.",
+  planPreviewCueCountOne: "{n} cue",
+  planPreviewCueCountMany: "{n} cues",
+  planPreviewFallbacks: "{n} använder ett reservarrangemang",
+  planPreviewFallbackBadge: "Reserv",
+  planPreviewFallbackHint:
+    "Arrangemanget som sången bad om finns inte i ditt bibliotek – standardarrangemanget används.",
 };
 const da: Catalog = {
   appTagline: "Live-præsentation",
@@ -2091,6 +2147,25 @@ const da: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Afslutning",
+
+  // ── Planforhåndsvisning (indsæt en SundayPlan → forhåndsvis køen) ────────
+  planPreviewButton: "Forhåndsvis indsat plan",
+  planPreviewTitle: "Forhåndsvis kø fra en plan",
+  planPreviewDescription:
+    "Indsæt en SundayPlan-gudstjenesteplan for at forhåndsvise køen, den ville oprette. Intet gemmes.",
+  planPreviewPasteLabel: "Plan-JSON",
+  planPreviewPastePlaceholder:
+    "Indsæt SundayPlan-gudstjenesteplanens JSON her…",
+  planPreviewBuild: "Byg forhåndsvisning",
+  planPreviewBuilding: "Bygger…",
+  planPreviewInvalidJson: "Kunne ikke læse plan-JSON: {error}",
+  planPreviewNoItems: "Dette ligner ikke en plan – ingen elementer fundet.",
+  planPreviewCueCountOne: "{n} cue",
+  planPreviewCueCountMany: "{n} cues",
+  planPreviewFallbacks: "{n} bruger et reservearrangement",
+  planPreviewFallbackBadge: "Reserve",
+  planPreviewFallbackHint:
+    "Arrangementet, denne sang bad om, findes ikke i dit bibliotek – standardarrangementet bruges.",
 };
 const de: Catalog = {
   appTagline: "Live-Präsentation",
@@ -2535,6 +2610,26 @@ const de: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Schluss",
+
+  // ── Planvorschau (einen SundayPlan einfügen → Cue-Liste vorschauen) ──────
+  planPreviewButton: "Eingefügten Plan vorschauen",
+  planPreviewTitle: "Cue-Liste aus einem Plan vorschauen",
+  planPreviewDescription:
+    "Füge einen SundayPlan-Gottesdienstplan ein, um die Cue-Liste vorzuschauen, die er erzeugen würde. Es wird nichts gespeichert.",
+  planPreviewPasteLabel: "Plan-JSON",
+  planPreviewPastePlaceholder:
+    "SundayPlan-Gottesdienstplan-JSON hier einfügen…",
+  planPreviewBuild: "Vorschau erstellen",
+  planPreviewBuilding: "Wird erstellt…",
+  planPreviewInvalidJson: "Plan-JSON konnte nicht gelesen werden: {error}",
+  planPreviewNoItems:
+    "Das sieht nicht nach einem Plan aus – keine Einträge gefunden.",
+  planPreviewCueCountOne: "{n} Cue",
+  planPreviewCueCountMany: "{n} Cues",
+  planPreviewFallbacks: "{n} mit einem Ersatz-Arrangement",
+  planPreviewFallbackBadge: "Ersatz",
+  planPreviewFallbackHint:
+    "Das von diesem Lied angeforderte Arrangement ist nicht in deiner Bibliothek – das Standard-Arrangement wird verwendet.",
 };
 const fr: Catalog = {
   appTagline: "Présentation en direct",
@@ -2982,6 +3077,25 @@ const fr: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Fin",
+
+  // ── Aperçu du plan (coller un SundayPlan → aperçu de la liste de cues) ───
+  planPreviewButton: "Aperçu du plan collé",
+  planPreviewTitle: "Aperçu de la liste de cues à partir d'un plan",
+  planPreviewDescription:
+    "Collez un plan de culte SundayPlan pour prévisualiser la liste de cues qu'il produirait. Rien n'est enregistré.",
+  planPreviewPasteLabel: "JSON du plan",
+  planPreviewPastePlaceholder:
+    "Collez ici le JSON du plan de culte SundayPlan…",
+  planPreviewBuild: "Générer l'aperçu",
+  planPreviewBuilding: "Génération…",
+  planPreviewInvalidJson: "Impossible de lire le JSON du plan : {error}",
+  planPreviewNoItems: "Cela ne ressemble pas à un plan – aucun élément trouvé.",
+  planPreviewCueCountOne: "{n} cue",
+  planPreviewCueCountMany: "{n} cues",
+  planPreviewFallbacks: "{n} utilisant un arrangement de repli",
+  planPreviewFallbackBadge: "Repli",
+  planPreviewFallbackHint:
+    "L'arrangement demandé par ce chant n'est pas dans votre bibliothèque – l'arrangement par défaut est utilisé.",
 };
 const pl: Catalog = {
   appTagline: "Prezentacja na żywo",
@@ -3417,6 +3531,24 @@ const pl: Catalog = {
   sectionInstrumental: "Instrumental",
   sectionTag: "Tag",
   sectionEnding: "Zakończenie",
+
+  // ── Podgląd planu (wklej SundayPlan → podgląd listy cue) ─────────────────
+  planPreviewButton: "Podgląd wklejonego planu",
+  planPreviewTitle: "Podgląd listy cue z planu",
+  planPreviewDescription:
+    "Wklej plan nabożeństwa SundayPlan, aby podejrzeć listę cue, którą by utworzył. Nic nie jest zapisywane.",
+  planPreviewPasteLabel: "JSON planu",
+  planPreviewPastePlaceholder: "Wklej tutaj JSON planu nabożeństwa SundayPlan…",
+  planPreviewBuild: "Utwórz podgląd",
+  planPreviewBuilding: "Tworzenie…",
+  planPreviewInvalidJson: "Nie można odczytać JSON planu: {error}",
+  planPreviewNoItems: "To nie wygląda jak plan – nie znaleziono elementów.",
+  planPreviewCueCountOne: "{n} cue",
+  planPreviewCueCountMany: "{n} cue",
+  planPreviewFallbacks: "{n} korzysta z aranżacji zastępczej",
+  planPreviewFallbackBadge: "Zastępcza",
+  planPreviewFallbackHint:
+    "Aranżacja, o którą poprosiła ta pieśń, nie znajduje się w Twojej bibliotece – używana jest aranżacja domyślna.",
 };
 
 /** The full per-language catalog. Exported for parity tests. */
