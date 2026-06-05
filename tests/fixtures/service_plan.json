@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "service": {
+    "schema_version": 1,
+    "id": "33333333-3333-3333-3333-333333333333",
+    "church_id": "11111111-1111-1111-1111-111111111111",
+    "name": "Sunday Morning",
+    "starts_at": "2026-05-31T09:00:00Z",
+    "state": "published",
+    "was_streamed": true,
+    "notes": null
+  },
+  "items": [
+    {
+      "position": 0,
+      "kind": "welcome",
+      "title": "Welcome & notices",
+      "song_ref": null,
+      "scripture_ref": null,
+      "key_override": null,
+      "duration_min": 3,
+      "notes": null
+    },
+    {
+      "position": 1,
+      "kind": "song",
+      "title": "Amazing Grace",
+      "song_ref": {
+        "sundaysong_id": "22222222-2222-2222-2222-222222222222",
+        "local_id": "song-local-7",
+        "title": "Amazing Grace",
+        "ccli_song_id": "22025",
+        "tono_work_id": null,
+        "default_key": "G",
+        "language": "en"
+      },
+      "scripture_ref": null,
+      "key_override": "A",
+      "duration_min": 5,
+      "notes": "Capo 2"
+    },
+    {
+      "position": 2,
+      "kind": "scripture",
+      "title": "Reading",
+      "song_ref": null,
+      "scripture_ref": "John 3:16-21",
+      "key_override": null,
+      "duration_min": 2,
+      "notes": null
+    }
+  ]
+}
