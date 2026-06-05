@@ -73,6 +73,47 @@ describe("template-gallery i18n parity", () => {
   });
 });
 
+// The plan-preview flow (paste a SundayPlan → preview cue list) is fully
+// operator-facing in every locale, so its strings require full parity rather
+// than leaking the English fall-back.
+const PLAN_PREVIEW_KEYS = [
+  "planPreviewButton",
+  "planPreviewTitle",
+  "planPreviewDescription",
+  "planPreviewPasteLabel",
+  "planPreviewPastePlaceholder",
+  "planPreviewBuild",
+  "planPreviewBuilding",
+  "planPreviewInvalidJson",
+  "planPreviewNoItems",
+  "planPreviewCueCountOne",
+  "planPreviewCueCountMany",
+  "planPreviewFallbacks",
+  "planPreviewFallbackBadge",
+  "planPreviewFallbackHint",
+] as const;
+
+describe("plan-preview i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries every plan-preview key`, () => {
+      const cat = CATALOG[lang];
+      for (const key of PLAN_PREVIEW_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        expect(cat[key].trim().length, `${lang}.${key}`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it("placeholder-bearing keys keep their {error}/{n} tokens in every locale", () => {
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].planPreviewInvalidJson, lang).toContain("{error}");
+      expect(CATALOG[lang].planPreviewCueCountOne, lang).toContain("{n}");
+      expect(CATALOG[lang].planPreviewCueCountMany, lang).toContain("{n}");
+      expect(CATALOG[lang].planPreviewFallbacks, lang).toContain("{n}");
+    }
+  });
+});
+
 // The settings-save error banner (headless-2) is the only signal an operator
 // gets when a disk write fails, so it must be fully localized — falling back to
 // English here would be a confusing mid-Sunday surprise.
