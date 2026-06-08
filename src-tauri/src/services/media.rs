@@ -6,7 +6,7 @@
 //! auto-relinking.
 //!
 //! The fingerprint is **O(1)** — `(size, first 64 KiB, last 64 KiB)` hashed —
-//! the same approach the sibling Verbatim app uses. Hashing whole multi-GB
+//! the same approach the sibling SundayEdit app uses. Hashing whole multi-GB
 //! videos on every import or relink scan would be far too slow; head+tail+size
 //! is plenty to distinguish real-world media without reading the entire file.
 //! It is a fast content fingerprint, **not** a cryptographic hash.

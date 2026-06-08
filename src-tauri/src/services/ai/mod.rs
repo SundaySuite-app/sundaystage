@@ -1,6 +1,6 @@
 //! Phase 4 — AI service layer.
 //!
-//! The foundation for every AI feature. Mirrors the sibling Verbatim app's
+//! The foundation for every AI feature. Mirrors the sibling SundayEdit app's
 //! `services/llm`: the model register, cost estimate, request-body builder and
 //! response parser are **pure and unit-tested**; the actual network call lives
 //! behind the optional `ai` cargo feature (reqwest + rustls) so the default
