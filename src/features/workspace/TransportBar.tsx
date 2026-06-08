@@ -27,6 +27,7 @@ import { cn } from "@/lib/cn";
 import { useT, useLocale, type TKey } from "@/lib/i18n";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { OutputControls } from "@/features/live/OutputControls";
+import logoUrl from "@/assets/logo.svg";
 
 interface Props {
   services: Service[];
@@ -71,7 +72,16 @@ export function TransportBar({
   const lang = useLocale((s) => s.lang);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-console)] px-3 text-sm">
+    <header
+      className={cn(
+        "flex h-12 shrink-0 items-center gap-2 border-b bg-[var(--color-console)] px-3 text-sm transition-shadow",
+        // On-air: a gold inset top accent makes the live state unmistakable
+        // beyond the badge, mirroring the broadcast "tally" convention.
+        isLive
+          ? "border-[var(--color-on-air)] shadow-[inset_0_2px_0_var(--color-on-air)]"
+          : "border-[var(--color-border)]",
+      )}
+    >
       {/* Left: browse + brand + service */}
       <button
         type="button"
@@ -84,9 +94,14 @@ export function TransportBar({
       </button>
 
       <div className="mx-1 flex items-center gap-2">
-        <div className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-brand)] font-bold text-[var(--color-accent)]">
-          S
-        </div>
+        <img
+          src={logoUrl}
+          width={28}
+          height={28}
+          alt=""
+          aria-hidden="true"
+          className="block rounded-[22%]"
+        />
         <select
           value={service?.id ?? ""}
           onChange={(e) => {

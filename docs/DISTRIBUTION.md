@@ -2,7 +2,7 @@
 
 How signed, notarized, auto-updating builds are produced for macOS + Windows.
 The pipeline is wired and will run **as soon as the repository secrets below
-are set** — mirrors SundayRec's and Verbatim's approach.
+are set** — mirrors SundayRec's and SundayEdit's approach.
 
 ## How a release works
 
