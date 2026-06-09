@@ -23,8 +23,7 @@ impl<'a> ServiceTemplateRepo<'a> {
     pub async fn create(&self, input: ServiceTemplateInput) -> AppResult<ServiceTemplate> {
         let id = new_id();
         let now = now_ms();
-        let specs_json = serde_json::to_string(&input.cue_specs)
-            .map_err(AppError::Json)?;
+        let specs_json = serde_json::to_string(&input.cue_specs).map_err(AppError::Json)?;
 
         sqlx::query(
             r#"
@@ -45,16 +44,14 @@ impl<'a> ServiceTemplateRepo<'a> {
     }
 
     pub async fn get(&self, id: &str) -> AppResult<ServiceTemplate> {
-        sqlx::query_as::<_, ServiceTemplate>(
-            "SELECT * FROM service_template WHERE id = ?1",
-        )
-        .bind(id)
-        .fetch_optional(self.pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound {
-            entity: "service_template",
-            id: id.to_string(),
-        })
+        sqlx::query_as::<_, ServiceTemplate>("SELECT * FROM service_template WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(self.pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound {
+                entity: "service_template",
+                id: id.to_string(),
+            })
     }
 
     pub async fn list(&self) -> AppResult<Vec<ServiceTemplate>> {

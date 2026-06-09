@@ -411,9 +411,7 @@ fn parse_openlyrics(content: &str) -> FormattedSong {
     // on import. They go after the ordered blocks so the explicit play order is
     // preserved, and we flag them so the operator can re-sequence if desired.
     for (name, lyrics) in &verses {
-        let referenced = ordered_names
-            .iter()
-            .any(|n| n.eq_ignore_ascii_case(name));
+        let referenced = ordered_names.iter().any(|n| n.eq_ignore_ascii_case(name));
         if !referenced {
             let lines: Vec<String> = lyrics.lines().map(|l| l.to_string()).collect();
             blocks.push((Some(code_to_label(name)), lines));
@@ -765,7 +763,10 @@ mod tests {
         assert_eq!(v2.lyrics, "Second verse");
         // …and the explicit play order is still honoured (v1 first, the
         // unreferenced verse appended after so nothing vanishes).
-        assert_eq!(song.arrangement.first().map(String::as_str), Some("verse_1"));
+        assert_eq!(
+            song.arrangement.first().map(String::as_str),
+            Some("verse_1")
+        );
         assert!(song.arrangement.contains(&"verse_2".to_string()));
     }
 
