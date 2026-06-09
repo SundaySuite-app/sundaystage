@@ -58,8 +58,18 @@ function App() {
 
   if (!activeLibrary) {
     return (
-      <div className="grid h-screen w-screen place-items-center bg-[var(--color-bg)] text-[var(--color-fg-muted)]">
-        <p>{t("loadingLibrary")}</p>
+      <div className="grid h-screen w-screen place-items-center bg-[var(--color-bg)] text-[var(--color-fg)]">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-brand)] text-2xl font-bold text-[var(--color-accent)]">
+            S
+          </div>
+          <span className="text-[var(--text-ui-xl)] font-bold">
+            SundayStage
+          </span>
+          <p className="text-sm text-[var(--color-fg-muted)]">
+            {t("loadingLibrary")}
+          </p>
+        </div>
       </div>
     );
   }
