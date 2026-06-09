@@ -10,7 +10,9 @@ use tauri::{AppHandle, State};
 
 use crate::error::{AppError, AppResult};
 use crate::output::window;
-use crate::services::display::{self, MonitorInfo, OutputAppearance, OutputConfig, OutputDisplayConfig};
+use crate::services::display::{
+    self, MonitorInfo, OutputAppearance, OutputConfig, OutputDisplayConfig,
+};
 use crate::AppState;
 
 fn config_path(state: &AppState) -> PathBuf {
@@ -134,8 +136,8 @@ pub fn output_set_display_config(
     config: OutputDisplayConfig,
 ) -> AppResult<OutputDisplayConfig> {
     let clean = config.sanitized();
-    let s = serde_json::to_string_pretty(&clean)
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    let s =
+        serde_json::to_string_pretty(&clean).map_err(|e| AppError::Validation(e.to_string()))?;
     std::fs::write(display_config_path(&state), s)
         .map_err(|e| AppError::Validation(e.to_string()))?;
     Ok(clean)
