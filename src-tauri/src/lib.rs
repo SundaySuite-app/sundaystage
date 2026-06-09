@@ -8,6 +8,7 @@
 //! The actual command implementations live in `commands::*` — this file
 //! only registers them.
 
+pub mod account;
 pub mod commands;
 pub mod db;
 pub mod error;
@@ -97,6 +98,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Sunday Account (SSO) — shared cross-app session
+            commands::account::sunday_account_status,
+            commands::account::sunday_sign_out,
             // Library
             commands::libraries::library_create,
             commands::libraries::library_get,

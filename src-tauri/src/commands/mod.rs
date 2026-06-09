@@ -4,6 +4,7 @@
 //! Every command returns `Result<T, AppError>` which serialises to JSON
 //! with stable `{ code, message }` shape (see error.rs).
 
+pub mod account;
 pub mod ai;
 pub mod arrangements;
 pub mod bible;

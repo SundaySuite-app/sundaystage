@@ -28,6 +28,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+# Shared Sunday Account (SSO): read the cross-app session this app shares with
+# the rest of the suite (login happens in SundayRec). Path dep for local dev;
+# switch to the git-tag form for release (see sunday-platform README).
+sunday-auth = { path = "../../sunday-platform/crates/sunday-auth" }
 
 # Auto-update (Phase 13.2) — desktop only; see lib.rs `#[cfg(desktop)]`.
 tauri-plugin-updater = "2"
