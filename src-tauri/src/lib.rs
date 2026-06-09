@@ -211,6 +211,7 @@ pub fn run() {
             commands::live::bridge_protocol_version,
             commands::live::bridge_chapter_markers,
             commands::live::bridge_export_srt,
+            commands::live::bridge_export_manifest,
             // Custom decks + slides (Phase 3.1 slide editor)
             commands::decks::deck_create,
             commands::decks::deck_get,
