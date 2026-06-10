@@ -86,7 +86,7 @@ pub async fn live_start(
     // still installed for a re-used service_id: a phone subscribed to
     // `companion:<svc>` drops frames whose `seq <= lastSeq`, so a restart that
     // re-zeroed `seq` would freeze every already-connected phone.
-    {
+    let start_seq = {
         let mut guard = state.companion.lock().expect("companion mutex");
         let start_seq = guard.as_ref().map(|b| b.next_seq()).unwrap_or(0);
         *guard = Some(CompanionBroadcaster::resuming(
@@ -94,7 +94,11 @@ pub async fn live_start(
             RealtimeTransport::local_only(),
             start_seq,
         ));
-    }
+        start_seq
+    };
+    // Persist the seed seq so an immediate crash recovers the true stream
+    // position — `begin` just truncated the WAL, so its length is 0 here.
+    let _ = store(&state).record_seq(start_seq);
     *state.live.lock().expect("live mutex") = Some(session);
     Ok(view)
 }
@@ -127,9 +131,16 @@ pub fn companion_broadcast(state: State<'_, AppState>) -> AppResult<u32> {
     let broadcaster = guard
         .as_mut()
         .ok_or_else(|| AppError::Validation("ingen aktiv companion-kringkasting".into()))?;
-    broadcaster
+    let seq = broadcaster
         .on_cue_advance(&frame, false)
-        .map_err(AppError::Internal)
+        .map_err(AppError::Internal)?;
+    // This re-push advanced `seq` without an action-log entry, so persist the
+    // new position; otherwise crash recovery would resume below it and re-freeze
+    // the very phone whose join triggered this broadcast.
+    let next = broadcaster.next_seq();
+    drop(guard);
+    let _ = store(&state).record_seq(next);
+    Ok(seq)
 }
 
 /// Apply one operator action to the running session.
@@ -148,10 +159,22 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
     // carries its own `sensitive_slide` gate; a failed publish is logged and
     // never breaks the show (the companion is off the critical live path).
     drop(guard);
-    if let Some(broadcaster) = state.companion.lock().expect("companion mutex").as_mut() {
-        if let Err(e) = broadcaster.on_cue_advance(&view.frame, false) {
-            tracing::warn!("companion broadcast failed: {e}");
+    let next_seq = {
+        let mut comp = state.companion.lock().expect("companion mutex");
+        match comp.as_mut() {
+            Some(broadcaster) => {
+                // `seq` advances even if the publish fails (so a retry never
+                // reuses it), so capture it regardless of the result.
+                if let Err(e) = broadcaster.on_cue_advance(&view.frame, false) {
+                    tracing::warn!("companion broadcast failed: {e}");
+                }
+                Some(broadcaster.next_seq())
+            }
+            None => None,
         }
+    };
+    if let Some(seq) = next_seq {
+        let _ = store(&state).record_seq(seq);
     }
     Ok(view)
 }
@@ -194,10 +217,15 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
     // Re-establish the companion broadcaster for the recovered service. Seed the
     // `seq` above any frame the crashed session could have broadcast so phones
     // still subscribed to `companion:<svc>` don't discard every post-recover
-    // frame via their `seq <= lastSeq` stale-guard. Each dispatch broadcasts at
-    // most once, so `log_len` is a safe upper bound on the prior session's seqs
-    // (0..log_len), and recovery never depends on the crashed process's state.
-    let resume_seq = view.log_len as u32;
+    // frame via their `seq <= lastSeq` stale-guard. Prefer the persisted seq —
+    // it captures unlogged `companion_broadcast` re-pushes that the action-log
+    // length misses — and floor it at `log_len` (which dispatches keep in sync)
+    // in case the sidecar is absent or torn. Recovery never depends on the
+    // crashed process's in-memory state.
+    let resume_seq = store(&state)
+        .recover_seq()
+        .unwrap_or(0)
+        .max(view.log_len as u32);
     *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::resuming(
         &view.service_id,
         RealtimeTransport::local_only(),
