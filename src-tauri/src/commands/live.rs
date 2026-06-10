@@ -9,6 +9,7 @@
 use tauri::State;
 
 use crate::db::now_ms;
+use crate::db::repositories::{ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::cue_list::{CueCompiler, CueList};
@@ -16,6 +17,7 @@ use crate::services::live_session::{LiveAction, LiveSession, LiveSessionView};
 use crate::services::session_store::SessionStore;
 use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
 use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
+use crate::services::sundayrec_bridge::manifest::{build_manifest, ItemMeta, ManifestSong};
 use crate::services::sundayrec_bridge::protocol::PROTOCOL_VERSION;
 use crate::AppState;
 
@@ -52,6 +54,67 @@ pub fn bridge_chapter_markers(state: State<'_, AppState>) -> AppResult<Vec<Chapt
 pub fn bridge_export_srt(state: State<'_, AppState>, ended_at: Option<i64>) -> AppResult<String> {
     let end = ended_at.unwrap_or_else(now_ms);
     require_session(&state, |s| session_to_srt(s, end))
+}
+
+/// Export the running session as a SundayRec `service-manifest.json` (Phase
+/// 10.3): the setlist + chapters with the CCLI/TONO ids SundayRec reports usage
+/// against. Joins the session's display timeline back to the service plan (kind
+/// + song ids by `service_item_id`), which the compiled cues don't carry.
+/// Returns the camelCase JSON string SundayRec's `stage_import_manifest` parses.
+/// `ended_at` defaults to now if the recording is still running.
+#[tauri::command]
+pub async fn bridge_export_manifest(
+    state: State<'_, AppState>,
+    ended_at: Option<i64>,
+) -> AppResult<String> {
+    let end = ended_at.unwrap_or_else(now_ms);
+
+    // Snapshot the session out of the lock so the DB join can await freely (the
+    // live mutex must never be held across `.await`).
+    let (session, service_id) = {
+        let guard = state.live.lock().expect("live mutex");
+        let s = guard
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
+        (s.clone(), s.service_id.clone())
+    };
+
+    // Resolve planning-time metadata for every item in the service: its kind,
+    // and for song items the licensing ids (the part the live session can't
+    // carry). A song row that's since been deleted simply drops to "no song".
+    let service_repo = ServiceRepo::new(&state.db.pool);
+    let song_repo = SongRepo::new(&state.db.pool);
+    let mut meta = std::collections::HashMap::new();
+    for item in service_repo.items(&service_id).await? {
+        let song = if item.kind == "song" {
+            match &item.song_id {
+                Some(song_id) => match song_repo.get(song_id).await {
+                    Ok(s) => Some(ManifestSong {
+                        title: Some(s.title),
+                        tono_work_id: s.tono_work_id,
+                        ccli_song_id: s.ccli_song_id,
+                        // Stage's local catalog has no SundaySong id yet; CCLI/
+                        // TONO are what the licensing report needs.
+                        sundaysong_id: None,
+                    }),
+                    Err(_) => None,
+                },
+                None => None,
+            }
+        } else {
+            None
+        };
+        meta.insert(
+            item.id,
+            ItemMeta {
+                kind: item.kind,
+                song,
+            },
+        );
+    }
+
+    let manifest = build_manifest(&session, end, &meta, None);
+    serde_json::to_string(&manifest).map_err(|e| AppError::Internal(e.to_string()))
 }
 
 #[tauri::command]

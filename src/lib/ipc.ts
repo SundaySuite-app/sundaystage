@@ -230,6 +230,10 @@ export const live = {
   chapterMarkers: () => call<ChapterMarker[]>("bridge_chapter_markers"),
   exportSrt: (endedAt?: number) =>
     call<string>("bridge_export_srt", { endedAt: endedAt ?? null }),
+  /** Export the running session as a SundayRec `service-manifest.json` string
+   *  (setlist + chapters with CCLI/TONO ids). */
+  exportManifest: (endedAt?: number) =>
+    call<string>("bridge_export_manifest", { endedAt: endedAt ?? null }),
 };
 
 // ── Custom decks + slides (Phase 3.1 slide editor) ─────────────────────────────
