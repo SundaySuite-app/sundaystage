@@ -51,6 +51,38 @@ impl SessionStore {
         self.path.exists()
     }
 
+    /// Sidecar file holding the companion broadcaster's next `seq`. Kept beside
+    /// the action log (same "don't share a failure domain" philosophy) so crash
+    /// recovery can resume the monotonic broadcast stream from the *true*
+    /// last-emitted seq.
+    fn seq_path(&self) -> PathBuf {
+        self.path.with_extension("seq")
+    }
+
+    /// Persist the companion broadcaster's next `seq` (best-effort, like the
+    /// action log). Recovery needs this because `companion_broadcast` re-pushes
+    /// (a phone joining mid-service, a manual re-push) advance `seq` *without*
+    /// appending an action, so the action-log length under-counts the real
+    /// emitted seq. Seeding recovery from `log_len` alone would restart at or
+    /// below a phone's `lastSeq` and re-freeze exactly the phones the resume
+    /// mechanism exists to protect.
+    pub fn record_seq(&self, next_seq: u32) -> std::io::Result<()> {
+        let mut f = File::create(self.seq_path())?;
+        write!(f, "{next_seq}")?;
+        f.flush()
+    }
+
+    /// The persisted next `seq`, if any. `None` when none was ever written (cloud
+    /// companion off, or a log from before this sidecar existed) or the file is
+    /// torn — callers fall back to the action-log length.
+    pub fn recover_seq(&self) -> Option<u32> {
+        std::fs::read_to_string(self.seq_path())
+            .ok()?
+            .trim()
+            .parse()
+            .ok()
+    }
+
     /// Start (or restart) the log: truncate and write the header line.
     pub fn begin(&self, session: &LiveSession) -> std::io::Result<()> {
         let header = RecoveryHeader {
@@ -75,6 +107,7 @@ impl SessionStore {
 
     pub fn clear(&self) {
         let _ = std::fs::remove_file(&self.path);
+        let _ = std::fs::remove_file(self.seq_path());
     }
 
     /// Reconstruct the session by replaying the log. Returns `None` if there is
@@ -202,6 +235,23 @@ mod tests {
         store.clear();
         assert!(!store.exists());
         assert!(store.recover().is_none());
+    }
+
+    #[test]
+    fn seq_round_trips_and_clear_removes_it() {
+        let (_d, store) = store();
+        // No seq written yet → caller must fall back to the action-log length.
+        assert_eq!(store.recover_seq(), None);
+        // A re-push can push the real seq above the action count; recovery must
+        // see that true value, not the (smaller) log length.
+        store.record_seq(43).unwrap();
+        assert_eq!(store.recover_seq(), Some(43));
+        // Overwrites, never appends.
+        store.record_seq(44).unwrap();
+        assert_eq!(store.recover_seq(), Some(44));
+        // A clean shutdown clears the seq sidecar too.
+        store.clear();
+        assert_eq!(store.recover_seq(), None);
     }
 
     #[test]
