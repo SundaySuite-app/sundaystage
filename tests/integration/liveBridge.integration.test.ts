@@ -103,16 +103,7 @@ describe("startSession seam: fetch songs_by_item → build context → drive", (
     // Go live at cue 0 (song A) — the driver should emit the opening triplet
     // and a usage event carrying song-a + its arrangement variant.
     const seq = new LiveSequence();
-    const out = bridgeOnGoLive(
-      ctx,
-      cues,
-      0,
-      cues.length,
-      seq,
-      1000,
-      999,
-      new Set(),
-    );
+    const out = bridgeOnGoLive(ctx, cues, 0, seq, 1000, new Set());
 
     expect(out.liveEvents.map((e) => e.type)).toEqual([
       "service.live",
@@ -121,8 +112,9 @@ describe("startSession seam: fetch songs_by_item → build context → drive", (
     ]);
     const nowPlaying = out.liveEvents.find((e) => e.type === "now_playing");
     if (nowPlaying?.type === "now_playing") {
-      expect(nowPlaying.song_id).toBe("song-a");
-      expect(nowPlaying.variant_id).toBe("arr-1");
+      // The local song id rides in the canonical song_ref.
+      expect(nowPlaying.song_ref?.local_id).toBe("song-a");
+      expect(nowPlaying.title).toBe("Amazing Grace");
     }
     expect(out.usageEvents).toHaveLength(1);
     expect(out.usageEvents[0].song_id).toBe("song-a");
@@ -134,16 +126,7 @@ describe("startSession seam: fetch songs_by_item → build context → drive", (
     const ctx = buildLiveBridgeContext(service, wireMap);
     const seq = new LiveSequence();
     // Go live on the scripture cue (index 2, empty serviceItemId).
-    const out = bridgeOnGoLive(
-      ctx,
-      cues,
-      2,
-      cues.length,
-      seq,
-      1000,
-      999,
-      new Set(),
-    );
+    const out = bridgeOnGoLive(ctx, cues, 2, seq, 1000, new Set());
     expect(out.liveEvents.map((e) => e.type)).toEqual([
       "service.live",
       "cue.advanced",

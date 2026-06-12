@@ -45,9 +45,9 @@ export interface LiveBridgeTransports {
 
 export interface LiveBridge {
   /** Call once when the session goes live (output armed at `index`). */
-  goLive: (index: number, total: number, startedAt: number) => void;
+  goLive: (index: number) => void;
   /** Call on every operator transition; diffs `prevIndex`→`nextIndex`. */
-  cueChange: (prevIndex: number, nextIndex: number, total: number) => void;
+  cueChange: (prevIndex: number, nextIndex: number) => void;
   /** Call when the session ends. */
   end: () => void;
 }
@@ -69,13 +69,15 @@ export function useLiveBridge(
 
   // Forward an emission to the (default-off) transports. Failures are swallowed
   // so the bridge can never take down the live output — the core promise.
+  // `churchId` scopes the Realtime channel (the canonical event itself no
+  // longer carries it).
   const forward = useCallback(
-    (emission: BridgeEmission) => {
+    (churchId: string, emission: BridgeEmission) => {
       const { publish, usage } = transports;
       if (publish) {
         for (const ev of emission.liveEvents) {
           // NETWORK-UNVERIFIED: best-effort Realtime broadcast.
-          void publishLiveEvent(ev, publish).catch(() => {});
+          void publishLiveEvent(churchId, ev, publish).catch(() => {});
         }
       }
       if (usage) {
@@ -89,19 +91,18 @@ export function useLiveBridge(
   );
 
   const goLive = useCallback(
-    (index: number, total: number, startedAt: number) => {
+    (index: number) => {
       if (!ctx) return;
       seq.current = new LiveSequence();
       shownItems.current = new Set();
       forward(
+        ctx.churchId,
         bridgeOnGoLive(
           ctx,
           cues,
           index,
-          total,
           seq.current,
           now(),
-          startedAt,
           shownItems.current,
         ),
       );
@@ -110,15 +111,15 @@ export function useLiveBridge(
   );
 
   const cueChange = useCallback(
-    (prevIndex: number, nextIndex: number, total: number) => {
+    (prevIndex: number, nextIndex: number) => {
       if (!ctx) return;
       forward(
+        ctx.churchId,
         bridgeOnCueChange(
           ctx,
           cues,
           prevIndex,
           nextIndex,
-          total,
           seq.current,
           now(),
           shownItems.current,
@@ -130,7 +131,7 @@ export function useLiveBridge(
 
   const end = useCallback(() => {
     if (!ctx) return;
-    forward(bridgeOnEnd(ctx, seq.current, now()));
+    forward(ctx.churchId, bridgeOnEnd(ctx, seq.current, now()));
   }, [ctx, forward, now]);
 
   return { goLive, cueChange, end };

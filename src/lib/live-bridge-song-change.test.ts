@@ -47,32 +47,14 @@ describe("bridgeOnCueChange — now_playing only on song change", () => {
   it("does NOT emit now_playing when advancing within one song", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>(["item-a"]); // already showing within this session
-    const out = bridgeOnCueChange(
-      ctx,
-      cues,
-      0,
-      1,
-      cues.length,
-      seq,
-      1_000,
-      shown,
-    );
+    const out = bridgeOnCueChange(ctx, cues, 0, 1, seq, 1_000, shown);
     expect(types(out.liveEvents)).toEqual(["cue.advanced"]);
   });
 
   it("DOES emit now_playing when the song under the cursor changes", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>(["item-a"]);
-    const out = bridgeOnCueChange(
-      ctx,
-      cues,
-      1,
-      2,
-      cues.length,
-      seq,
-      1_000,
-      shown,
-    );
+    const out = bridgeOnCueChange(ctx, cues, 1, 2, seq, 1_000, shown);
     expect(types(out.liveEvents)).toEqual(["cue.advanced", "now_playing"]);
   });
 });

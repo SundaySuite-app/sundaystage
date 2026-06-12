@@ -5,11 +5,18 @@
 //! the *presentation* of that plan. The natural handoff is "send the setlist to
 //! the stage".
 //!
-//! SundayPlan has no export yet (its data lives in Supabase, export is a later
-//! phase), so this module defines the interchange we'll accept and is tolerant
-//! by design: it mirrors SundayPlan's documented Service + Setlist model and
-//! fills sensible defaults for anything missing. When SundayPlan ships export,
-//! its JSON drops straight in.
+//! The interchange is tolerant by design and accepts BOTH wire shapes:
+//!
+//!  - the canonical `ServicePlan` envelope from sunday-platform
+//!    `sunday-contracts` v0.4.0 (`{ schema_version, service: { name, starts_at,
+//!    notes, … }, items: [{ kind, title, song_ref, key_override, … }] }`) that
+//!    SundayPlan's SDK exporter (`packages/sdk/src/serviceplan.ts`) emits —
+//!    including the canonical `song_ref` (`local_id`/`default_key`/licensing
+//!    ids), so a song's toneart and CCLI/TONO ids survive the handoff;
+//!  - the older flat shape (`{ name, starts_at, items: [...] }`) so existing
+//!    integrations keep working.
+//!
+//! Sensible defaults fill anything missing.
 //!
 //! SundayPlan's song ids don't exist in this library, so songs are matched by
 //! **title** against the local library; unmatched titles become empty stub
@@ -26,7 +33,9 @@ use crate::db::now_ms;
 use crate::db::repositories::{ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
 
-/// The interchange shape we accept for a SundayPlan plan.
+/// The interchange shape we accept for a SundayPlan plan. Either flat
+/// (`name`/`starts_at` at the top level) or the canonical `ServicePlan`
+/// envelope (the same fields under `service`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct PlanImport {
     #[serde(default)]
@@ -36,8 +45,47 @@ pub struct PlanImport {
     pub starts_at: Option<i64>,
     #[serde(default)]
     pub notes: Option<String>,
+    /// The canonical `ServicePlan.service` envelope, when present.
+    #[serde(default)]
+    pub service: Option<PlanServiceImport>,
     #[serde(default)]
     pub items: Vec<PlanItemImport>,
+}
+
+/// The canonical `ServiceRef` subset the importer uses (sunday-contracts
+/// v0.4.0, service.ts). Unknown fields (`id`, `church_id`, `state`,
+/// `was_streamed`, `schema_version`, …) are ignored — they identify the plan
+/// in PLAN's world, not in this library.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PlanServiceImport {
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Canonical `starts_at` is an ISO-8601 UTC string.
+    #[serde(default)]
+    pub starts_at: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// The canonical `SongRef` (sunday-contracts v0.4.0, song.ts) on a setlist
+/// item. Carries the song's home key (toneart) + licensing ids, which the
+/// flat shape never had.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PlanSongRefImport {
+    #[serde(default)]
+    pub sundaysong_id: Option<String>,
+    #[serde(default)]
+    pub local_id: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub ccli_song_id: Option<String>,
+    #[serde(default)]
+    pub tono_work_id: Option<String>,
+    #[serde(default)]
+    pub default_key: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -59,6 +107,9 @@ pub struct PlanItemImport {
     pub label: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
+    /// Canonical song reference, when the emitter sends one.
+    #[serde(default)]
+    pub song_ref: Option<PlanSongRefImport>,
 }
 
 /// Outcome of an import — what landed, and what needs a human's attention.
@@ -75,6 +126,14 @@ pub struct PlanImportResult {
     pub warnings: Vec<String>,
 }
 
+/// Parse an ISO-8601 / RFC-3339 UTC timestamp (the canonical `starts_at`) to
+/// unix millis. `None` for anything unparseable — the caller falls back.
+fn parse_iso_ms(s: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(s)
+        .ok()
+        .map(|dt| dt.timestamp_millis())
+}
+
 /// Parse a SundayPlan plan JSON and build a SundayStage service from it.
 pub async fn import_plan(
     pool: &SqlitePool,
@@ -87,19 +146,31 @@ pub async fn import_plan(
     let svc_repo = ServiceRepo::new(pool);
     let song_repo = SongRepo::new(pool);
 
+    // Flat fields win when present; otherwise the canonical `service` envelope.
+    let envelope = plan.service.as_ref();
     let name = plan
         .name
         .as_deref()
+        .or(envelope.and_then(|s| s.name.as_deref()))
         .map(str::trim)
         .filter(|n| !n.is_empty())
         .unwrap_or("Importert plan")
         .to_string();
-    let starts_at = plan.starts_at.unwrap_or_else(now_ms);
+    // Flat `starts_at` is unix ms; the canonical envelope's is ISO-8601 UTC.
+    let starts_at = plan
+        .starts_at
+        .or_else(|| {
+            envelope
+                .and_then(|s| s.starts_at.as_deref())
+                .and_then(parse_iso_ms)
+        })
+        .unwrap_or_else(now_ms);
     let mut service = svc_repo.create(library_id, &name, starts_at).await?;
 
     if let Some(notes) = plan
         .notes
         .as_deref()
+        .or(envelope.and_then(|s| s.notes.as_deref()))
         .map(str::trim)
         .filter(|n| !n.is_empty())
     {
@@ -114,9 +185,12 @@ pub async fn import_plan(
         let kind = item.kind.as_deref().unwrap_or("song");
         match kind {
             "song" => {
+                // Title: the item's own, else the canonical song_ref's.
+                let song_ref = item.song_ref.as_ref();
                 let Some(title) = item
                     .title
                     .as_deref()
+                    .or(song_ref.and_then(|r| r.title.as_deref()))
                     .map(str::trim)
                     .filter(|t| !t.is_empty())
                 else {
@@ -132,15 +206,20 @@ pub async fn import_plan(
                         s
                     }
                     None => {
+                        // A stub inherits everything the canonical song_ref
+                        // carries: home key (toneart), language, CCLI/TONO ids.
+                        // Falls back to the per-item key for old flat payloads.
                         let s = song_repo
                             .create(SongInput {
                                 library_id: library_id.into(),
                                 title: title.into(),
-                                language: None,
-                                default_key: item.key.clone(),
+                                language: song_ref.and_then(|r| r.language.clone()),
+                                default_key: song_ref
+                                    .and_then(|r| r.default_key.clone())
+                                    .or_else(|| item.key.clone()),
                                 tempo_bpm: None,
-                                ccli_song_id: None,
-                                tono_work_id: None,
+                                ccli_song_id: song_ref.and_then(|r| r.ccli_song_id.clone()),
+                                tono_work_id: song_ref.and_then(|r| r.tono_work_id.clone()),
                                 copyright_notice: None,
                             })
                             .await?;
@@ -331,6 +410,90 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.service.name, "Importert plan");
+    }
+
+    // ── canonical ServicePlan envelope (sunday-contracts v0.4.0) ─────────────
+
+    #[tokio::test]
+    async fn accepts_canonical_serviceplan_envelope_with_song_ref() {
+        let (db, lib) = fresh_lib().await;
+        // Exactly what SundayPlan's SDK exporter emits post-convergence:
+        // schema_version + service envelope + canonical song_ref per item.
+        let json = r#"{
+            "schema_version": 1,
+            "service": {
+                "schema_version": 1,
+                "id": "33333333-3333-3333-3333-333333333333",
+                "church_id": "11111111-1111-1111-1111-111111111111",
+                "name": "Gudstjeneste 14. juni",
+                "starts_at": "2026-06-14T09:00:00Z",
+                "state": "published",
+                "was_streamed": false,
+                "notes": "Pinse"
+            },
+            "items": [
+                {
+                    "position": 1,
+                    "kind": "song",
+                    "title": "Oceans",
+                    "song_ref": {
+                        "sundaysong_id": null,
+                        "local_id": "22222222-2222-2222-2222-222222222222",
+                        "title": "Oceans",
+                        "ccli_song_id": "6428767",
+                        "tono_work_id": "T-915",
+                        "default_key": "D",
+                        "language": "en"
+                    },
+                    "scripture_ref": null,
+                    "key_override": "C",
+                    "duration_min": 5,
+                    "notes": null
+                },
+                { "position": 2, "kind": "scripture", "scripture_ref": "Apg 2:1-4" }
+            ]
+        }"#;
+        let res = import_plan(&db.pool, &lib, json).await.unwrap();
+
+        // The canonical envelope drives name/start/notes.
+        assert_eq!(res.service.name, "Gudstjeneste 14. juni");
+        assert_eq!(res.service.starts_at, 1_781_427_600_000); // 2026-06-14T09:00:00Z
+        assert_eq!(res.service.notes.as_deref(), Some("Pinse"));
+
+        // The stub song inherits the song_ref's toneart + licensing identity.
+        assert_eq!(res.created_songs, vec!["Oceans"]);
+        let song = SongRepo::new(&db.pool)
+            .by_title(&lib, "Oceans")
+            .await
+            .unwrap()
+            .expect("stub created");
+        assert_eq!(song.default_key.as_deref(), Some("D"), "toneart preserved");
+        assert_eq!(song.ccli_song_id.as_deref(), Some("6428767"));
+        assert_eq!(song.tono_work_id.as_deref(), Some("T-915"));
+        assert_eq!(song.language, "en");
+
+        let items = ServiceRepo::new(&db.pool)
+            .items(&res.service.id)
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 2);
+        // The per-service override still comes from key_override, not the home key.
+        assert_eq!(items[0].key_override.as_deref(), Some("C"));
+        assert_eq!(items[1].notes.as_deref(), Some("Apg 2:1-4"));
+    }
+
+    #[tokio::test]
+    async fn song_ref_title_is_the_fallback_match_key() {
+        let (db, lib) = fresh_lib().await;
+        // No item title at all — the canonical song_ref's title must carry it.
+        let json = r#"{
+            "items": [
+                { "kind": "song", "song_ref": { "title": "How Great Thou Art", "language": "en" } }
+            ]
+        }"#;
+        let res = import_plan(&db.pool, &lib, json).await.unwrap();
+        assert_eq!(res.created_songs, vec!["How Great Thou Art"]);
+        assert!(res.warnings.is_empty());
     }
 
     // ── SundayPlan's real export field names (serde aliases) ─────────────────

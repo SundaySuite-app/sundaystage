@@ -11,8 +11,17 @@
 //!
 //! The join logic is pure: [`build_manifest`] takes a `service_item_id →`
 //! [`ItemMeta`] map (the command layer resolves it from the DB) so it stays
-//! testable without a database. The wire JSON is camelCase to match SundayRec's
-//! parser; once `sunday-contracts` is published this should converge onto it.
+//! testable without a database.
+//!
+//! WIRE CONTRACT: [`StageManifest`]/[`ManifestItem`]/[`ManifestSong`] are
+//! FIELD-IDENTICAL mirrors of the canonical `StageManifest` contract in
+//! sunday-platform `sunday-contracts` v0.4.0 (`crates/sunday-contracts/src/stage.rs`
+//! / `packages/contracts/src/stage.ts`): camelCase keys, no `schema_version`
+//! envelope, absent options omitted (never `null`). The only producer-side
+//! deviation is that `source` is a required `String` here because Stage always
+//! stamps `"stage"` — the canonical consumer-side field is `Option<String>`.
+//! Converge onto the published crate once apps can depend on it; do not add or
+//! rename fields without changing the canonical contract first.
 
 use std::collections::HashMap;
 
@@ -21,8 +30,9 @@ use serde::Serialize;
 use crate::services::cue_list::Cue;
 use crate::services::live_session::{LiveSession, OutputState};
 
-/// Song identifiers on a manifest item — the cross-suite licensing ids. Mirrors
-/// SundayRec's `StageManifestSong` (camelCase on the wire).
+/// Song identifiers on a manifest item — the cross-suite licensing ids.
+/// FIELD-IDENTICAL mirror of canonical `StageManifestSong`
+/// (sunday-contracts v0.4.0, stage.rs); camelCase on the wire.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestSong {
@@ -48,8 +58,9 @@ pub struct ItemMeta {
     pub song: Option<ManifestSong>,
 }
 
-/// One cue in the manifest. `at_ms`/`end_ms` are absolute unix ms. Mirrors
-/// SundayRec's `StageManifestItem`.
+/// One cue in the manifest. `at_ms`/`end_ms` are absolute unix ms.
+/// FIELD-IDENTICAL mirror of canonical `StageManifestItem`
+/// (sunday-contracts v0.4.0, stage.rs).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestItem {
@@ -64,8 +75,10 @@ pub struct ManifestItem {
     pub song: Option<ManifestSong>,
 }
 
-/// A Stage service manifest. Mirrors SundayRec's `StageManifest`; `source` is
-/// always `"stage"`. `started_at_ms` + `items` are the fields SundayRec requires.
+/// A Stage service manifest. FIELD-IDENTICAL mirror of canonical
+/// `StageManifest` (sunday-contracts v0.4.0, stage.rs) — see the module doc for
+/// the one producer-side deviation (`source` required). `source` is always
+/// `"stage"`; `started_at_ms` + `items` are the fields SundayRec requires.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StageManifest {

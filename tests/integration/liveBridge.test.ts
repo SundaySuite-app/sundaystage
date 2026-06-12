@@ -53,7 +53,7 @@ describe("bridgeOnGoLive", () => {
   it("emits service.live, then the opening cue.advanced + now_playing + usage", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>();
-    const out = bridgeOnGoLive(ctx(), cues, 0, 4, seq, 1000, 999, shown);
+    const out = bridgeOnGoLive(ctx(), cues, 0, seq, 1000, shown);
 
     expect(types(out.liveEvents)).toEqual([
       "service.live",
@@ -61,10 +61,11 @@ describe("bridgeOnGoLive", () => {
       "now_playing",
     ]);
     // Sequence is strictly increasing across the whole emission.
-    expect(out.liveEvents.map((e) => e.seq)).toEqual([1, 2, 3]);
+    expect(out.liveEvents.map((e) => e.sequence)).toEqual([1, 2, 3]);
 
     const live = out.liveEvents[0];
-    if (live.type === "service.live") expect(live.started_at).toBe(999);
+    expect(live.type).toBe("service.live");
+    expect(live.emitted_at).toBe(new Date(1000).toISOString());
 
     expect(out.usageEvents).toHaveLength(1);
     const u = out.usageEvents[0];
@@ -81,7 +82,7 @@ describe("bridgeOnGoLive", () => {
 describe("bridgeOnCueChange", () => {
   it("emits nothing when the index does not move (blackout/logo)", () => {
     const seq = new LiveSequence();
-    const out = bridgeOnCueChange(ctx(), cues, 1, 1, 4, seq, 0, new Set());
+    const out = bridgeOnCueChange(ctx(), cues, 1, 1, seq, 0, new Set());
     expect(out.liveEvents).toEqual([]);
     expect(out.usageEvents).toEqual([]);
     expect(seq.current()).toBe(0); // sequence untouched
@@ -90,7 +91,7 @@ describe("bridgeOnCueChange", () => {
   it("advancing within one song emits cue.advanced only (no now_playing, no usage)", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>(["item-a"]); // song A already shown
-    const out = bridgeOnCueChange(ctx(), cues, 0, 1, 4, seq, 0, shown);
+    const out = bridgeOnCueChange(ctx(), cues, 0, 1, seq, 0, shown);
     // The song under the cursor is unchanged, so no now_playing churns (the
     // contract that keeps SundayRec chapters from advancing slide-by-slide),
     // and the usage one-shot guard suppresses a second log.
@@ -101,7 +102,7 @@ describe("bridgeOnCueChange", () => {
   it("moving to a new song logs usage once for the new item", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>(["item-a"]);
-    const out = bridgeOnCueChange(ctx(), cues, 1, 2, 4, seq, 5000, shown);
+    const out = bridgeOnCueChange(ctx(), cues, 1, 2, seq, 5000, shown);
     expect(types(out.liveEvents)).toEqual(["cue.advanced", "now_playing"]);
     expect(out.usageEvents).toHaveLength(1);
     expect(out.usageEvents[0].song_id).toBe("song-b");
@@ -113,39 +114,40 @@ describe("bridgeOnCueChange", () => {
     const seq = new LiveSequence();
     const shown = new Set<string>();
     // First show of item-a logs usage.
-    bridgeOnCueChange(ctx(), cues, -1, 0, 4, seq, 0, shown);
+    bridgeOnCueChange(ctx(), cues, -1, 0, seq, 0, shown);
     expect(shown.has("item-a")).toBe(true);
     // Scrub away and back: cue.advanced fires, usage does not.
-    const back = bridgeOnCueChange(ctx(), cues, 2, 0, 4, seq, 0, shown);
+    const back = bridgeOnCueChange(ctx(), cues, 2, 0, seq, 0, shown);
     expect(back.usageEvents).toEqual([]);
   });
 
   it("a non-song cue emits cue.advanced only (no now_playing, no usage)", () => {
     const seq = new LiveSequence();
-    const out = bridgeOnCueChange(ctx(), cues, 2, 3, 4, seq, 0, new Set());
+    const out = bridgeOnCueChange(ctx(), cues, 2, 3, seq, 0, new Set());
     expect(types(out.liveEvents)).toEqual(["cue.advanced"]);
     expect(out.usageEvents).toEqual([]);
-    // The cue.advanced carries the (null) section label faithfully.
+    // The cue.advanced carries the (null) label + position faithfully, and a
+    // cue with no service item id carries item_id null.
     const adv = out.liveEvents[0];
     if (adv.type === "cue.advanced") {
-      expect(adv.index).toBe(3);
-      expect(adv.total).toBe(4);
-      expect(adv.section_label).toBeNull();
+      expect(adv.item_position).toBe(3);
+      expect(adv.item_id).toBeNull();
+      expect(adv.label).toBeNull();
     }
   });
 
   it("an out-of-range index emits nothing (end of list)", () => {
     const seq = new LiveSequence();
-    const out = bridgeOnCueChange(ctx(), cues, 3, 99, 4, seq, 0, new Set());
+    const out = bridgeOnCueChange(ctx(), cues, 3, 99, seq, 0, new Set());
     expect(out.liveEvents).toEqual([]);
     expect(out.usageEvents).toEqual([]);
   });
 
   it("carries the section label onto cue.advanced", () => {
     const seq = new LiveSequence();
-    const out = bridgeOnCueChange(ctx(), cues, 0, 1, 4, seq, 0, new Set());
+    const out = bridgeOnCueChange(ctx(), cues, 0, 1, seq, 0, new Set());
     const adv = out.liveEvents[0];
-    if (adv.type === "cue.advanced") expect(adv.section_label).toBe("Chorus");
+    if (adv.type === "cue.advanced") expect(adv.label).toBe("Chorus");
   });
 });
 
@@ -155,7 +157,7 @@ describe("bridgeOnEnd", () => {
     const out = bridgeOnEnd(ctx(), seq, 9000);
     expect(types(out.liveEvents)).toEqual(["service.ended"]);
     expect(out.usageEvents).toEqual([]);
-    expect(out.liveEvents[0].seq).toBe(1);
+    expect(out.liveEvents[0].sequence).toBe(1);
   });
 });
 
@@ -166,9 +168,7 @@ describe("service-date variants", () => {
       ctx({ serviceDate: 1718352000000 }),
       cues,
       0,
-      4,
       seq,
-      0,
       0,
       new Set(),
     );

@@ -139,25 +139,21 @@ export function bridgeOnGoLive(
   ctx: LiveBridgeContext,
   cues: readonly BridgeCue[],
   index: number,
-  total: number,
   seq: LiveSequence,
   at: number,
-  startedAt: number,
   shownItems: Set<string>,
 ): BridgeEmission {
   const out = emptyEmission();
   out.liveEvents.push(
     buildServiceLive({
-      churchId: ctx.churchId,
       serviceId: ctx.serviceId,
       seq: seq.next(),
       at,
-      startedAt,
     }),
   );
   // Go-live: there is no previous cue, so the opening cue is always a song
   // change (emit the opening now_playing).
-  appendCueChange(out, ctx, cues, null, index, total, seq, at, shownItems);
+  appendCueChange(out, ctx, cues, null, index, seq, at, shownItems);
   return out;
 }
 
@@ -171,24 +167,13 @@ export function bridgeOnCueChange(
   cues: readonly BridgeCue[],
   prevIndex: number,
   nextIndex: number,
-  total: number,
   seq: LiveSequence,
   at: number,
   shownItems: Set<string>,
 ): BridgeEmission {
   const out = emptyEmission();
   if (nextIndex === prevIndex) return out; // no movement → nothing to publish
-  appendCueChange(
-    out,
-    ctx,
-    cues,
-    prevIndex,
-    nextIndex,
-    total,
-    seq,
-    at,
-    shownItems,
-  );
+  appendCueChange(out, ctx, cues, prevIndex, nextIndex, seq, at, shownItems);
   return out;
 }
 
@@ -201,7 +186,6 @@ export function bridgeOnEnd(
   return {
     liveEvents: [
       buildServiceEnded({
-        churchId: ctx.churchId,
         serviceId: ctx.serviceId,
         seq: seq.next(),
         at,
@@ -222,7 +206,6 @@ function appendCueChange(
   cues: readonly BridgeCue[],
   prevIndex: number | null,
   index: number,
-  total: number,
   seq: LiveSequence,
   at: number,
   shownItems: Set<string>,
@@ -232,13 +215,14 @@ function appendCueChange(
 
   out.liveEvents.push(
     buildCueAdvanced({
-      churchId: ctx.churchId,
       serviceId: ctx.serviceId,
       seq: seq.next(),
       at,
-      index,
-      total,
-      sectionLabel: cue.sectionLabel,
+      itemId: cue.serviceItemId || null,
+      itemPosition: index,
+      label: cue.sectionLabel,
+      // BridgeCue doesn't carry the slide-within-item index; canonical allows null.
+      slideIndex: null,
     }),
   );
 
@@ -256,13 +240,12 @@ function appendCueChange(
   if (prevSongId !== song.songId) {
     out.liveEvents.push(
       buildNowPlaying({
-        churchId: ctx.churchId,
         serviceId: ctx.serviceId,
         seq: seq.next(),
         at,
         title: song.title,
         songId: song.songId,
-        variantId: song.variantId ?? null,
+        itemPosition: index,
       }),
     );
   }
