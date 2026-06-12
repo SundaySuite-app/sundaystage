@@ -121,7 +121,7 @@ describe("useLiveBridge with injected transports — live service", () => {
     );
 
     // Session goes live with the first cue already showing.
-    act(() => result.current.goLive(0, cues.length, 1_699_999_999_000));
+    act(() => result.current.goLive(0));
     await flush();
 
     // service.live, then the opening cue.advanced + now_playing for song A.
@@ -140,14 +140,14 @@ describe("useLiveBridge with injected transports — live service", () => {
     // Advance within song A (0→1): cue.advanced only — the song under the
     // cursor is unchanged, so NO now_playing (contract: chapters don't churn
     // slide-by-slide) and NO new usage.
-    act(() => result.current.cueChange(0, 1, cues.length));
+    act(() => result.current.cueChange(0, 1));
     await flush();
     expect(liveTypes(cap.liveEmissions).slice(3)).toEqual(["cue.advanced"]);
     expect(cap.usagePayloads).toHaveLength(1); // still one — guard held
 
     // Advance to song B (1→2): cue.advanced + now_playing (song changed) +
     // one new usage.
-    act(() => result.current.cueChange(1, 2, cues.length));
+    act(() => result.current.cueChange(1, 2));
     await flush();
     expect(liveTypes(cap.liveEmissions).slice(4)).toEqual([
       "cue.advanced",
@@ -163,16 +163,16 @@ describe("useLiveBridge with injected transports — live service", () => {
       useLiveBridge(ctx, cues, cap.transports),
     );
 
-    act(() => result.current.goLive(0, cues.length, 1_000));
+    act(() => result.current.goLive(0));
     await flush();
-    act(() => result.current.cueChange(0, 1, cues.length));
+    act(() => result.current.cueChange(0, 1));
     await flush();
-    act(() => result.current.cueChange(1, 2, cues.length));
+    act(() => result.current.cueChange(1, 2));
     await flush();
     act(() => result.current.end());
     await flush();
 
-    const seqs = cap.liveEmissions.map((e) => e.event.seq);
+    const seqs = cap.liveEmissions.map((e) => e.event.sequence);
     // service.live(1) cue(2) now(3) | cue(4, same song → no now) |
     // cue(5) now(6, song B) | ended(7)
     expect(seqs).toEqual([1, 2, 3, 4, 5, 6, 7]);
@@ -189,14 +189,14 @@ describe("useLiveBridge with injected transports — live service", () => {
       useLiveBridge(ctx, cues, cap.transports),
     );
 
-    act(() => result.current.goLive(0, cues.length, 1_000));
+    act(() => result.current.goLive(0));
     await flush();
     const firstRun = cap.liveEmissions.length;
-    act(() => result.current.goLive(0, cues.length, 2_000));
+    act(() => result.current.goLive(0));
     await flush();
 
     // The second go-live's first event restarts the per-service counter at 1.
-    expect(cap.liveEmissions[firstRun].event.seq).toBe(1);
+    expect(cap.liveEmissions[firstRun].event.sequence).toBe(1);
   });
 });
 
@@ -208,11 +208,11 @@ describe("useLiveBridge edge cases", () => {
     const { result } = renderHook(() =>
       useLiveBridge(ctx, cues, cap.transports),
     );
-    act(() => result.current.goLive(0, cues.length, 1_000));
+    act(() => result.current.goLive(0));
     await flush();
     const before = cap.liveEmissions.length;
 
-    act(() => result.current.cueChange(1, 1, cues.length)); // blackout/logo
+    act(() => result.current.cueChange(1, 1)); // blackout/logo
     await flush();
     expect(cap.liveEmissions).toHaveLength(before);
   });
@@ -222,12 +222,12 @@ describe("useLiveBridge edge cases", () => {
     const { result } = renderHook(() =>
       useLiveBridge(ctx, cues, cap.transports),
     );
-    act(() => result.current.goLive(2, cues.length, 1_000)); // start on song B
+    act(() => result.current.goLive(2)); // start on song B
     await flush();
     cap.liveEmissions.length = 0; // ignore the opening triplet
     const usageBefore = cap.usagePayloads.length;
 
-    act(() => result.current.cueChange(2, 3, cues.length)); // → Kollekt
+    act(() => result.current.cueChange(2, 3)); // → Kollekt
     await flush();
     expect(liveTypes(cap.liveEmissions)).toEqual(["cue.advanced"]);
     expect(cap.usagePayloads).toHaveLength(usageBefore);
@@ -238,11 +238,11 @@ describe("useLiveBridge edge cases", () => {
     const { result } = renderHook(() =>
       useLiveBridge(ctx, cues, cap.transports),
     );
-    act(() => result.current.goLive(0, cues.length, 1_000));
+    act(() => result.current.goLive(0));
     await flush();
     const before = cap.liveEmissions.length;
 
-    act(() => result.current.cueChange(3, 99, cues.length));
+    act(() => result.current.cueChange(3, 99));
     await flush();
     expect(cap.liveEmissions).toHaveLength(before);
   });
@@ -253,30 +253,35 @@ describe("useLiveBridge edge cases", () => {
 describe("round-trip serialisation through the builders", () => {
   it("serialises and deserialises a live event with no data loss", () => {
     const ev = buildCueAdvanced({
-      churchId: CHURCH,
       serviceId: SERVICE,
       seq: 42,
       at: 1_700_000_000_500,
-      index: 3,
-      total: 12,
-      sectionLabel: "Verse 2",
+      itemId: "item-b",
+      itemPosition: 3,
+      label: "Verse 2",
+      slideIndex: null,
     });
+    // Canonical envelope: schema_version + ISO emitted_at + sequence.
+    expect(ev.schema_version).toBe(1);
+    expect(ev.emitted_at).toBe(new Date(1_700_000_000_500).toISOString());
     const restored = JSON.parse(JSON.stringify(ev)) as LiveEvent;
     expect(restored).toEqual(ev);
   });
 
-  it("preserves nulls on now_playing across JSON (non-song variant)", () => {
+  it("preserves nulls on now_playing across JSON (canonical song_ref)", () => {
     const ev = buildNowPlaying({
-      churchId: CHURCH,
       serviceId: SERVICE,
       seq: 7,
       at: 1_700_000_000_000,
       title: "Oceans",
       songId: "song-b",
-      // variantId omitted → must round-trip as explicit null
+      // itemPosition omitted → must round-trip as explicit null
     });
     const restored = JSON.parse(JSON.stringify(ev));
-    expect(restored.variant_id).toBeNull();
+    expect(restored.item_position).toBeNull();
+    // The local song id rides in the canonical song_ref.
+    expect(restored.song_ref.local_id).toBe("song-b");
+    expect(restored.song_ref.sundaysong_id).toBeNull();
     expect(restored).toEqual(ev);
   });
 
@@ -329,7 +334,7 @@ describe("idempotency keys", () => {
       const { result } = renderHook(() =>
         useLiveBridge(ctx, cues, cap.transports),
       );
-      act(() => result.current.goLive(0, cues.length, 1_000));
+      act(() => result.current.goLive(0));
       await flush();
       return cap.usagePayloads[0].idempotency_key;
     };
@@ -373,7 +378,7 @@ describe("buildTransports (provider seam)", () => {
       now: () => 1_000,
     });
     const { result } = renderHook(() => useLiveBridge(ctx, cues, transports));
-    act(() => result.current.goLive(0, cues.length, 1_000));
+    act(() => result.current.goLive(0));
     await flush();
     // Cues published, but with no usage config nothing is logged.
     expect(liveEmissions.length).toBeGreaterThan(0);
@@ -386,9 +391,7 @@ describe("default-off transports", () => {
   it("the driver still runs but nothing is forwarded when transports are empty", async () => {
     const { result } = renderHook(() => useLiveBridge(ctx, cues, {}));
     // No throw, no transport — the live output is sacrosanct.
-    expect(() =>
-      act(() => result.current.goLive(0, cues.length, 1_000)),
-    ).not.toThrow();
+    expect(() => act(() => result.current.goLive(0))).not.toThrow();
     await flush();
   });
 });

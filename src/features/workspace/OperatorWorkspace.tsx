@@ -205,7 +205,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
             // Diff against the *previous* index so the bridge sees exactly the
             // movement the operator made. Blackout/logo keep the index, so the
             // driver naturally emits nothing for them.
-            if (prev) bridge.cueChange(prev.index, next.index, next.total);
+            if (prev) bridge.cueChange(prev.index, next.index);
             return next;
           }),
         )
@@ -238,7 +238,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
                 songsByItem,
               ),
             );
-            bridge.goLive(v.index, v.total, Number(v.started_at));
+            bridge.goLive(v.index);
           } catch {
             /* usage map unavailable — bridge stays off, live proceeds */
           }

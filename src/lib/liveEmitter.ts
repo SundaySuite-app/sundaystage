@@ -11,63 +11,92 @@
  * a subscriber can detect gaps / reordering. The actual publish (Supabase
  * Realtime broadcast) is a seam marked NETWORK-UNVERIFIED below.
  *
- * The event shapes mirror the platform `LiveEvent` contract:
- *   mirrors sunday-contracts; converge once published.
+ * FIELD-IDENTICAL mirror of the canonical contract:
+ *   sunday-platform `@sunday/contracts` v0.4.0 — `src/live.ts` (`LiveEvent`,
+ *   `CueAdvanced`, `NowPlaying`, `ServiceLive`, `ServiceEnded`), `src/song.ts`
+ *   (`SongRef`) and `src/common.ts` (`liveChannel`). The platform package is
+ *   not yet published, so the shapes are re-declared here; converge onto the
+ *   real import once it is. Do not add or rename fields without changing the
+ *   canonical contract first.
  */
 
-/** Realtime channel name: one channel per live service. */
+/** Wire schema version every canonical payload carries. */
+export const SCHEMA_VERSION = 1;
+
+/** Realtime channel name: one channel per live service. Mirrors the canonical
+ *  `liveChannel(churchId, serviceId)`. */
 export function liveChannelName(churchId: string, serviceId: string): string {
   if (!churchId) throw new Error("churchId is required");
   if (!serviceId) throw new Error("serviceId is required");
   return `church:${churchId}:service:${serviceId}`;
 }
 
-// ───────────────────────── event shapes (mirrors contract) ────────────────
+// ───────────────────────── event shapes (canonical mirror) ────────────────
 
-/** Discriminated union of live events. mirrors sunday-contracts LiveEvent. */
+/**
+ * A cross-app reference to a song. FIELD-IDENTICAL mirror of the canonical
+ * `SongRef` (@sunday/contracts v0.4.0, src/song.ts). Stage's local song row id
+ * goes in `local_id`; `sundaysong_id` stays null until the library links to
+ * the shared catalog.
+ */
+export interface SongRef {
+  /** Canonical SundaySong catalog id, or null if not yet linked. */
+  sundaysong_id: string | null;
+  /** The originating app's own row id (Stage-local song), or null. */
+  local_id: string | null;
+  title: string;
+  ccli_song_id: string | null;
+  tono_work_id: string | null;
+  default_key: string | null;
+  /** BCP-47 / ISO-639 language code; "und" when undetermined. */
+  language: string;
+}
+
+/** Discriminated union tags. Mirrors the canonical `LiveEvent` union. */
 export type LiveEventType =
   | "cue.advanced"
   | "now_playing"
   | "service.live"
   | "service.ended";
 
+/** Common envelope on every live signal (canonical `liveBase`). */
 interface LiveEventBase {
   type: LiveEventType;
-  church_id: string;
+  schema_version: number;
   service_id: string;
+  /** ISO 8601 UTC emit time. */
+  emitted_at: string;
   /** Monotonic per-service counter; strictly increasing, gap = missed event. */
-  seq: number;
-  /** When the event was minted (unix ms). */
-  at: number;
+  sequence: number;
 }
 
-/** The operator advanced/changed the active cue. */
+/** The operator advanced/changed the active cue (canonical `CueAdvanced`). */
 export interface CueAdvancedEvent extends LiveEventBase {
   type: "cue.advanced";
-  /** Zero-based index into the service plan. */
-  index: number;
-  /** Total items in the service plan (for progress UI). */
-  total: number;
+  /** The service item under the cursor, when known. */
+  item_id: string | null;
+  /** Zero-based position of the item in the running order. */
+  item_position: number | null;
   /** Localised/humanised section label currently shown, if any. */
-  section_label: string | null;
+  label: string | null;
+  /** Zero-based slide index within the item, when known. */
+  slide_index: number | null;
 }
 
-/** A song became the active item (subset of cue.advanced for Rec chapters). */
+/** A song became the active item (canonical `NowPlaying`). */
 export interface NowPlayingEvent extends LiveEventBase {
   type: "now_playing";
-  song_id: string | null;
-  variant_id: string | null;
-  title: string;
+  song_ref: SongRef | null;
+  item_position: number | null;
+  title: string | null;
 }
 
-/** The service went live (output armed). */
+/** The service went live (canonical `ServiceLive`). */
 export interface ServiceLiveEvent extends LiveEventBase {
   type: "service.live";
-  /** When the session went live (unix ms) — mirrors LiveSessionView.started_at. */
-  started_at: number;
 }
 
-/** The service ended (output closed). */
+/** The service ended (canonical `ServiceEnded`). */
 export interface ServiceEndedEvent extends LiveEventBase {
   type: "service.ended";
 }
@@ -100,89 +129,96 @@ export class LiveSequence {
 // ───────────────────────── pure builders ──────────────────────────────────
 
 /**
- * Common envelope assembly. `seq` and `at` are passed in (the caller owns the
- * `LiveSequence` and the clock) so every builder is a pure function of inputs.
+ * Common envelope assembly. `seq` and `at` (unix ms, converted to the
+ * canonical ISO-8601 `emitted_at`) are passed in — the caller owns the
+ * `LiveSequence` and the clock — so every builder is a pure function of
+ * inputs.
  */
-function requireIds(churchId: string, serviceId: string): void {
-  if (!churchId) throw new Error("churchId is required");
+function baseEnvelope(
+  serviceId: string,
+  seq: number,
+  at: number,
+): Omit<LiveEventBase, "type"> {
   if (!serviceId) throw new Error("serviceId is required");
+  return {
+    schema_version: SCHEMA_VERSION,
+    service_id: serviceId,
+    emitted_at: new Date(at).toISOString(),
+    sequence: seq,
+  };
 }
 
 export function buildCueAdvanced(args: {
-  churchId: string;
   serviceId: string;
   seq: number;
+  /** Emit time, unix ms (becomes the ISO `emitted_at`). */
   at: number;
-  index: number;
-  total: number;
-  sectionLabel?: string | null;
+  itemId?: string | null;
+  itemPosition?: number | null;
+  label?: string | null;
+  slideIndex?: number | null;
 }): CueAdvancedEvent {
-  requireIds(args.churchId, args.serviceId);
   return {
     type: "cue.advanced",
-    church_id: args.churchId,
-    service_id: args.serviceId,
-    seq: args.seq,
-    at: args.at,
-    index: args.index,
-    total: args.total,
-    section_label: args.sectionLabel ?? null,
+    ...baseEnvelope(args.serviceId, args.seq, args.at),
+    item_id: args.itemId ?? null,
+    item_position: args.itemPosition ?? null,
+    label: args.label ?? null,
+    slide_index: args.slideIndex ?? null,
   };
 }
 
 export function buildNowPlaying(args: {
-  churchId: string;
   serviceId: string;
   seq: number;
+  /** Emit time, unix ms (becomes the ISO `emitted_at`). */
   at: number;
   title: string;
+  /** Stage-local song row id — lands in `song_ref.local_id`. */
   songId?: string | null;
-  variantId?: string | null;
+  itemPosition?: number | null;
 }): NowPlayingEvent {
-  requireIds(args.churchId, args.serviceId);
+  const songRef: SongRef | null = args.songId
+    ? {
+        sundaysong_id: null,
+        local_id: args.songId,
+        title: args.title,
+        ccli_song_id: null,
+        tono_work_id: null,
+        default_key: null,
+        language: "und",
+      }
+    : null;
   return {
     type: "now_playing",
-    church_id: args.churchId,
-    service_id: args.serviceId,
-    seq: args.seq,
-    at: args.at,
-    song_id: args.songId ?? null,
-    variant_id: args.variantId ?? null,
+    ...baseEnvelope(args.serviceId, args.seq, args.at),
+    song_ref: songRef,
+    item_position: args.itemPosition ?? null,
     title: args.title,
   };
 }
 
 export function buildServiceLive(args: {
-  churchId: string;
   serviceId: string;
   seq: number;
+  /** Emit time, unix ms (becomes the ISO `emitted_at`). */
   at: number;
-  startedAt: number;
 }): ServiceLiveEvent {
-  requireIds(args.churchId, args.serviceId);
   return {
     type: "service.live",
-    church_id: args.churchId,
-    service_id: args.serviceId,
-    seq: args.seq,
-    at: args.at,
-    started_at: args.startedAt,
+    ...baseEnvelope(args.serviceId, args.seq, args.at),
   };
 }
 
 export function buildServiceEnded(args: {
-  churchId: string;
   serviceId: string;
   seq: number;
+  /** Emit time, unix ms (becomes the ISO `emitted_at`). */
   at: number;
 }): ServiceEndedEvent {
-  requireIds(args.churchId, args.serviceId);
   return {
     type: "service.ended",
-    church_id: args.churchId,
-    service_id: args.serviceId,
-    seq: args.seq,
-    at: args.at,
+    ...baseEnvelope(args.serviceId, args.seq, args.at),
   };
 }
 
@@ -195,7 +231,9 @@ export type LivePublisher = (
 ) => Promise<void>;
 
 /**
- * Publish a live event on the per-service channel.
+ * Publish a live event on the per-service channel. The canonical event no
+ * longer carries `church_id` (the channel itself is the tenant scope), so the
+ * caller supplies it for the channel-name derivation.
  *
  * NETWORK-UNVERIFIED: the `publish` function is expected to wrap a Supabase
  * Realtime broadcast (or equivalent). It is injected so the pure builders and
@@ -203,9 +241,10 @@ export type LivePublisher = (
  * run against a live Realtime backend in this environment.
  */
 export async function publishLiveEvent(
+  churchId: string,
   event: LiveEvent,
   publish: LivePublisher,
 ): Promise<void> {
-  const channel = liveChannelName(event.church_id, event.service_id);
+  const channel = liveChannelName(churchId, event.service_id);
   await publish(channel, event);
 }
