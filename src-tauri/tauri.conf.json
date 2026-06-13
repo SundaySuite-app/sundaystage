@@ -4,9 +4,9 @@
   "version": "0.3.0",
   "identifier": "no.sundaystage.app",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1432",
-    "beforeBuildCommand": "npm run build && node scripts/prepare-output-bin.mjs",
+    "beforeBuildCommand": "pnpm run build && node scripts/prepare-output-bin.mjs",
     "frontendDist": "../dist"
   },
   "app": {

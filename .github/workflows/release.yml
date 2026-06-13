@@ -39,11 +39,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -53,8 +56,9 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
+      # pnpm (not npm): @sunday/contracts uses pnpm's `&path:` git-subdir syntax.
       - name: Install frontend dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build, sign, and publish
         uses: tauri-apps/tauri-action@v0

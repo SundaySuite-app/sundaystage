@@ -11,101 +11,56 @@
  * a subscriber can detect gaps / reordering. The actual publish (Supabase
  * Realtime broadcast) is a seam marked NETWORK-UNVERIFIED below.
  *
- * FIELD-IDENTICAL mirror of the canonical contract:
- *   sunday-platform `@sunday/contracts` v0.4.0 — `src/live.ts` (`LiveEvent`,
- *   `CueAdvanced`, `NowPlaying`, `ServiceLive`, `ServiceEnded`), `src/song.ts`
- *   (`SongRef`) and `src/common.ts` (`liveChannel`). The platform package is
- *   not yet published, so the shapes are re-declared here; converge onto the
- *   real import once it is. Do not add or rename fields without changing the
- *   canonical contract first.
+ * The wire shapes (`LiveEvent` and its members `CueAdvanced`/`NowPlaying`/
+ * `ServiceLive`/`ServiceEnded`, plus `SongRef` and `SCHEMA_VERSION`) are now
+ * imported from the canonical `@sunday/contracts` package — this module no
+ * longer re-declares a field-identical mirror. Add or rename a wire field by
+ * changing the contract, not here.
+ *
+ * The builders below intentionally keep their existing hand-written bodies
+ * (rather than calling the contract's Zod `liveCueEvent`/`nowPlayingEvent`
+ * builders) so behaviour is unchanged: the canonical Zod builders validate
+ * `service_id` as a UUID and would reject Stage's non-UUID service ids, and
+ * there are no canonical builders for the bare `service.live`/`service.ended`
+ * envelopes. The return types are the canonical contract types, so any future
+ * field drift in the contract surfaces here as a typecheck error.
  */
 
-/** Wire schema version every canonical payload carries. */
-export const SCHEMA_VERSION = 1;
+import {
+  SCHEMA_VERSION,
+  type SongRef,
+  type CueAdvanced,
+  type NowPlaying,
+  type ServiceLive,
+  type ServiceEnded,
+  type LiveEvent,
+} from "@sunday/contracts";
 
-/** Realtime channel name: one channel per live service. Mirrors the canonical
- *  `liveChannel(churchId, serviceId)`. */
+export {
+  SCHEMA_VERSION,
+  type SongRef,
+  type CueAdvanced,
+  type NowPlaying,
+  type ServiceLive,
+  type ServiceEnded,
+  type LiveEvent,
+};
+
+/** Realtime channel name: one channel per live service. Stage-local helper that
+ *  produces the same string as the canonical `liveChannel(churchId, serviceId)`
+ *  but additionally rejects empty ids — the operator UI must never broadcast on
+ *  a half-formed channel. */
 export function liveChannelName(churchId: string, serviceId: string): string {
   if (!churchId) throw new Error("churchId is required");
   if (!serviceId) throw new Error("serviceId is required");
   return `church:${churchId}:service:${serviceId}`;
 }
 
-// ───────────────────────── event shapes (canonical mirror) ────────────────
-
-/**
- * A cross-app reference to a song. FIELD-IDENTICAL mirror of the canonical
- * `SongRef` (@sunday/contracts v0.4.0, src/song.ts). Stage's local song row id
- * goes in `local_id`; `sundaysong_id` stays null until the library links to
- * the shared catalog.
- */
-export interface SongRef {
-  /** Canonical SundaySong catalog id, or null if not yet linked. */
-  sundaysong_id: string | null;
-  /** The originating app's own row id (Stage-local song), or null. */
-  local_id: string | null;
-  title: string;
-  ccli_song_id: string | null;
-  tono_work_id: string | null;
-  default_key: string | null;
-  /** BCP-47 / ISO-639 language code; "und" when undetermined. */
-  language: string;
-}
-
-/** Discriminated union tags. Mirrors the canonical `LiveEvent` union. */
-export type LiveEventType =
-  | "cue.advanced"
-  | "now_playing"
-  | "service.live"
-  | "service.ended";
-
-/** Common envelope on every live signal (canonical `liveBase`). */
-interface LiveEventBase {
-  type: LiveEventType;
-  schema_version: number;
-  service_id: string;
-  /** ISO 8601 UTC emit time. */
-  emitted_at: string;
-  /** Monotonic per-service counter; strictly increasing, gap = missed event. */
-  sequence: number;
-}
-
-/** The operator advanced/changed the active cue (canonical `CueAdvanced`). */
-export interface CueAdvancedEvent extends LiveEventBase {
-  type: "cue.advanced";
-  /** The service item under the cursor, when known. */
-  item_id: string | null;
-  /** Zero-based position of the item in the running order. */
-  item_position: number | null;
-  /** Localised/humanised section label currently shown, if any. */
-  label: string | null;
-  /** Zero-based slide index within the item, when known. */
-  slide_index: number | null;
-}
-
-/** A song became the active item (canonical `NowPlaying`). */
-export interface NowPlayingEvent extends LiveEventBase {
-  type: "now_playing";
-  song_ref: SongRef | null;
-  item_position: number | null;
-  title: string | null;
-}
-
-/** The service went live (canonical `ServiceLive`). */
-export interface ServiceLiveEvent extends LiveEventBase {
-  type: "service.live";
-}
-
-/** The service ended (canonical `ServiceEnded`). */
-export interface ServiceEndedEvent extends LiveEventBase {
-  type: "service.ended";
-}
-
-export type LiveEvent =
-  | CueAdvancedEvent
-  | NowPlayingEvent
-  | ServiceLiveEvent
-  | ServiceEndedEvent;
+/** Common envelope fields shared by every live signal (canonical `liveBase`). */
+type LiveEventEnvelope = Pick<
+  LiveEvent,
+  "type" | "schema_version" | "service_id" | "emitted_at" | "sequence"
+>;
 
 // ───────────────────────── monotonic sequence ─────────────────────────────
 
@@ -138,7 +93,7 @@ function baseEnvelope(
   serviceId: string,
   seq: number,
   at: number,
-): Omit<LiveEventBase, "type"> {
+): Omit<LiveEventEnvelope, "type"> {
   if (!serviceId) throw new Error("serviceId is required");
   return {
     schema_version: SCHEMA_VERSION,
@@ -157,7 +112,7 @@ export function buildCueAdvanced(args: {
   itemPosition?: number | null;
   label?: string | null;
   slideIndex?: number | null;
-}): CueAdvancedEvent {
+}): CueAdvanced {
   return {
     type: "cue.advanced",
     ...baseEnvelope(args.serviceId, args.seq, args.at),
@@ -177,7 +132,7 @@ export function buildNowPlaying(args: {
   /** Stage-local song row id — lands in `song_ref.local_id`. */
   songId?: string | null;
   itemPosition?: number | null;
-}): NowPlayingEvent {
+}): NowPlaying {
   const songRef: SongRef | null = args.songId
     ? {
         sundaysong_id: null,
@@ -203,7 +158,7 @@ export function buildServiceLive(args: {
   seq: number;
   /** Emit time, unix ms (becomes the ISO `emitted_at`). */
   at: number;
-}): ServiceLiveEvent {
+}): ServiceLive {
   return {
     type: "service.live",
     ...baseEnvelope(args.serviceId, args.seq, args.at),
@@ -215,7 +170,7 @@ export function buildServiceEnded(args: {
   seq: number;
   /** Emit time, unix ms (becomes the ISO `emitted_at`). */
   at: number;
-}): ServiceEndedEvent {
+}): ServiceEnded {
   return {
     type: "service.ended",
     ...baseEnvelope(args.serviceId, args.seq, args.at),

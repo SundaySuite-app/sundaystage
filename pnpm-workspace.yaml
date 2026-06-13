@@ -1,0 +1,14 @@
+# pnpm 11 moved several package.json "pnpm" settings here (allowBuilds, etc.).
+#
+# @sunday/contracts is a git-hosted dependency. dist/ is gitignored in
+# sunday-platform, so a git-dep consumer clones source only — its `prepare`
+# script (tsc) compiles dist on install. pnpm 9+ blocks git deps from running
+# build/prepare by default; allowlist it so dist is built (otherwise the
+# package resolves with an empty dist and the import fails).
+#
+# esbuild ships a postinstall that fetches its native binary. It is a
+# transitive dependency of vite (build tooling only); allowlisted so it builds
+# and pnpm's install-state check before `pnpm run <script>` passes cleanly.
+allowBuilds:
+  "@sunday/contracts": true
+  esbuild: true
