@@ -27,17 +27,20 @@ function fmtDuration(ms: number): string {
 
 function cueText(cue: Cue | undefined): {
   lines: string[];
+  translation: string[] | null;
   section: string | null;
 } {
-  if (!cue) return { lines: [], section: null };
+  if (!cue) return { lines: [], translation: null, section: null };
   if (cue.kind === "show_slide") {
     return {
       lines: cue.slide_content.text_lines,
+      translation: cue.slide_content.translation_lines,
       section: cue.slide_content.section_label,
     };
   }
-  if (cue.kind === "pause") return { lines: [cue.label], section: null };
-  return { lines: [], section: null };
+  if (cue.kind === "pause")
+    return { lines: [cue.label], translation: null, section: null };
+  return { lines: [], translation: null, section: null };
 }
 
 interface StageDisplayProps {
@@ -81,11 +84,12 @@ export function StageDisplay({
     session.frame.kind === "slide"
       ? {
           lines: session.frame.slide_content.text_lines,
+          translation: session.frame.slide_content.translation_lines,
           section: session.frame.slide_content.section_label,
         }
       : session.frame.kind === "message"
-        ? { lines: [session.frame.text], section: null }
-        : { lines: [], section: null };
+        ? { lines: [session.frame.text], translation: null, section: null }
+        : { lines: [], translation: null, section: null };
   const next = cueText(cues[session.index + 1]);
 
   return (
@@ -143,19 +147,28 @@ export function StageDisplay({
             <p className="text-2xl text-white/30">BLACKOUT</p>
           ) : current.lines.length > 0 ? (
             <div>
-              {current.lines.map((line, i) => (
-                <p
-                  key={i}
-                  className="font-bold leading-tight"
-                  style={{
-                    fontSize: preset.lyrics_large
-                      ? "var(--text-stage-lg)"
-                      : "var(--text-stage-md)",
-                  }}
-                >
-                  {line}
-                </p>
-              ))}
+              {current.lines.map((line, i) => {
+                const tr = current.translation?.[i];
+                return (
+                  <div key={i} className="mb-1">
+                    <p
+                      className="font-bold leading-tight"
+                      style={{
+                        fontSize: preset.lyrics_large
+                          ? "var(--text-stage-lg)"
+                          : "var(--text-stage-md)",
+                      }}
+                    >
+                      {line}
+                    </p>
+                    {tr && tr.trim() !== "" && (
+                      <p className="font-medium leading-tight text-white/55 [font-size:0.6em]">
+                        {tr}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-2xl text-white/30">—</p>

@@ -21,6 +21,7 @@ import {
   Eye,
   GripVertical,
   Import,
+  Languages,
   Megaphone,
   Music,
   Pause,
@@ -47,7 +48,7 @@ import type {
   SongArrangement,
 } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
-import { useT, useLocale, type TKey } from "@/lib/i18n";
+import { useT, useLocale, LANGS, langLabel, type TKey } from "@/lib/i18n";
 import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { DEFAULT_OUTPUT_APPEARANCE } from "@/lib/outputBridge";
 import { SlideView } from "@/components/SlideView";
@@ -380,6 +381,17 @@ function QueueEditor({
     mutationFn: (notes: string) => ipc.service.setNotes(service.id, notes),
     onSuccess: () => onChanged(),
   });
+  const setSecondaryLanguage = useMutation({
+    mutationFn: (language: string | null) =>
+      ipc.service.setSecondaryLanguage(service.id, language),
+    // Changing the target language changes what the cue compiler resolves, so
+    // refresh the queue summary too (it counts cues, not overlay content, but
+    // keeping it in lockstep avoids stale UI after a re-compile).
+    onSuccess: () => {
+      onChanged();
+      refresh();
+    },
+  });
   const del = useMutation({
     mutationFn: () => ipc.service.delete(service.id),
     onSuccess: () => onDeleted(),
@@ -427,6 +439,29 @@ function QueueEditor({
                   )} · ${t("svcCuesInQueue", { n: summary.total_cues })}`
                 : t("svcLoadingQueue")}
             </span>
+            {/* Phase 11.2 — live translation overlay target language. The cue
+                compiler pre-resolves every line into this language at Go-Live,
+                so there is no live network call. Blank = no secondary line. */}
+            <label
+              className="flex items-center gap-1.5"
+              title={t("svcTranslationOverlayHint")}
+            >
+              <Languages size={13} aria-hidden />
+              <Select
+                className="h-7 py-0 text-xs"
+                value={service.secondary_language ?? ""}
+                onChange={(e) =>
+                  setSecondaryLanguage.mutate(e.target.value || null)
+                }
+              >
+                <option value="">{t("svcTranslationOverlayOff")}</option>
+                {LANGS.map((l) => (
+                  <option key={l} value={l}>
+                    {langLabel(l)}
+                  </option>
+                ))}
+              </Select>
+            </label>
           </div>
         </div>
 

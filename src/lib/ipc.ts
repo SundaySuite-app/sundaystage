@@ -174,6 +174,10 @@ export const service = {
     call<Service>("service_rename", { id, name }),
   setNotes: (id: string, notes: string) =>
     call<Service>("service_set_notes", { id, notes }),
+  // Phase 11.2 — set/clear the live translation overlay's target language.
+  // `null` clears it. The backend pre-resolves translations at Go-Live time.
+  setSecondaryLanguage: (id: string, language: string | null) =>
+    call<Service>("service_set_secondary_language", { id, language }),
   setStartsAt: (id: string, startsAt: number) =>
     call<Service>("service_set_starts_at", { id, startsAt }),
   delete: (id: string) => call<void>("service_delete", { id }),

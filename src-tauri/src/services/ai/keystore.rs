@@ -59,3 +59,43 @@ pub fn resolve(explicit: Option<String>) -> Option<String> {
         .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
         .filter(|k| !k.trim().is_empty())
 }
+
+/// Resolve a key for an AUTOMATIC, non-interactive code path — specifically the
+/// cue compiler's translation pre-resolution, which runs inline on "Go Live".
+///
+/// Unlike [`resolve`], this deliberately does **not** consult the OS keychain:
+/// on macOS an unsigned/dev binary reading a keychain item created by another
+/// app can trigger a *blocking* GUI authorization dialog. That is fine behind an
+/// explicit operator action, but it must never stall a Go-Live (the live output
+/// is sacrosanct) and must never hang a headless test/CI run with no TTY. So the
+/// automatic path takes the key only from the `ANTHROPIC_API_KEY` environment
+/// variable. Operators who store their key in the keychain still drive the
+/// interactive AI features (lyric formatting, planning) through [`resolve`];
+/// the live translation overlay simply relies on the offline cache + bundled
+/// text unless an env key is present, which is exactly the keyless contract.
+pub fn resolve_noninteractive() -> Option<String> {
+    std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|k| !k.trim().is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The non-interactive resolver must never reach the OS keychain — a
+    /// keychain GUI prompt would hang a headless test (and could stall a
+    /// Go-Live). With no `ANTHROPIC_API_KEY` set in the environment it returns
+    /// `None` quickly, which is the keyless contract the cue compiler relies on.
+    /// (The test runner does not set the var; we assert the keyless default
+    /// rather than mutating process-global env from a parallel test.)
+    #[test]
+    fn noninteractive_resolution_is_keyless_without_env_and_does_not_block() {
+        if std::env::var("ANTHROPIC_API_KEY").is_ok() {
+            // Some local shells export a key; the contract under test is the
+            // env-only path, so skip rather than assert against a real key.
+            return;
+        }
+        assert!(resolve_noninteractive().is_none());
+    }
+}

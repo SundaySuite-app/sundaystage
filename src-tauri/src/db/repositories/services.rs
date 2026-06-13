@@ -231,6 +231,24 @@ impl<'a> ServiceRepo<'a> {
         self.get(id).await
     }
 
+    /// Set (or clear) the service's secondary translation language (Phase 11.2).
+    /// An empty / blank `lang` clears the overlay. Validation of the language
+    /// code lives in the command layer.
+    pub async fn set_secondary_language(
+        &self,
+        id: &str,
+        lang: Option<&str>,
+    ) -> AppResult<Service> {
+        let lang = lang.map(str::trim).filter(|l| !l.is_empty());
+        sqlx::query("UPDATE service SET secondary_language = ?1, updated_at = ?2 WHERE id = ?3")
+            .bind(lang)
+            .bind(now_ms())
+            .bind(id)
+            .execute(self.pool)
+            .await?;
+        self.get(id).await
+    }
+
     /// Set the service's start time (unix millis).
     pub async fn set_starts_at(&self, id: &str, starts_at: i64) -> AppResult<Service> {
         sqlx::query("UPDATE service SET starts_at = ?1, updated_at = ?2 WHERE id = ?3")

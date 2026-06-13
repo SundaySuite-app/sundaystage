@@ -180,6 +180,11 @@ pub struct Service {
     pub starts_at: i64,
     pub notes: Option<String>,
     pub state: String,
+    /// Phase 11.2 — ISO-639-1 target for the live translation overlay. `None`
+    /// (the default) means no secondary line is shown. The cue compiler
+    /// pre-resolves every cue's translation into this language at "Go Live"
+    /// time, so the live output never makes a network call.
+    pub secondary_language: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     pub deleted_at: Option<i64>,

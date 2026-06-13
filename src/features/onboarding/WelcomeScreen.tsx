@@ -11,7 +11,7 @@ import { Play, Sparkles } from "lucide-react";
 
 import type { Library } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
-import { LANGS, useLocale, useT } from "@/lib/i18n";
+import { LANGS, langLabel, useLocale, useT } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 interface WelcomeScreenProps {
@@ -91,17 +91,4 @@ export function WelcomeScreen({ library, onDone }: WelcomeScreenProps) {
       </div>
     </div>
   );
-}
-
-function langLabel(l: string): string {
-  const names: Record<string, string> = {
-    no: "Norsk",
-    en: "English",
-    sv: "Svenska",
-    da: "Dansk",
-    de: "Deutsch",
-    fr: "Français",
-    pl: "Polski",
-  };
-  return names[l] ?? l;
 }

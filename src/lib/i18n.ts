@@ -17,6 +17,24 @@ export type Lang = "no" | "en" | "sv" | "da" | "de" | "fr" | "pl";
 
 export const LANGS: Lang[] = ["no", "en", "sv", "da", "de", "fr", "pl"];
 
+/** Each language's name in its own tongue (endonym). Used wherever a language
+ *  is picked from a list — the label reads naturally regardless of the current
+ *  UI locale, so it needs no per-locale translation. */
+const LANG_ENDONYMS: Record<Lang, string> = {
+  no: "Norsk",
+  en: "English",
+  sv: "Svenska",
+  da: "Dansk",
+  de: "Deutsch",
+  fr: "Français",
+  pl: "Polski",
+};
+
+/** The endonym for a language code, falling back to the raw code. */
+export function langLabel(l: string): string {
+  return (LANG_ENDONYMS as Record<string, string>)[l] ?? l;
+}
+
 type Catalog = Record<string, string>;
 
 const en: Catalog = {
@@ -293,6 +311,9 @@ const en: Catalog = {
   svcKeyOptional: "Key (optional)",
   svcAddToQueue: "Add to queue",
   svcTranslation: "Translation",
+  svcTranslationOverlayOff: "No translation",
+  svcTranslationOverlayHint:
+    "Show a translated line under each lyric/verse. Translations are resolved when you go live (cached for offline reuse) — the live output never waits on the network.",
   svcBook: "Book",
   svcChapter: "Chapter",
   svcVerseFrom: "Verse from",
@@ -910,6 +931,9 @@ const no: Catalog = {
   svcKeyOptional: "Toneart (valgfri)",
   svcAddToQueue: "Legg til i kø",
   svcTranslation: "Oversettelse",
+  svcTranslationOverlayOff: "Ingen oversettelse",
+  svcTranslationOverlayHint:
+    "Vis en oversatt linje under hver sang-/skriftlinje. Oversettelsene hentes når du går live (og lagres for bruk uten nett) — live-utgangen venter aldri på nettverket.",
   svcBook: "Bok",
   svcChapter: "Kapittel",
   svcVerseFrom: "Vers fra",
@@ -1480,6 +1504,9 @@ const sv: Catalog = {
   svcKeyOptional: "Tonart (valfri)",
   svcAddToQueue: "Lägg till i kön",
   svcTranslation: "Översättning",
+  svcTranslationOverlayOff: "Ingen översättning",
+  svcTranslationOverlayHint:
+    "Visa en översatt rad under varje sång-/bibelrad. Översättningarna hämtas när du går live (och sparas för offline-bruk) — liveutgången väntar aldrig på nätverket.",
   svcBook: "Bok",
   svcChapter: "Kapitel",
   svcVerseFrom: "Vers från",
@@ -2045,6 +2072,9 @@ const da: Catalog = {
   svcKeyOptional: "Toneart (valgfri)",
   svcAddToQueue: "Tilføj til kø",
   svcTranslation: "Oversættelse",
+  svcTranslationOverlayOff: "Ingen oversættelse",
+  svcTranslationOverlayHint:
+    "Vis en oversat linje under hver sang-/skriftlinje. Oversættelserne hentes, når du går live (og gemmes til offline-brug) — live-udgangen venter aldrig på netværket.",
   svcBook: "Bog",
   svcChapter: "Kapitel",
   svcVerseFrom: "Vers fra",
@@ -2614,6 +2644,9 @@ const de: Catalog = {
   svcKeyOptional: "Tonart (optional)",
   svcAddToQueue: "Zur Warteschlange hinzufügen",
   svcTranslation: "Übersetzung",
+  svcTranslationOverlayOff: "Keine Übersetzung",
+  svcTranslationOverlayHint:
+    "Zeigt unter jeder Lied-/Bibelzeile eine übersetzte Zeile. Die Übersetzungen werden beim Live-Schalten ermittelt (und für die Offline-Nutzung gespeichert) — die Live-Ausgabe wartet nie auf das Netzwerk.",
   svcBook: "Buch",
   svcChapter: "Kapitel",
   svcVerseFrom: "Vers von",
@@ -3193,6 +3226,9 @@ const fr: Catalog = {
   svcKeyOptional: "Tonalité (facultative)",
   svcAddToQueue: "Ajouter à la file d'attente",
   svcTranslation: "Traduction",
+  svcTranslationOverlayOff: "Aucune traduction",
+  svcTranslationOverlayHint:
+    "Afficher une ligne traduite sous chaque ligne de chant/d'Écriture. Les traductions sont résolues au passage en direct (et mises en cache pour une réutilisation hors ligne) — la sortie en direct n'attend jamais le réseau.",
   svcBook: "Livre",
   svcChapter: "Chapitre",
   svcVerseFrom: "Du verset",
@@ -3766,6 +3802,9 @@ const pl: Catalog = {
   svcKeyOptional: "Tonacja (opcjonalnie)",
   svcAddToQueue: "Dodaj do kolejki",
   svcTranslation: "Tłumaczenie",
+  svcTranslationOverlayOff: "Bez tłumaczenia",
+  svcTranslationOverlayHint:
+    "Pokaż przetłumaczony wiersz pod każdym wersem pieśni/Pisma. Tłumaczenia są pobierane przy przejściu na żywo (i zapisywane do użytku offline) — wyjście na żywo nigdy nie czeka na sieć.",
   svcBook: "Księga",
   svcChapter: "Rozdział",
   svcVerseFrom: "Werset od",

@@ -15,6 +15,7 @@ pub mod service_templates;
 pub mod services;
 pub mod songs;
 pub mod themes;
+pub mod translate;
 
 pub use arrangements::ArrangementRepo;
 pub use bible::BibleRepo;
@@ -25,3 +26,4 @@ pub use service_templates::ServiceTemplateRepo;
 pub use services::ServiceRepo;
 pub use songs::SongRepo;
 pub use themes::ThemeRepo;
+pub use translate::TranslateRepo;
