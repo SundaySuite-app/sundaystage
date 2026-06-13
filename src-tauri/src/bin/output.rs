@@ -149,9 +149,41 @@ mod render {
             .replace('\'', "&#39;")
     }
 
+    /// Merge a cue's cascade-resolved [`SlideAppearance`] (audit 2c — embedded
+    /// at compile time) over the operator's global appearance. Per-cue values
+    /// win where set; the theme's `text_scale` MULTIPLIES the operator's so a
+    /// "larger text" preference still applies under any theme. `None` cue
+    /// appearance = the global look, unchanged (today's behaviour).
+    /// Returns the effective appearance + the theme font, if any.
+    fn effective_appearance(
+        global: &OutputAppearance,
+        cue: Option<&sundaystage_lib::services::theme::SlideAppearance>,
+    ) -> (OutputAppearance, Option<String>) {
+        let mut eff = global.clone();
+        let mut font = None;
+        if let Some(a) = cue {
+            if let Some(c) = &a.text_color {
+                eff.text_color = c.clone();
+            }
+            if let Some(b) = &a.bg {
+                eff.bg_color = b.clone();
+            }
+            if let Some(h) = a.h_align {
+                eff.h_align = h;
+            }
+            if let Some(s) = a.text_scale {
+                eff.text_scale *= s.max(0.1);
+            }
+            font = a.font_family.clone();
+        }
+        (eff, font)
+    }
+
     /// Render the `<body>` inner HTML for `frame` under `appearance`. Black/Logo
-    /// ignore the lyric styling; slides honour colour, scale, alignment, etc.
-    /// The result is what the window paints — and what the tests assert on.
+    /// ignore the lyric styling; slides honour colour, scale, alignment, etc. —
+    /// with the cue's own cascade-resolved appearance (theme/template) layered
+    /// over the operator's global settings. The result is what the window
+    /// paints — and what the tests assert on.
     pub fn frame_to_html(frame: &LiveFrame, appearance: &OutputAppearance) -> String {
         match frame {
             // Pure black — never the church logo by accident.
@@ -163,6 +195,12 @@ mod render {
                 esc(text),
             ),
             LiveFrame::Slide { slide_content } => {
+                let (appearance, font_family) =
+                    effective_appearance(appearance, slide_content.appearance.as_ref());
+                let appearance = &appearance;
+                let font_css = font_family
+                    .map(|f| format!("font-family:{};", esc(&f)))
+                    .unwrap_or_default();
                 let mut body = String::new();
                 if appearance.show_section_label {
                     if let Some(label) = &slide_content.section_label {
@@ -208,9 +246,10 @@ mod render {
                     ));
                 }
                 format!(
-                    r#"<div class="frame slide" style="background:{};text-align:{}">{}</div>"#,
+                    r#"<div class="frame slide" style="background:{};text-align:{};{}">{}</div>"#,
                     esc(&appearance.bg_color),
                     align_css(appearance.h_align),
+                    font_css,
                     body,
                 )
             }
@@ -757,6 +796,7 @@ mod tests {
                 translation_lines: None,
                 reference: None,
                 sensitive_slide: false,
+                appearance: None,
             },
         }
     }
@@ -917,6 +957,37 @@ mod tests {
         // The static 5.5cqw is gone; the fitted size is present.
         assert!(!html.contains("5.5cqw"));
         assert!(html.contains("cqw"));
+    }
+
+    #[test]
+    fn cue_cascade_appearance_reaches_the_painted_html() {
+        // Audit 2c: a cue carries its cascade-resolved look; the output must
+        // actually paint it (theme bg/colour/font), layered over the global
+        // appearance — not silently drop it the way it used to.
+        use sundaystage_lib::services::theme::SlideAppearance;
+        let frame = LiveFrame::Slide {
+            slide_content: SlideContent {
+                section_label: None,
+                text_lines: vec!["Amazing grace".into()],
+                translation_lines: None,
+                reference: None,
+                sensitive_slide: false,
+                appearance: Some(SlideAppearance {
+                    bg: Some("#102030".into()),
+                    text_color: Some("#fafafa".into()),
+                    font_family: Some("Fraunces, serif".into()),
+                    h_align: None,
+                    text_scale: Some(1.5),
+                }),
+            },
+        };
+        let html = frame_to_html(&frame, &OutputAppearance::default());
+        assert!(html.contains("#102030"), "theme background applied");
+        assert!(html.contains("#fafafa"), "theme text colour applied");
+        assert!(
+            html.contains("font-family:Fraunces, serif"),
+            "theme font applied (the fixed gap)"
+        );
     }
 
     #[test]

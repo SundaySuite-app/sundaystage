@@ -180,7 +180,9 @@ impl LiveSession {
         }
         match self.cue_list.get(self.index) {
             Some(Cue::ShowSlide { slide_content, .. }) => LiveFrame::Slide {
-                slide_content: slide_content.clone(),
+                // `slide_content` is `&Box<SlideContent>`; LiveFrame holds it
+                // unboxed, so deref-clone the inner value.
+                slide_content: (**slide_content).clone(),
             },
             Some(Cue::BlackOut { .. }) => LiveFrame::Black,
             Some(Cue::ShowLogo { .. }) => LiveFrame::Logo,
@@ -220,13 +222,14 @@ mod tests {
     fn slide_cue(id: &str, text: &str) -> Cue {
         Cue::ShowSlide {
             cue_id: id.to_string(),
-            slide_content: SlideContent {
+            slide_content: Box::new(SlideContent {
                 section_label: None,
                 text_lines: vec![text.to_string()],
                 translation_lines: None,
                 reference: None,
                 sensitive_slide: false,
-            },
+                appearance: None,
+            }),
             theme_id: None,
             template_id: None,
             source: CueSource {

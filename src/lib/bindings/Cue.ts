@@ -10,7 +10,11 @@ import type { SlideContent } from "./SlideContent";
  */
 export type Cue = { "kind": "show_slide", cue_id: string, slide_content: SlideContent, 
 /**
- * Optional theme/template override resolved at compile time.
+ * The CONCRETE theme/template resolved through the cascade
+ * (slide → song → library default → built-in) at compile time —
+ * `Some` on every compiled cue; `None` only in pre-cascade persisted
+ * sessions. The *resolved look* itself rides on
+ * `slide_content.appearance` so the output needs no lookup.
  */
 theme_id: string | null, template_id: string | null, 
 /**

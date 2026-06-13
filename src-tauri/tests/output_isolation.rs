@@ -38,6 +38,7 @@ fn slide(text: &str) -> LiveFrame {
             translation_lines: None,
             reference: None,
             sensitive_slide: false,
+            appearance: None,
         },
     }
 }

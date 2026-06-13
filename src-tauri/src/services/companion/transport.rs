@@ -181,6 +181,7 @@ mod tests {
                 translation_lines: None,
                 reference: None,
                 sensitive_slide: false,
+                appearance: None,
             },
         }
     }
@@ -193,6 +194,7 @@ mod tests {
                 translation_lines: None,
                 reference: None,
                 sensitive_slide: true,
+                appearance: None,
             },
         }
     }

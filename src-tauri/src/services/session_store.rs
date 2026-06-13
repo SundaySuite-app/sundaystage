@@ -144,13 +144,14 @@ mod tests {
     fn slide_cue(i: usize) -> Cue {
         Cue::ShowSlide {
             cue_id: format!("c{i}"),
-            slide_content: SlideContent {
+            slide_content: Box::new(SlideContent {
                 section_label: None,
                 text_lines: vec![format!("line {i}")],
                 translation_lines: None,
                 reference: None,
                 sensitive_slide: false,
-            },
+                appearance: None,
+            }),
             theme_id: None,
             template_id: None,
             source: CueSource {

@@ -34,13 +34,14 @@ fn song_input(library_id: &str, title: &str) -> SongInput {
 fn slide_cue(i: usize) -> Cue {
     Cue::ShowSlide {
         cue_id: format!("c{i}"),
-        slide_content: SlideContent {
+        slide_content: Box::new(SlideContent {
             section_label: Some(format!("Verse {i}")),
             text_lines: vec![format!("Line {i} a"), format!("Line {i} b")],
             translation_lines: None,
             reference: None,
             sensitive_slide: false,
-        },
+            appearance: None,
+        }),
         theme_id: None,
         template_id: None,
         source: CueSource {

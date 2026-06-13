@@ -19,10 +19,16 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use std::collections::HashMap;
+
 use crate::db::models::{BibleReference, Service, ServiceItem, Slide, SongSection};
-use crate::db::repositories::{ArrangementRepo, ServiceRepo, SongRepo};
+use crate::db::repositories::{ArrangementRepo, LibraryRepo, ServiceRepo, SongRepo, ThemeRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::scripture_break;
+use crate::services::theme::{
+    layout_for, resolve_template_id, resolve_theme_id, slide_appearance_from, tokens_for,
+    SlideAppearance, TemplateLayout, ThemeTokens,
+};
 use sqlx::SqlitePool;
 
 /// A single executable step in the live timeline. Discriminated by `kind`.
@@ -36,8 +42,16 @@ pub enum Cue {
     /// Show a slide on the main output.
     ShowSlide {
         cue_id: String,
-        slide_content: SlideContent,
-        /// Optional theme/template override resolved at compile time.
+        // Boxed: SlideContent carries the cascade-resolved appearance, which
+        // made this variant ~320 B vs ~48 B for the rest — wasteful in the
+        // `Vec<Cue>` the live session moves through on every advance. `Box<T>`
+        // serializes transparently, so the JSONL session store is unchanged.
+        slide_content: Box<SlideContent>,
+        /// The CONCRETE theme/template resolved through the cascade
+        /// (slide → song → library default → built-in) at compile time —
+        /// `Some` on every compiled cue; `None` only in pre-cascade persisted
+        /// sessions. The *resolved look* itself rides on
+        /// `slide_content.appearance` so the output needs no lookup.
         theme_id: Option<String>,
         template_id: Option<String>,
         /// Back-reference for the operator UI.
@@ -75,6 +89,14 @@ pub struct SlideContent {
     /// pre-12.2 persisted sessions deserialize unchanged.
     #[serde(default)]
     pub sensitive_slide: bool,
+    /// Audit 2c — the cascade-resolved per-cue look (theme colours/font +
+    /// template alignment/scale), embedded at compile time so the live output
+    /// styles each cue without a DB. `None` = nothing in the cascade was
+    /// explicitly chosen → the output falls back to the operator's global
+    /// `OutputAppearance` (and old persisted sessions deserialize unchanged).
+    #[serde(default)]
+    #[ts(optional)]
+    pub appearance: Option<SlideAppearance>,
 }
 
 /// Where in the source data this cue came from. Used by the operator UI
@@ -154,9 +176,80 @@ pub struct CueCompiler<'a> {
     pool: &'a SqlitePool,
 }
 
+/// Everything the theme/template cascade needs at compile time, loaded once
+/// per compilation (audit 2c): the library's defaults plus the id→tokens /
+/// id→layout catalogues `tokens_for`/`layout_for` resolve against. Compiling
+/// once at "Go Live" means the live engine never queries themes mid-service.
+struct CascadeCtx {
+    library_theme_id: Option<String>,
+    library_template_id: Option<String>,
+    themes: HashMap<String, ThemeTokens>,
+    templates: HashMap<String, TemplateLayout>,
+}
+
+impl CascadeCtx {
+    /// Resolve one slide's cascade → (concrete theme id, concrete template id,
+    /// per-cue appearance). The appearance is `Some` only when *some* level of
+    /// the cascade was explicitly chosen — with nothing chosen the cue inherits
+    /// the operator's global `OutputAppearance` (today's behaviour), instead of
+    /// the built-in default theme silently overriding the operator's settings.
+    fn resolve(
+        &self,
+        slide_theme: &Option<String>,
+        slide_template: &Option<String>,
+        song_theme: &Option<String>,
+        song_template: &Option<String>,
+    ) -> (String, String, Option<SlideAppearance>) {
+        let theme_id = resolve_theme_id(slide_theme, song_theme, &self.library_theme_id);
+        let template_id =
+            resolve_template_id(slide_template, song_template, &self.library_template_id);
+        let explicit = [slide_theme, song_theme, &self.library_theme_id]
+            .iter()
+            .any(|o| o.is_some())
+            || [slide_template, song_template, &self.library_template_id]
+                .iter()
+                .any(|o| o.is_some());
+        let appearance = explicit.then(|| {
+            slide_appearance_from(
+                &tokens_for(&theme_id, &self.themes),
+                &layout_for(&template_id, &self.templates),
+            )
+        });
+        (theme_id, template_id, appearance)
+    }
+}
+
 impl<'a> CueCompiler<'a> {
     pub fn new(pool: &'a SqlitePool) -> Self {
         Self { pool }
+    }
+
+    /// Load the cascade context for a library: its default theme/template ids
+    /// and the full id→tokens/layout catalogues (built-ins ∪ library rows).
+    /// A malformed stored row simply drops out of the catalogue — `tokens_for`
+    /// /`layout_for` then degrade to the built-in default rather than failing
+    /// a Go-Live.
+    async fn cascade_ctx(&self, library_id: &str) -> AppResult<CascadeCtx> {
+        let lib = LibraryRepo::new(self.pool).get(library_id).await?;
+        let repo = ThemeRepo::new(self.pool);
+        let mut themes = HashMap::new();
+        for t in repo.list_themes(library_id).await? {
+            if let Ok(tokens) = serde_json::from_str::<ThemeTokens>(&t.tokens) {
+                themes.insert(t.id, tokens);
+            }
+        }
+        let mut templates = HashMap::new();
+        for t in repo.list_templates(library_id).await? {
+            if let Ok(layout) = serde_json::from_str::<TemplateLayout>(&t.slots) {
+                templates.insert(t.id, layout);
+            }
+        }
+        Ok(CascadeCtx {
+            library_theme_id: lib.default_theme_id,
+            library_template_id: lib.default_template_id,
+            themes,
+            templates,
+        })
     }
 
     /// Compile a Service into a CueList. This is the only entry point
@@ -165,11 +258,12 @@ impl<'a> CueCompiler<'a> {
         let svc_repo = ServiceRepo::new(self.pool);
         let service = svc_repo.get(service_id).await?;
         let items = svc_repo.items(&service.id).await?;
+        let ctx = self.cascade_ctx(&service.library_id).await?;
 
         let mut cues: Vec<Cue> = Vec::with_capacity(items.len() * 4);
 
         for item in &items {
-            self.compile_item(&service, item, &mut cues).await?;
+            self.compile_item(&service, item, &ctx, &mut cues).await?;
         }
 
         Ok(CueList {
@@ -187,12 +281,16 @@ impl<'a> CueCompiler<'a> {
         &self,
         service: &Service,
         item: &ServiceItem,
+        ctx: &CascadeCtx,
         cues: &mut Vec<Cue>,
     ) -> AppResult<()> {
         match item.kind.as_str() {
-            "song" => self.compile_song_item(service, item, cues).await,
-            "scripture" => self.compile_scripture_item(service, item, cues).await,
-            "custom_deck" => self.compile_custom_deck_item(service, item, cues).await,
+            "song" => self.compile_song_item(service, item, ctx, cues).await,
+            "scripture" => self.compile_scripture_item(service, item, ctx, cues).await,
+            "custom_deck" => {
+                self.compile_custom_deck_item(service, item, ctx, cues)
+                    .await
+            }
             "announcement" | "video" | "gap" => {
                 // Phase placeholders — surfaced as a Pause cue so the operator
                 // advances manually. Label from the item's note when present.
@@ -221,12 +319,13 @@ impl<'a> CueCompiler<'a> {
         let svc_repo = ServiceRepo::new(self.pool);
         let service = svc_repo.get(service_id).await?;
         let items = svc_repo.items(&service.id).await?;
+        let ctx = self.cascade_ctx(&service.library_id).await?;
 
         let mut all: Vec<Cue> = Vec::new();
         let mut out_items = Vec::with_capacity(items.len());
         for item in &items {
             let before = all.len();
-            self.compile_item(&service, item, &mut all).await?;
+            self.compile_item(&service, item, &ctx, &mut all).await?;
             let slice = &all[before..];
             out_items.push(ServiceItemCues {
                 service_item_id: item.id.clone(),
@@ -276,6 +375,7 @@ impl<'a> CueCompiler<'a> {
         &self,
         _service: &Service,
         item: &ServiceItem,
+        ctx: &CascadeCtx,
         cues: &mut Vec<Cue>,
     ) -> AppResult<()> {
         let Some(ref song_id) = item.song_id else {
@@ -286,6 +386,11 @@ impl<'a> CueCompiler<'a> {
         };
         let song_repo = SongRepo::new(self.pool);
         let song = song_repo.get(song_id).await?;
+
+        // Cascade (audit 2c): song sections have no slide-level override, so
+        // the chain is song → library default → built-in.
+        let (theme_id, template_id, appearance) =
+            ctx.resolve(&None, &None, &song.theme_id, &song.template_id);
 
         // Phase 3.3: if the service item names an arrangement, play its
         // ordered (possibly repeating) sections; otherwise fall back to the
@@ -308,15 +413,16 @@ impl<'a> CueCompiler<'a> {
                         "svc:{}:song:{}:s:{}:c:{}",
                         item.service_id, song_id, section.id, cue_idx
                     ),
-                    slide_content: SlideContent {
+                    slide_content: Box::new(SlideContent {
                         section_label: Some(humanize_section_label(&section.label)),
                         text_lines: slide_lines,
                         translation_lines: None,
                         reference: None,
                         sensitive_slide: false,
-                    },
-                    theme_id: None,
-                    template_id: None,
+                        appearance: appearance.clone(),
+                    }),
+                    theme_id: Some(theme_id.clone()),
+                    template_id: Some(template_id.clone()),
                     source: CueSource {
                         service_item_id: item.id.clone(),
                         item_cue_index: cue_idx,
@@ -340,6 +446,7 @@ impl<'a> CueCompiler<'a> {
         &self,
         _service: &Service,
         item: &ServiceItem,
+        ctx: &CascadeCtx,
         cues: &mut Vec<Cue>,
     ) -> AppResult<()> {
         let Some(ref ref_id) = item.bible_reference_id else {
@@ -370,6 +477,10 @@ impl<'a> CueCompiler<'a> {
                 .unwrap_or_default(),
         );
 
+        // Cascade (audit 2c): scripture has no slide/song level — the chain is
+        // library default → built-in.
+        let (theme_id, template_id, appearance) = ctx.resolve(&None, &None, &None, &None);
+
         // Verse-aware auto-break: keep whole verses together within the line
         // budget (only an over-long single verse spills across slides),
         // preserving verse order across chapters. See `scripture_break`. The
@@ -380,15 +491,16 @@ impl<'a> CueCompiler<'a> {
             let cue_idx = cue_idx as u32;
             cues.push(Cue::ShowSlide {
                 cue_id: format!("svc:{}:scripture:{}:c:{}", item.service_id, ref_id, cue_idx),
-                slide_content: SlideContent {
+                slide_content: Box::new(SlideContent {
                     section_label: None,
                     text_lines: slide.lines,
                     translation_lines: None,
                     reference: Some(slide.reference_label),
                     sensitive_slide: false,
-                },
-                theme_id: None,
-                template_id: None,
+                    appearance: appearance.clone(),
+                }),
+                theme_id: Some(theme_id.clone()),
+                template_id: Some(template_id.clone()),
                 source: CueSource {
                     service_item_id: item.id.clone(),
                     item_cue_index: cue_idx,
@@ -405,6 +517,7 @@ impl<'a> CueCompiler<'a> {
         &self,
         _service: &Service,
         item: &ServiceItem,
+        ctx: &CascadeCtx,
         cues: &mut Vec<Cue>,
     ) -> AppResult<()> {
         let Some(ref deck_id) = item.custom_deck_id else {
@@ -432,17 +545,23 @@ impl<'a> CueCompiler<'a> {
             // the full block model; for now we extract the first text
             // block's lines.
             let lines = extract_text_lines_from_content(&slide.content).unwrap_or_default();
+            // Cascade (audit 2c): a deck slide carries its own slide-level
+            // override (highest precedence); no song level — the chain is
+            // slide → library default → built-in.
+            let (theme_id, template_id, appearance) =
+                ctx.resolve(&slide.theme_id, &slide.template_id, &None, &None);
             cues.push(Cue::ShowSlide {
                 cue_id: format!("svc:{}:deck:{}:c:{}", item.service_id, deck_id, cue_idx),
-                slide_content: SlideContent {
+                slide_content: Box::new(SlideContent {
                     section_label: None,
                     text_lines: lines,
                     translation_lines: None,
                     reference: None,
                     sensitive_slide: false,
-                },
-                theme_id: slide.theme_id.clone(),
-                template_id: slide.template_id.clone(),
+                    appearance,
+                }),
+                theme_id: Some(theme_id),
+                template_id: Some(template_id),
                 source: CueSource {
                     service_item_id: item.id.clone(),
                     item_cue_index: cue_idx as u32,
@@ -933,6 +1052,252 @@ mod tests {
             .unwrap();
         let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
         assert!(cl.is_empty());
+    }
+
+    // ── theme/template cascade on compiled cues (audit 2c) ───────────────────
+
+    /// Every ShowSlide cue's (theme_id, appearance.bg) pair, for assertions.
+    fn cue_themes(cl: &CueList) -> Vec<(Option<String>, Option<String>)> {
+        cl.cues
+            .iter()
+            .filter_map(|c| match c {
+                Cue::ShowSlide {
+                    theme_id,
+                    slide_content,
+                    ..
+                } => Some((
+                    theme_id.clone(),
+                    slide_content.appearance.as_ref().and_then(|a| a.bg.clone()),
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+
+    async fn one_song_service(db: &Database, lib_id: &str, song_id: &str) -> String {
+        let svc = ServiceRepo::new(&db.pool)
+            .create(lib_id, "Svc", now_ms())
+            .await
+            .unwrap();
+        ServiceRepo::new(&db.pool)
+            .add_item(&svc.id, 0, "song", Some(song_id), None, None, None, None)
+            .await
+            .unwrap();
+        svc.id
+    }
+
+    #[tokio::test]
+    async fn unthemed_service_resolves_builtin_ids_but_keeps_global_appearance() {
+        // Nothing chosen anywhere in the cascade: the cue still carries the
+        // CONCRETE built-in ids, but NO per-cue appearance — so the operator's
+        // global OutputAppearance keeps styling the output (today's look).
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+        let svc_id = one_song_service(&db, &lib_id, &song_id).await;
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc_id).await.unwrap();
+        for (theme_id, bg) in cue_themes(&cl) {
+            assert_eq!(
+                theme_id.as_deref(),
+                Some(crate::services::theme::DEFAULT_THEME_ID)
+            );
+            assert_eq!(bg, None, "no explicit choice → global appearance rules");
+        }
+    }
+
+    #[tokio::test]
+    async fn library_default_theme_lands_on_every_cue() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+        sqlx::query("UPDATE library SET default_theme_id = 'builtin-theme-high-contrast'")
+            .execute(&db.pool)
+            .await
+            .unwrap();
+        let svc_id = one_song_service(&db, &lib_id, &song_id).await;
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc_id).await.unwrap();
+        assert!(!cl.is_empty());
+        for (theme_id, bg) in cue_themes(&cl) {
+            assert_eq!(theme_id.as_deref(), Some("builtin-theme-high-contrast"));
+            assert_eq!(bg.as_deref(), Some("#000000"), "resolved look embedded");
+        }
+    }
+
+    /// A custom library theme with a distinctive background, set as a
+    /// song/slide-level override (those columns have a FK to `theme(id)`, so
+    /// overrides are stored rows — built-ins can only be *library defaults*).
+    async fn custom_theme(db: &Database, lib_id: &str, bg: &str) -> String {
+        use crate::services::slide_doc::{BackgroundKind, SlideBackground};
+        use crate::services::theme::ThemeTokens;
+        crate::db::repositories::ThemeRepo::new(&db.pool)
+            .create_theme(
+                lib_id,
+                "Custom",
+                &ThemeTokens {
+                    background: SlideBackground {
+                        kind: BackgroundKind::Color,
+                        value: bg.into(),
+                    },
+                    ..ThemeTokens::default()
+                },
+            )
+            .await
+            .unwrap()
+            .id
+    }
+
+    #[tokio::test]
+    async fn song_theme_overrides_library_default_per_cue() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+        sqlx::query("UPDATE library SET default_theme_id = 'builtin-theme-high-contrast'")
+            .execute(&db.pool)
+            .await
+            .unwrap();
+        let song_theme = custom_theme(&db, &lib_id, "#abc123").await;
+        sqlx::query("UPDATE song SET theme_id = ?1 WHERE id = ?2")
+            .bind(&song_theme)
+            .bind(&song_id)
+            .execute(&db.pool)
+            .await
+            .unwrap();
+        let svc_id = one_song_service(&db, &lib_id, &song_id).await;
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc_id).await.unwrap();
+        assert!(!cl.is_empty());
+        for (theme_id, bg) in cue_themes(&cl) {
+            assert_eq!(theme_id.as_deref(), Some(song_theme.as_str()));
+            assert_eq!(bg.as_deref(), Some("#abc123"), "song beats library");
+        }
+    }
+
+    #[tokio::test]
+    async fn deck_slide_theme_overrides_library_default_per_cue() {
+        // Slide-level override is the TOP of the cascade: a themed deck slide
+        // must beat the library default, while its un-themed sibling slide in
+        // the same deck falls through to the library default.
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "T".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        sqlx::query("UPDATE library SET default_theme_id = 'builtin-theme-high-contrast'")
+            .execute(&db.pool)
+            .await
+            .unwrap();
+
+        let slide_theme = custom_theme(&db, &lib.id, "#112233").await;
+
+        let now = now_ms();
+        let deck_id = new_id();
+        sqlx::query("INSERT INTO custom_deck (id, library_id, name, created_at, updated_at) VALUES (?1, ?2, 'Deck', ?3, ?3)")
+            .bind(&deck_id)
+            .bind(&lib.id)
+            .bind(now)
+            .execute(&db.pool)
+            .await
+            .unwrap();
+        let content = r#"{"blocks":[{"type":"text","text":"hello"}]}"#;
+        for (pos, theme) in [(0, Some(slide_theme.as_str())), (1, None)] {
+            sqlx::query(
+                "INSERT INTO slide (id, custom_deck_id, position, content, theme_id, template_id, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?6)",
+            )
+            .bind(new_id())
+            .bind(&deck_id)
+            .bind(pos)
+            .bind(content)
+            .bind(theme)
+            .bind(now)
+            .execute(&db.pool)
+            .await
+            .unwrap();
+        }
+
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib.id, "Svc", now)
+            .await
+            .unwrap();
+        // add_item has no custom_deck parameter — insert the item directly.
+        sqlx::query(
+            "INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+             VALUES (?1, ?2, 0, 'custom_deck', NULL, NULL, NULL, NULL, ?3, NULL, NULL, ?4, ?4)",
+        )
+        .bind(new_id())
+        .bind(&svc.id)
+        .bind(&deck_id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
+        let themes = cue_themes(&cl);
+        assert_eq!(themes.len(), 2);
+        // Slide override wins on slide 0…
+        assert_eq!(themes[0].0.as_deref(), Some(slide_theme.as_str()));
+        assert_eq!(themes[0].1.as_deref(), Some("#112233"));
+        // …and the un-themed sibling falls back to the library default.
+        assert_eq!(themes[1].0.as_deref(), Some("builtin-theme-high-contrast"));
+        assert_eq!(themes[1].1.as_deref(), Some("#000000"));
+    }
+
+    #[tokio::test]
+    async fn scripture_cues_inherit_the_library_default_theme() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "T".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        sqlx::query("UPDATE library SET default_theme_id = 'builtin-theme-christmas'")
+            .execute(&db.pool)
+            .await
+            .unwrap();
+
+        let now = now_ms();
+        let ref_id = new_id();
+        sqlx::query(
+            "INSERT INTO bible_reference (id, book, chapter, verse_start, verse_end, translation, text, created_at)
+             VALUES (?1, 'John', 3, 16, NULL, 'NIV', 'For God so loved the world', ?2)",
+        )
+        .bind(&ref_id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib.id, "Svc", now)
+            .await
+            .unwrap();
+        ServiceRepo::new(&db.pool)
+            .add_item(
+                &svc.id,
+                0,
+                "scripture",
+                None,
+                None,
+                None,
+                Some(&ref_id),
+                None,
+            )
+            .await
+            .unwrap();
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
+        let themes = cue_themes(&cl);
+        assert!(!themes.is_empty());
+        for (theme_id, bg) in themes {
+            assert_eq!(theme_id.as_deref(), Some("builtin-theme-christmas"));
+            assert!(bg.unwrap().contains("gradient"), "christmas bg embedded");
+        }
     }
 
     // ── property: humanize ↔ normalize is a stable round-trip ───────────────────
