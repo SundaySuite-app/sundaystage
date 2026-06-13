@@ -4413,6 +4413,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sunday-contracts"
+version = "0.4.0"
+source = "git+https://github.com/richardfossland/sunday-platform.git?tag=v0.4.1#b6fab75d9eed17a2454dfdf86f30f550f2e72732"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "sundaystage"
 version = "0.3.0"
 dependencies = [
@@ -4424,6 +4432,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "sunday-auth",
+ "sunday-contracts",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
