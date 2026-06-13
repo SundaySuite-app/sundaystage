@@ -75,6 +75,18 @@ function Inner({ frame, appearance, forceSectionLabel, localizeLabel }: Props) {
     lineHeight: appearance.line_height,
     textTransform: appearance.uppercase ? "uppercase" : "none",
   };
+  // Phase 11.2 — the secondary (translated) line, when present, sits directly
+  // UNDER its primary line so the two read as one bilingual block. The compiler
+  // guarantees `translation_lines` is 1:1 with `text_lines` (blank where a line
+  // had no translation), so we index by position.
+  const translation = c.translation_lines ?? null;
+  const translationStyle: CSSProperties = {
+    color: appearance.text_color,
+    opacity: 0.7,
+    fontSize: `${3.2 * appearance.text_scale}cqw`,
+    lineHeight: appearance.line_height,
+    textTransform: appearance.uppercase ? "uppercase" : "none",
+  };
 
   return (
     <div className="grid h-full w-full place-items-center px-[6cqw]">
@@ -84,24 +96,17 @@ function Inner({ frame, appearance, forceSectionLabel, localizeLabel }: Props) {
             {(localizeLabel ?? ((l) => l))(c.section_label)}
           </div>
         )}
-        {c.text_lines.map((line, i) => (
-          <p key={i} className="font-semibold" style={lineStyle}>
-            {line}
-          </p>
-        ))}
-        {c.translation_lines?.map((line, i) => (
-          <p
-            key={`t-${i}`}
-            className="mt-[1cqh]"
-            style={{
-              color: appearance.text_color,
-              opacity: 0.7,
-              fontSize: `${3.2 * appearance.text_scale}cqw`,
-            }}
-          >
-            {line}
-          </p>
-        ))}
+        {c.text_lines.map((line, i) => {
+          const t = translation?.[i];
+          return (
+            <div key={i} className="mb-[0.6cqh]">
+              <p className="font-semibold" style={lineStyle}>
+                {line}
+              </p>
+              {t && t.trim() !== "" && <p style={translationStyle}>{t}</p>}
+            </div>
+          );
+        })}
         {c.reference && (
           <div
             className="mt-[4cqh] [font-size:2cqw]"

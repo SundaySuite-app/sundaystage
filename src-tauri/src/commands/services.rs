@@ -6,7 +6,7 @@ use tauri::State;
 
 use crate::db::models::{Service, ServiceItem, ServiceItemSong};
 use crate::db::repositories::ServiceRepo;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::services::cue_list::{CueCompiler, CueSummary};
 use crate::services::sundayplan::{self, PlanImportResult};
 use crate::AppState;
@@ -78,6 +78,28 @@ pub async fn service_set_notes(
 ) -> AppResult<Service> {
     ServiceRepo::new(&state.db.pool)
         .set_notes(&id, &notes)
+        .await
+}
+
+/// Set (or clear) the live translation overlay's target language (Phase 11.2).
+/// An empty / blank string clears it. An unsupported language is rejected so
+/// the operator gets immediate feedback rather than a silently-ignored setting.
+#[tauri::command]
+pub async fn service_set_secondary_language(
+    state: State<'_, AppState>,
+    id: String,
+    language: Option<String>,
+) -> AppResult<Service> {
+    let lang = language.map(|l| l.trim().to_string()).filter(|l| !l.is_empty());
+    if let Some(ref l) = lang {
+        if !crate::services::ai::translate::is_supported_target(l) {
+            return Err(AppError::Validation(format!(
+                "Språk '{l}' støttes ikke for oversettelse."
+            )));
+        }
+    }
+    ServiceRepo::new(&state.db.pool)
+        .set_secondary_language(&id, lang.as_deref())
         .await
 }
 

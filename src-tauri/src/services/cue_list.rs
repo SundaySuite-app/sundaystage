@@ -22,8 +22,16 @@ use ts_rs::TS;
 use std::collections::HashMap;
 
 use crate::db::models::{BibleReference, Service, ServiceItem, Slide, SongSection};
-use crate::db::repositories::{ArrangementRepo, LibraryRepo, ServiceRepo, SongRepo, ThemeRepo};
+use crate::db::repositories::{
+    ArrangementRepo, LibraryRepo, ServiceRepo, SongRepo, ThemeRepo, TranslateRepo,
+};
 use crate::error::{AppError, AppResult};
+use crate::services::ai::translate::{
+    bundled_verse_translation, is_supported_target, parse_translation,
+    system_prompt as tr_system_prompt, tool_schema as tr_tool_schema,
+    user_content as tr_user_content, TRANSLATE_TOOL_NAME,
+};
+use crate::services::ai::{keystore, AiProvider, AiPurpose, AnthropicProvider, StructuredRequest};
 use crate::services::scripture_break;
 use crate::services::theme::{
     layout_for, resolve_template_id, resolve_theme_id, slide_appearance_from, tokens_for,
@@ -266,11 +274,109 @@ impl<'a> CueCompiler<'a> {
             self.compile_item(&service, item, &ctx, &mut cues).await?;
         }
 
+        // Phase 11.2 — pre-resolve the secondary-language overlay at COMPILE
+        // time so the live output never makes a network call mid-service. A
+        // missing key / failed call simply leaves un-cached lines untranslated:
+        // cached + bundled lines still render. Never fails the Go-Live.
+        if let Some(target) = service
+            .secondary_language
+            .as_deref()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+        {
+            self.resolve_translations(&mut cues, target).await;
+        }
+
         Ok(CueList {
             service_id: service.id.clone(),
             compiled_at: crate::db::now_ms(),
             cues,
         })
+    }
+
+    /// Fill `translation_lines` on every `ShowSlide` cue for `target`, resolving
+    /// each distinct source line in priority order:
+    ///   1. the offline `translation_cache` (reused forever),
+    ///   2. bundled public-domain Bible text (keyless),
+    ///   3. the Anthropic API — ONLY when a key is present — caching results.
+    ///
+    /// Best-effort: any DB or network error is swallowed so the service still
+    /// goes live. The live output process never calls this; it's compile-time.
+    async fn resolve_translations(&self, cues: &mut [Cue], target: &str) {
+        if !is_supported_target(target) {
+            return;
+        }
+
+        // Gather every distinct non-empty source line across all slide cues.
+        let mut distinct: Vec<String> = Vec::new();
+        for cue in cues.iter() {
+            if let Cue::ShowSlide { slide_content, .. } = cue {
+                for line in &slide_content.text_lines {
+                    if !line.trim().is_empty() && !distinct.iter().any(|d| d == line) {
+                        distinct.push(line.clone());
+                    }
+                }
+            }
+        }
+        if distinct.is_empty() {
+            return;
+        }
+
+        // source line → translated line. Start from the offline cache.
+        let repo = TranslateRepo::new(self.pool);
+        let mut resolved = repo
+            .get_cached(&distinct, target)
+            .await
+            .unwrap_or_default();
+
+        // Keyless bundled-Bible fallback for anything still missing, and cache
+        // the hit so future compiles (and other services) reuse it.
+        for line in &distinct {
+            if resolved.contains_key(line) {
+                continue;
+            }
+            if let Some(tr) = bundled_verse_translation(line, target) {
+                let _ = repo.put_cached(line, target, &tr, "bundled").await;
+                resolved.insert(line.clone(), tr);
+            }
+        }
+
+        // Network fill for the remainder — ONLY with a key. No key → leave them
+        // untranslated (they simply won't get a secondary line).
+        let still_missing: Vec<String> = distinct
+            .iter()
+            .filter(|l| !resolved.contains_key(*l))
+            .cloned()
+            .collect();
+        if !still_missing.is_empty() {
+            // Non-interactive key resolution: env var only, never the OS
+            // keychain — a keychain GUI prompt must never stall a Go-Live (or a
+            // headless test). No env key → these lines stay untranslated.
+            if let Some(key) = keystore::resolve_noninteractive() {
+                if let Ok(map) = translate_via_api(&key, &still_missing, target).await {
+                    for (src, tr) in map {
+                        let _ = repo.put_cached(&src, target, &tr, "ai").await;
+                        resolved.insert(src, tr);
+                    }
+                }
+            }
+        }
+
+        // Apply: each slide's translation_lines mirrors its text_lines 1:1, with
+        // an empty string where a line had no translation (keeps alignment).
+        for cue in cues.iter_mut() {
+            if let Cue::ShowSlide { slide_content, .. } = cue {
+                let lines: Vec<String> = slide_content
+                    .text_lines
+                    .iter()
+                    .map(|l| resolved.get(l).cloned().unwrap_or_default())
+                    .collect();
+                // Only attach an overlay if at least one line resolved — an
+                // all-empty overlay is noise.
+                slide_content.translation_lines =
+                    lines.iter().any(|l| !l.is_empty()).then_some(lines);
+            }
+        }
     }
 
     /// Compile a single service item, appending its cues. The single source of
@@ -579,6 +685,37 @@ impl<'a> CueCompiler<'a> {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/// Translate a batch of source lines to `target` via the Anthropic API, returning
+/// a source-line → translated-line map. One forced-tool call for the whole batch
+/// (the engine returns one line per source line, in order). Compile-time only —
+/// never called from the live output process. Errors propagate so the caller can
+/// fall back to leaving lines untranslated.
+async fn translate_via_api(
+    key: &str,
+    lines: &[String],
+    target: &str,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    let provider = AnthropicProvider::new(key.to_string());
+    let req = StructuredRequest {
+        model: crate::services::ai::DEFAULT_MODEL.to_string(),
+        system: tr_system_prompt(target),
+        user: tr_user_content(lines),
+        tool_name: TRANSLATE_TOOL_NAME.to_string(),
+        tool_schema: tr_tool_schema(),
+        max_tokens: 2048,
+        purpose: AiPurpose::LyricFormat,
+    };
+    let input = provider.complete_structured(req).await?;
+    let result = parse_translation(&input, lines, target)?;
+    Ok(lines
+        .iter()
+        .cloned()
+        .zip(result.lines)
+        .filter(|(_, tr)| !tr.trim().is_empty())
+        .collect())
+}
+
 
 /// Split a section's lyrics into slides of at most `lines_per_slide`
 /// lines. Naïve — Phase 4's AI breaker is smarter.
@@ -1298,6 +1435,147 @@ mod tests {
             assert_eq!(theme_id.as_deref(), Some("builtin-theme-christmas"));
             assert!(bg.unwrap().contains("gradient"), "christmas bg embedded");
         }
+    }
+
+    // ── Phase 11.2: live translation overlay pre-resolution ─────────────────────
+
+    use crate::db::repositories::TranslateRepo;
+
+    async fn set_secondary(db: &Database, svc_id: &str, lang: &str) {
+        ServiceRepo::new(&db.pool)
+            .set_secondary_language(svc_id, Some(lang))
+            .await
+            .unwrap();
+    }
+
+    /// With NO key and NO cache, a song's lyric lines have no bundled
+    /// translation → no overlay attached. The core flow still compiles fine.
+    #[tokio::test]
+    async fn translation_keyless_no_cache_leaves_no_overlay() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+        let svc_id = one_song_service(&db, &lib_id, &song_id).await;
+        set_secondary(&db, &svc_id, "no").await;
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc_id).await.unwrap();
+        assert!(!cl.is_empty());
+        for cue in &cl.cues {
+            if let Cue::ShowSlide { slide_content, .. } = cue {
+                assert!(
+                    slide_content.translation_lines.is_none(),
+                    "no key + no cache → no overlay"
+                );
+            }
+        }
+    }
+
+    /// A cached translation (e.g. previously filled by AI) is reused at compile
+    /// time with NO key and NO network — the offline-cache promise.
+    #[tokio::test]
+    async fn translation_uses_offline_cache() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+        let svc_id = one_song_service(&db, &lib_id, &song_id).await;
+        set_secondary(&db, &svc_id, "no").await;
+
+        // Pre-seed the cache for the first verse line.
+        TranslateRepo::new(&db.pool)
+            .put_cached(
+                "Amazing grace how sweet the sound",
+                "no",
+                "Underfull nåde, så søt den klang",
+                "ai",
+            )
+            .await
+            .unwrap();
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc_id).await.unwrap();
+        let first = cl
+            .cues
+            .iter()
+            .find_map(|c| match c {
+                Cue::ShowSlide { slide_content, .. } => Some(slide_content),
+                _ => None,
+            })
+            .unwrap();
+        let tr = first.translation_lines.as_ref().expect("overlay present");
+        assert_eq!(tr.len(), first.text_lines.len(), "1:1 with primary lines");
+        assert_eq!(tr[0], "Underfull nåde, så søt den klang");
+        // The un-cached lines are blank (alignment preserved), not missing.
+        assert_eq!(tr[1], "");
+    }
+
+    /// A scripture cue whose verse is in the bundled set translates with NO key
+    /// (keyless bundled fallback) and the hit is written back to the cache.
+    #[tokio::test]
+    async fn translation_uses_bundled_bible_keyless() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "T".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let now = now_ms();
+        let ref_id = new_id();
+        // KJV John 3:16 — bundled in both KJV (en) and NB1930 (no).
+        sqlx::query(
+            "INSERT INTO bible_reference (id, book, chapter, verse_start, verse_end, translation, text, created_at)
+             VALUES (?1, 'John', 3, 16, NULL, 'KJV', ?2, ?3)",
+        )
+        .bind(&ref_id)
+        .bind("For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.")
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib.id, "Svc", now)
+            .await
+            .unwrap();
+        ServiceRepo::new(&db.pool)
+            .add_item(&svc.id, 0, "scripture", None, None, None, Some(&ref_id), None)
+            .await
+            .unwrap();
+        set_secondary(&db, &svc.id, "no").await;
+
+        let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
+        let sc = cl
+            .cues
+            .iter()
+            .find_map(|c| match c {
+                Cue::ShowSlide { slide_content, .. } => Some(slide_content),
+                _ => None,
+            })
+            .unwrap();
+        let tr = sc.translation_lines.as_ref().expect("bundled overlay");
+        assert!(
+            tr.iter().any(|l| l.contains("Gud elsket verden")),
+            "bundled NO verse rendered, got {tr:?}"
+        );
+
+        // The bundled hit was cached for reuse.
+        let cached = TranslateRepo::new(&db.pool)
+            .get_cached(&sc.text_lines, "no")
+            .await
+            .unwrap();
+        assert!(!cached.is_empty(), "bundled hit written back to cache");
+    }
+
+    /// An unsupported target language is a no-op (no overlay, no crash).
+    #[tokio::test]
+    async fn translation_unsupported_language_is_noop() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+        let svc_id = one_song_service(&db, &lib_id, &song_id).await;
+        set_secondary(&db, &svc_id, "xx").await;
+        let cl = CueCompiler::new(&db.pool).compile(&svc_id).await.unwrap();
+        assert!(cl
+            .cues
+            .iter()
+            .all(|c| matches!(c, Cue::ShowSlide { slide_content, .. } if slide_content.translation_lines.is_none())));
     }
 
     // ── property: humanize ↔ normalize is a stable round-trip ───────────────────

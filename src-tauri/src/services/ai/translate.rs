@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::error::{AppError, AppResult};
+use crate::services::bible::bundled_translations;
 
 pub const TRANSLATE_TOOL_NAME: &str = "emit_translation";
 
@@ -111,6 +112,55 @@ pub fn parse_translation(
     })
 }
 
+/// Normalize a verse line for matching: trim, collapse internal whitespace,
+/// lowercase. Bundled verses are stored as single strings; a slide may break a
+/// verse across lines, so we match on the trimmed line as-is. Pure.
+fn norm_verse(s: &str) -> String {
+    s.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Try to translate ONE line offline using the bundled public-domain Bible
+/// texts. If `source_line` exactly matches a bundled verse (in any bundled
+/// translation), and a bundled translation in `target` carries the same
+/// (book, chapter, verse), return that verse's text. Returns `None` for
+/// anything not in the bundled set (lyrics, un-bundled verses). Pure — no DB,
+/// no network — so it can run at compile time with no key.
+///
+/// This is the keyless fallback the plan calls for: even with no API key, the
+/// most-projected verses translate from what ships in the binary.
+pub fn bundled_verse_translation(source_line: &str, target: &str) -> Option<String> {
+    let needle = norm_verse(source_line);
+    if needle.is_empty() {
+        return None;
+    }
+    // Find which (book, chapter, verse) this source line is, in any bundled set.
+    let mut coord: Option<(&str, i64, i64)> = None;
+    'outer: for t in bundled_translations() {
+        for v in t.verses {
+            if norm_verse(v.text) == needle {
+                coord = Some((v.book, v.chapter, v.verse));
+                break 'outer;
+            }
+        }
+    }
+    let (book, chapter, verse) = coord?;
+    // Find the same verse in a bundled translation whose language is `target`.
+    for t in bundled_translations() {
+        if t.language != target {
+            continue;
+        }
+        for v in t.verses {
+            if v.book == book && v.chapter == chapter && v.verse == verse {
+                return Some(v.text.to_string());
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +204,33 @@ mod tests {
     fn parse_errors_without_lines_field() {
         let input = serde_json::json!({ "nope": true });
         assert!(parse_translation(&input, &[], "en").is_err());
+    }
+
+    #[test]
+    fn bundled_verse_translates_john_316_en_to_no() {
+        // KJV John 3:16 → NB1930 John 3:16, both bundled, no key needed.
+        let src = "For God so loved the world, that he gave his only begotten Son, \
+                   that whosoever believeth in him should not perish, but have everlasting life.";
+        let out = bundled_verse_translation(src, "no").expect("bundled NO verse");
+        assert!(out.contains("Gud elsket verden"), "got: {out}");
+    }
+
+    #[test]
+    fn bundled_verse_matches_despite_whitespace_differences() {
+        // Slide text may have collapsed/extra whitespace; matching is tolerant.
+        let src = "  The   LORD is my shepherd;  I shall not want.  ";
+        let out = bundled_verse_translation(src, "no").expect("Ps 23:1 in NO");
+        assert!(out.contains("Herren er min hyrde"), "got: {out}");
+    }
+
+    #[test]
+    fn bundled_verse_returns_none_for_unbundled_or_lyrics() {
+        // A lyric line is not in the bundled Bible set.
+        assert!(bundled_verse_translation("Amazing grace how sweet the sound", "no").is_none());
+        // Blank line → None.
+        assert!(bundled_verse_translation("   ", "no").is_none());
+        // No bundled translation exists for German, so even a known verse misses.
+        let src = "The LORD is my shepherd; I shall not want.";
+        assert!(bundled_verse_translation(src, "de").is_none());
     }
 }

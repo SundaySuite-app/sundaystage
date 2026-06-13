@@ -195,6 +195,7 @@ pub fn run() {
             commands::services::songs_by_item,
             commands::services::service_rename,
             commands::services::service_set_notes,
+            commands::services::service_set_secondary_language,
             commands::services::service_set_starts_at,
             commands::services::service_delete,
             commands::services::service_add_song,
