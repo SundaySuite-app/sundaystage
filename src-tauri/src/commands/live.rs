@@ -13,7 +13,7 @@ use crate::db::repositories::{ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::cue_list::{CueCompiler, CueList};
-use crate::services::live_session::{LiveAction, LiveSession, LiveSessionView};
+use crate::services::live_session::{LiveAction, LiveFrame, LiveSession, LiveSessionView};
 use crate::services::session_store::SessionStore;
 use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
 use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
@@ -129,6 +129,16 @@ fn store(state: &AppState) -> SessionStore {
     SessionStore::in_dir(&state.data_dir)
 }
 
+/// Push the new frame to the crash-isolated output processes, when they are
+/// running (Phase 5.2). Sync + best-effort: never blocks or fails a dispatch.
+/// (The legacy in-process windows get the same frame via the frontend's
+/// `ss://render` event bus instead.)
+fn push_to_outputs(state: &AppState, frame: &LiveFrame) {
+    if let Some(supervisor) = state.outputs.lock().expect("outputs mutex").as_ref() {
+        supervisor.render(frame.clone());
+    }
+}
+
 /// Compile the service and start a live session (replacing any previous one).
 #[tauri::command]
 pub async fn live_start(
@@ -163,6 +173,7 @@ pub async fn live_start(
     // position — `begin` just truncated the WAL, so its length is 0 here.
     let _ = store(&state).record_seq(start_seq);
     *state.live.lock().expect("live mutex") = Some(session);
+    push_to_outputs(&state, &view.frame);
     Ok(view)
 }
 
@@ -239,6 +250,7 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
     if let Some(seq) = next_seq {
         let _ = store(&state).record_seq(seq);
     }
+    push_to_outputs(&state, &view.frame);
     Ok(view)
 }
 
@@ -266,6 +278,9 @@ pub fn live_end(state: State<'_, AppState>) -> AppResult<()> {
     *state.companion.lock().expect("companion mutex") = None;
     *state.live.lock().expect("live mutex") = None;
     store(&state).clear();
+    // The outputs stay open (the operator closes them separately) but the
+    // service is over — show black, never a stale slide.
+    push_to_outputs(&state, &LiveFrame::Black);
     Ok(())
 }
 
@@ -295,5 +310,6 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
         resume_seq,
     ));
     *state.live.lock().expect("live mutex") = Some(session);
+    push_to_outputs(&state, &view.frame);
     Ok(Some(view))
 }

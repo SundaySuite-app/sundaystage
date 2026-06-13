@@ -6,23 +6,29 @@
 //! shared contract between the two processes — the wire protocol and the
 //! watchdog — kept as pure, fully-tested logic.
 //!
-//! ## What is and isn't here
+//! ## Module map
 //!
-//! Here (testable, done): the message protocol ([`OutputMessage`] /
-//! [`OutputAck`]) and the [`Watchdog`] that decides "hold the last frame" when
-//! the main app goes quiet.
+//! * here — the message protocol ([`OutputMessage`] / [`OutputAck`]) and the
+//!   [`Watchdog`] that decides "hold the last frame" when the main app goes
+//!   quiet;
+//! * [`ipc`] — the local-IPC transport (Unix socket / Windows named pipe,
+//!   newline-delimited JSON) the protocol travels over;
+//! * [`process`] — spawning + supervising one `sundaystage-output` process
+//!   per display (restart on crash, current-frame resend, pidfile reaping);
+//! * [`window`] — the legacy in-process webview windows, kept as the
+//!   `process_isolation: false` fallback and as the dev-mode fallback when
+//!   the output binary isn't built.
 //!
-//! Deferred (cannot be verified in a headless/CI environment): spawning the
-//! actual `sundaystage-output` binary, opening a borderless full-screen window
-//! per display, the local-IPC transport (Unix socket / named pipe), and the
-//! macOS/Windows multi-display monitor APIs. Those need a real windowing
-//! session; this module is structured so that work drops in without changing
-//! the protocol. See the test plan in the build plan's Prompt 5.2.
+//! The end-to-end spawn → handshake → render/ack → crash/restart story is
+//! verified headlessly against the real binary in `tests/output_isolation.rs`;
+//! only real pixels/full-screen placement need a screen (rig test).
 
 use serde::{Deserialize, Serialize};
 
 use crate::services::live_session::LiveFrame;
 
+pub mod ipc;
+pub mod process;
 pub mod window;
 
 /// Main app → output process. `seq` lets the output ACK the exact render and

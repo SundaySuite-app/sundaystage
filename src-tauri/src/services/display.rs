@@ -113,10 +113,29 @@ pub struct DisplayAssignment {
 }
 
 /// Persisted output configuration (the user's last-chosen role assignments).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../src/lib/bindings/OutputConfig.ts")]
 pub struct OutputConfig {
     pub assignments: Vec<DisplayAssignment>,
+    /// Phase 5.2 — drive each output as a separate crash-isolated OS process
+    /// (`sundaystage-output`). Default ON; turning it off falls back to the
+    /// in-process webview windows. Missing in configs saved before this field
+    /// existed → defaults to ON.
+    #[serde(default = "default_true")]
+    pub process_isolation: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for OutputConfig {
+    fn default() -> Self {
+        Self {
+            assignments: Vec::new(),
+            process_isolation: true,
+        }
+    }
 }
 
 /// The slide transition effect used when advancing cues on the output.
@@ -365,10 +384,22 @@ mod tests {
     fn config_round_trips() {
         let cfg = OutputConfig {
             assignments: default_assignments(&[mon(0, true), mon(1, false)]),
+            process_isolation: false,
         };
         let json = serde_json::to_string(&cfg).unwrap();
         let back: OutputConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(cfg, back);
+    }
+
+    #[test]
+    fn pre_isolation_config_defaults_to_isolation_on() {
+        // A config saved before the `process_isolation` field existed must
+        // deserialize with isolation ON (the new default).
+        let back: OutputConfig =
+            serde_json::from_str(r#"{"assignments":[{"monitor_index":1,"role":"main_output"}]}"#)
+                .unwrap();
+        assert!(back.process_isolation);
+        assert!(OutputConfig::default().process_isolation);
     }
 
     #[test]

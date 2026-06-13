@@ -4,4 +4,11 @@ import type { DisplayAssignment } from "./DisplayAssignment";
 /**
  * Persisted output configuration (the user's last-chosen role assignments).
  */
-export type OutputConfig = { assignments: Array<DisplayAssignment>, };
+export type OutputConfig = { assignments: Array<DisplayAssignment>, 
+/**
+ * Phase 5.2 — drive each output as a separate crash-isolated OS process
+ * (`sundaystage-output`). Default ON; turning it off falls back to the
+ * in-process webview windows. Missing in configs saved before this field
+ * existed → defaults to ON.
+ */
+process_isolation: boolean, };
