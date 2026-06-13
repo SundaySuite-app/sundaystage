@@ -55,19 +55,20 @@ docs/
 Requires:
 
 - Rust stable (`rustup`)
-- Node 24+ + npm
+- Node 24+ + pnpm (the `@sunday/contracts` git dependency uses pnpm's `&path:`
+  git-subdir syntax, which npm cannot resolve — use pnpm, not npm)
 - macOS: Xcode command-line tools
 
 ```bash
 cd sundaystage
-npm install
-npm run tauri dev           # builds Rust + starts Vite + opens app
+pnpm install
+pnpm run tauri dev          # builds Rust + starts Vite + opens app
 ```
 
 Frontend-only dev (no Rust hot reload):
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Run Rust unit tests:

@@ -27,6 +27,7 @@
     "*.{ts,tsx}": "eslint --fix"
   },
   "dependencies": {
+    "@sunday/contracts": "github:richardfossland/sunday-platform#v0.4.1&path:/packages/contracts",
     "@supabase/supabase-js": "^2.108.1",
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-virtual": "^3.13.26",
