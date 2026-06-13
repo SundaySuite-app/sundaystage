@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { CATALOG, LANGS } from "./i18n";
+import { CATALOG, LANGS, type Lang } from "./i18n";
 
 // Keys that drive the theme CRUD panel (ThemeControls). Localising these is the
 // point of this change, so we hard-require full parity rather than allowing the
@@ -126,6 +126,67 @@ describe("settings save-error i18n parity", () => {
         cat.setSaveFailed.trim().length,
         `${lang}.setSaveFailed`,
       ).toBeGreaterThan(0);
+    });
+  }
+});
+
+// ── Whole-catalog parity ──────────────────────────────────────────────────────
+//
+// The targeted suites above guard individual feature areas. This suite enforces
+// the global invariant: every locale carries *exactly* English's key set (no
+// missing keys → no silent English fall-back; no extra keys → no dead strings),
+// and every value preserves *exactly* English's `{placeholder}` tokens per key.
+// English (`en`) is the source of truth and the runtime fall-back.
+
+const en = CATALOG.en;
+const enKeys = Object.keys(en).sort();
+const enKeySet = new Set(enKeys);
+
+/** Extract the set of `{token}` placeholders from a catalog string. */
+function placeholders(value: string): Set<string> {
+  const out = new Set<string>();
+  const re = /\{(\w+)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(value)) !== null) out.add(m[1]);
+  return out;
+}
+
+const otherLangs = LANGS.filter((l) => l !== "en");
+
+describe("whole-catalog i18n parity", () => {
+  it("LANGS and CATALOG agree on the locale set", () => {
+    expect(Object.keys(CATALOG).sort()).toEqual([...LANGS].sort());
+  });
+
+  it("English has a non-trivial number of keys", () => {
+    // Sanity floor so the parity checks below can't pass against an empty `en`.
+    expect(enKeys.length).toBeGreaterThan(400);
+  });
+
+  for (const lang of otherLangs as Lang[]) {
+    describe(`locale ${lang}`, () => {
+      const cat = CATALOG[lang];
+      const keys = Object.keys(cat).sort();
+      const keySet = new Set(keys);
+
+      it("has exactly the same key set as en", () => {
+        const missing = enKeys.filter((k) => !keySet.has(k));
+        const extra = keys.filter((k) => !enKeySet.has(k));
+        expect({ missing, extra }).toEqual({ missing: [], extra: [] });
+      });
+
+      it("preserves the {placeholder} tokens of every key", () => {
+        const mismatches: Record<string, { en: string[]; got: string[] }> = {};
+        for (const key of enKeys) {
+          if (!keySet.has(key)) continue; // key-set test already reports this
+          const want = [...placeholders(en[key])].sort();
+          const got = [...placeholders(cat[key])].sort();
+          if (want.join("|") !== got.join("|")) {
+            mismatches[key] = { en: want, got };
+          }
+        }
+        expect(mismatches).toEqual({});
+      });
     });
   }
 });
