@@ -116,6 +116,7 @@ mod tests {
                 translation_lines: None,
                 reference: reference.map(Into::into),
                 sensitive_slide,
+                appearance: None,
             },
         }
     }

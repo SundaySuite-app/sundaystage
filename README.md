@@ -2,17 +2,17 @@
 
 Live presentation app for churches — companion to [SundayRec](https://github.com/richardfossland/sundayrec). Together they are the **Sunday suite**.
 
-> ⚠️ **Status:** early alpha. Phase 0–2 scaffold complete. Live engine, AI lyric formatter, multi-output isolation, and SundayRec integration not yet implemented. See `docs/ARCHITECTURE.md` for the full roadmap and `CLAUDE.md` for the design principles.
+> **Status (June 2026):** feature-complete for local-only churches — phases 3–11 + 13.1 are implemented and unit-tested. The slide editor, AI lyric formatter (with an offline heuristic and OS-keychain key storage), the live engine with **real crash-isolated output processes**, crash recovery, Bible + media, stage-display presets, the SundayRec bridge (chapter markers + SRT), and the planning assistant all work today. Still ahead: cloud sync transport (9.2), distribution / auto-update (13.2), semantic search + live translation overlay (11), and video thumbnails. The network companion (phones/extra screens following along) now lives in **SundayStage Web** (`stage.sundaysuite.app`), which supersedes the old in-repo companion PWA. See `docs/ARCHITECTURE.md` for the canonical phase-status table and `CLAUDE.md` for the design principles.
 
 ## Why SundayStage exists
 
-|                            | ProPresenter | EasyWorship | FreeShow | **SundayStage**               |
-| -------------------------- | ------------ | ----------- | -------- | ----------------------------- |
-| Price                      | $29-59/mo    | One-time    | Free OSS | **Free core, cheap Pro**      |
-| Cross-platform             | Mac+Win      | Win-leaning | Yes      | **Mac+Win first-class**       |
-| AI-native lyric formatting | No           | No          | No       | **Yes — Phase 4**             |
-| Stable on Sunday morning   | Has crashed  | OK          | Decent   | **Crash isolation by design** |
-| Pair with church recorder  | No           | No          | No       | **SundayRec — Phase 10**      |
+|                            | ProPresenter | EasyWorship | FreeShow | **SundayStage**           |
+| -------------------------- | ------------ | ----------- | -------- | ------------------------- |
+| Price                      | $29-59/mo    | One-time    | Free OSS | **Free core, cheap Pro**  |
+| Cross-platform             | Mac+Win      | Win-leaning | Yes      | **Mac+Win first-class**   |
+| AI-native lyric formatting | No           | No          | No       | **Yes**                   |
+| Stable on Sunday morning   | Has crashed  | OK          | Decent   | **Crash-isolated output** |
+| Pair with church recorder  | No           | No          | No       | **SundayRec bridge**      |
 
 ## Stack
 
@@ -84,29 +84,29 @@ cd src-tauri
 cargo test --lib export_bindings    # writes to src/lib/bindings/*.ts
 ```
 
-## What works today (Phase 0–2 scaffold)
+## What works today
 
-- ✅ Tauri 2 + React 19 boots
-- ✅ SQLite database opens in app-local data dir; runs migrations
-- ✅ All 16 schema entities (Library, Song, Section, Service, ...) modelled in Rust
-- ✅ Repositories: Library, Song (incl. FTS5 search), Service, Media, Bible
-- ✅ 14 Tauri commands wired and callable from React
-- ✅ Typed IPC client (`src/lib/ipc.ts`) with stable error shape
-- ✅ Auto-generated TS bindings from Rust (17 types)
-- ✅ App shell: sidebar nav, ⌘K command palette, dark-first theme
-- ✅ Library page: list + create + search (FTS5-backed full-text)
-- ✅ 30 Rust unit tests, all green
+- ✅ **Slide editor** — canvas with sections, arrangements, theme/template cascade (Phase 3)
+- ✅ **AI lyric formatter** — Anthropic-backed + an offline heuristic fallback; key in the OS keychain (Phase 4)
+- ✅ **Live engine** — cue compiler + O(1) runtime, **crash-isolated output processes** over local IPC with a hold-last-frame watchdog (Phase 5)
+- ✅ **Theme/template cascade on output** — each cue paints its resolved colour/font/scale (audit 2c)
+- ✅ **Crash recovery** — append-only session log, resume at the same cue after a UI crash; stress-tested (Phase 6)
+- ✅ **Bible + media** — cached translations, fingerprint-based media relink (Phase 7)
+- ✅ **Stage-display presets** — Worship Leader / Musician / Pastor views (Phase 8)
+- ✅ **SundayRec bridge** — chapter markers + SRT export from the cue log (Phase 10)
+- ✅ **Planning assistant** — AI service-plan draft that never invents unknown songs (Phase 11.2)
+- ✅ **Onboarding + i18n machinery** — 7 locales, demo content, first-run flow (Phase 13.1)
+- ✅ 411 Rust unit tests + output-process isolation/stress suites, all green
 
-## What's next (Phase 3 → 13)
+## What's next
 
-See `docs/ARCHITECTURE.md` — the phase-status table at the bottom is the canonical roadmap. Highlights:
+See `docs/ARCHITECTURE.md` — the phase-status table is the canonical roadmap. Remaining:
 
-- **Phase 3** — Slide editor (Figma-like canvas, snap guides, undo/redo)
-- **Phase 4** — AI lyric formatter (the killer feature)
-- **Phase 5** — Live engine with isolated output processes ⚠ **critical**
-- **Phase 6** — Stress testing + crash recovery (the moat)
-- **Phase 10** — SundayRec integration (chapter markers, SRT captions, TONO licensing flag)
-- **Phase 12** — Companion PWA (follow-along for accessibility)
+- **Phase 9.2** — Supabase sync transport (the decision/conflict core is done; the cloud wire is not)
+- **Phase 11** — semantic song search (embeddings) + live translation overlay
+- **Phase 13.2** — distribution: signed bundles + auto-update CI, landing site
+- **Media** — ffprobe-backed video thumbnails
+- **Network companion** — phones and extra screens follow along via **SundayStage Web** (`stage.sundaysuite.app`), not an in-repo PWA
 
 ## License
 

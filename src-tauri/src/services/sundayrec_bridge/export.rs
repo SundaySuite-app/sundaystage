@@ -157,13 +157,14 @@ mod tests {
     fn slide(item: &str, label: &str, line: &str) -> Cue {
         Cue::ShowSlide {
             cue_id: format!("{item}-{label}"),
-            slide_content: SlideContent {
+            slide_content: Box::new(SlideContent {
                 section_label: Some(label.to_string()),
                 text_lines: vec![line.to_string()],
                 translation_lines: None,
                 reference: None,
                 sensitive_slide: false,
-            },
+                appearance: None,
+            }),
             theme_id: None,
             template_id: None,
             source: CueSource {

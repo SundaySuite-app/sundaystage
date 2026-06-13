@@ -644,6 +644,57 @@ fn split_into(text: &str, n: usize) -> Vec<String> {
     chunks.into_iter().map(|c| c.join("\n\n")).collect()
 }
 
+// ── Per-cue resolved appearance (audit 2c) ───────────────────────────────────
+
+/// The *resolved* look of one live cue, embedded on its [`SlideContent`] at
+/// compile time (see `CueCompiler`). Derived from the cascade-resolved theme
+/// tokens + template layout, so the output process needs no DB and no theme
+/// lookup at show time. Every field is optional: `None` means "inherit the
+/// operator's global `OutputAppearance`" — the cue only overrides what the
+/// theme actually specifies.
+///
+/// [`SlideContent`]: crate::services::cue_list::SlideContent
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/SlideAppearance.ts")]
+pub struct SlideAppearance {
+    /// CSS background — a colour or a gradient (themes use both).
+    pub bg: Option<String>,
+    /// Lyric/text colour.
+    pub text_color: Option<String>,
+    /// Theme font stack.
+    pub font_family: Option<String>,
+    /// Horizontal alignment from the template's primary text slot.
+    pub h_align: Option<HAlign>,
+    /// Multiplier applied ON TOP of the operator's `text_scale` (so a theme
+    /// with a bigger base size scales with — never fights — the operator's
+    /// "larger text" preference). Theme `body_size`/64 × slot `size_scale`.
+    pub text_scale: Option<f32>,
+}
+
+/// Derive the per-cue appearance from resolved theme tokens + template layout.
+/// The live output renders flat lyric lines (not the full slot layout), so the
+/// template contributes its *primary* text slot's alignment and size scale —
+/// the lyrics slot if present, else body/title, else template defaults.
+pub fn slide_appearance_from(tokens: &ThemeTokens, layout: &TemplateLayout) -> SlideAppearance {
+    let primary = layout
+        .slots
+        .iter()
+        .find(|s| s.role == SlotRole::Lyrics)
+        .or_else(|| {
+            layout
+                .slots
+                .iter()
+                .find(|s| matches!(s.role, SlotRole::Body | SlotRole::Title))
+        });
+    SlideAppearance {
+        bg: Some(tokens.background.value.clone()),
+        text_color: Some(tokens.text_color.clone()),
+        font_family: Some(tokens.font_family.clone()),
+        h_align: primary.map(|s| s.align),
+        text_scale: Some((tokens.body_size / 64.0) * primary.map(|s| s.size_scale).unwrap_or(1.0)),
+    }
+}
+
 /// Tokens for a theme id, checking built-ins then the supplied DB themes.
 /// A missing/dangling id yields the default theme's tokens rather than an
 /// error — a deleted theme should degrade gracefully, never blank the screen.
@@ -834,6 +885,42 @@ mod tests {
         assert!(builtin_templates()
             .iter()
             .any(|t| t.id == DEFAULT_TEMPLATE_ID));
+    }
+
+    // ── Per-cue appearance derivation ────────────────────────────────────────
+
+    #[test]
+    fn slide_appearance_carries_theme_tokens_and_primary_slot() {
+        let tokens = tokens_for("builtin-theme-high-contrast", &HashMap::new());
+        let layout = layout_for("builtin-template-lyrics-lower-third", &HashMap::new());
+        let a = slide_appearance_from(&tokens, &layout);
+        assert_eq!(a.bg.as_deref(), Some("#000000"));
+        assert_eq!(a.text_color.as_deref(), Some("#ffffff"));
+        assert_eq!(a.h_align, Some(HAlign::Left)); // lower-third lyrics slot
+                                                   // body_size 64 / 64 × slot scale 0.85.
+        assert!((a.text_scale.unwrap() - 0.85).abs() < 1e-4);
+        assert!(a.font_family.is_some());
+    }
+
+    #[test]
+    fn slide_appearance_prefers_lyrics_slot_then_body_then_defaults() {
+        let tokens = ThemeTokens::default();
+        // Bible-verse template: lyrics slot wins over the reference slot.
+        let bible = layout_for("builtin-template-bible-verse", &HashMap::new());
+        assert_eq!(
+            slide_appearance_from(&tokens, &bible).h_align,
+            Some(HAlign::Center)
+        );
+        // Quote template has no lyrics slot → body slot drives.
+        let quote = layout_for("builtin-template-quote", &HashMap::new());
+        let a = slide_appearance_from(&tokens, &quote);
+        assert_eq!(a.h_align, Some(HAlign::Center));
+        assert!((a.text_scale.unwrap() - 0.95).abs() < 1e-4);
+        // Blank template (no slots at all): alignment inherits, scale = theme base.
+        let blank = layout_for("builtin-template-blank", &HashMap::new());
+        let a = slide_appearance_from(&tokens, &blank);
+        assert_eq!(a.h_align, None);
+        assert!((a.text_scale.unwrap() - 1.0).abs() < 1e-4);
     }
 
     // ── Render ──────────────────────────────────────────────────────────────

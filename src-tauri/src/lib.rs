@@ -37,6 +37,12 @@ pub struct AppState {
     /// `live_end`. The network transport is a no-op until the cloud layer is
     /// configured, so it is always safe to drive.
     pub companion: Mutex<Option<CompanionBroadcaster<RealtimeTransport>>>,
+    /// Phase 5.2 — the supervisor for the crash-isolated output processes,
+    /// when outputs are open with `process_isolation` on. Created by
+    /// `output_open`, fed a frame on every live dispatch, torn down by
+    /// `output_close` / app exit. `None` while outputs are closed or running
+    /// as in-process windows.
+    pub outputs: Mutex<Option<crate::output::process::OutputSupervisor>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -93,6 +99,7 @@ pub fn run() {
                 data_dir,
                 live: std::sync::Mutex::new(None),
                 companion: std::sync::Mutex::new(None),
+                outputs: std::sync::Mutex::new(None),
             });
             tracing::info!("SundayStage backend ready");
             Ok(())
@@ -238,6 +245,19 @@ pub fn run() {
             commands::themes::slide_set_template,
             commands::themes::template_render,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // A graceful exit must take the isolated output processes down
+            // with us. A *crash* never reaches this — by design the children
+            // survive and hold the last frame (see `output::process`).
+            if let tauri::RunEvent::Exit = event {
+                let supervisor = app_handle
+                    .try_state::<AppState>()
+                    .and_then(|s| s.outputs.lock().expect("outputs mutex").take());
+                if let Some(supervisor) = supervisor {
+                    tauri::async_runtime::block_on(supervisor.shutdown());
+                }
+            }
+        });
 }

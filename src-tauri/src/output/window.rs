@@ -33,8 +33,10 @@ fn role_slug(role: DisplayRole) -> Option<&'static str> {
 
 /// Build the unique window label for an output on `monitor_index` with `role`.
 /// Returns `None` for `Off`. Pure (no `AppHandle`) so the label contract the
-/// renderer parses is unit-testable. Shape: `output-<slug>-<index>`.
-fn output_label(role: DisplayRole, monitor_index: u32) -> Option<String> {
+/// renderer parses is unit-testable. Shape: `output-<slug>-<index>`. Public
+/// because the process supervisor uses the same label for the isolated
+/// process's window + IPC endpoint, keeping both paths on one contract.
+pub fn output_label(role: DisplayRole, monitor_index: u32) -> Option<String> {
     role_slug(role).map(|slug| format!("{LABEL_PREFIX}{slug}-{monitor_index}"))
 }
 

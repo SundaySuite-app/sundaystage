@@ -66,7 +66,10 @@ export function OutputControls() {
 
   async function setRole(monitorIndex: number, role: DisplayRole) {
     if (!config) return;
+    // Spread to preserve config fields this panel doesn't edit
+    // (e.g. process_isolation).
     const next: OutputConfig = {
+      ...config,
       assignments: config.assignments.map((a) =>
         a.monitor_index === monitorIndex ? { ...a, role } : a,
       ),

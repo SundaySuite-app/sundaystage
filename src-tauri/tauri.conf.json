@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1432",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build && node scripts/prepare-output-bin.mjs",
     "frontendDist": "../dist"
   },
   "app": {
@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "nsis"],
+    "externalBin": ["binaries/output-process"],
     "createUpdaterArtifacts": true,
     "category": "Productivity",
     "shortDescription": "Live presentation software for churches",
