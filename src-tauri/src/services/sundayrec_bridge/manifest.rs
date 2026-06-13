@@ -13,42 +13,35 @@
 //! [`ItemMeta`] map (the command layer resolves it from the DB) so it stays
 //! testable without a database.
 //!
-//! WIRE CONTRACT: [`StageManifest`]/[`ManifestItem`]/[`ManifestSong`] are
-//! FIELD-IDENTICAL mirrors of the canonical `StageManifest` contract in
-//! sunday-platform `sunday-contracts` v0.4.0 (`crates/sunday-contracts/src/stage.rs`
-//! / `packages/contracts/src/stage.ts`): camelCase keys, no `schema_version`
-//! envelope, absent options omitted (never `null`). The only producer-side
-//! deviation is that `source` is a required `String` here because Stage always
-//! stamps `"stage"` — the canonical consumer-side field is `Option<String>`.
-//! Converge onto the published crate once apps can depend on it; do not add or
-//! rename fields without changing the canonical contract first.
+//! WIRE CONTRACT: the manifest types are now the CANONICAL ones from the
+//! `sunday-contracts` crate (`StageManifest`/`StageManifestItem`/
+//! `StageManifestSong`, sunday-platform v0.4.1, `crates/sunday-contracts/src/
+//! stage.rs` / `packages/contracts/src/stage.ts`). They were previously a
+//! field-identical hand-rolled mirror in this file; that third copy is gone —
+//! we re-export the published types (aliased to the old local names so callers
+//! are unchanged) and drive the JSON wire shape directly from them. camelCase
+//! keys, no `schema_version` envelope, absent options omitted (never `null`).
+//! Stage always stamps `source = Some("stage")` (the canonical field is
+//! `Option<String>` for the consumer side). Do not add or rename fields without
+//! changing the canonical contract first.
 
 use std::collections::HashMap;
 
-use serde::Serialize;
+// Canonical wire types from the shared contracts crate. We alias them to the
+// names this module historically exported so `commands::live` and the tests
+// keep compiling unchanged.
+pub use sunday_contracts::{
+    StageManifest, StageManifestItem as ManifestItem, StageManifestSong as ManifestSong,
+    STAGE_MANIFEST_SOURCE,
+};
 
 use crate::services::cue_list::Cue;
 use crate::services::live_session::{LiveSession, OutputState};
 
-/// Song identifiers on a manifest item — the cross-suite licensing ids.
-/// FIELD-IDENTICAL mirror of canonical `StageManifestSong`
-/// (sunday-contracts v0.4.0, stage.rs); camelCase on the wire.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct ManifestSong {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tono_work_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ccli_song_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sundaysong_id: Option<String>,
-}
-
 /// Planning-time metadata for one service item, resolved from the DB by the
 /// command layer. Passed to [`build_manifest`] as a `service_item_id → ItemMeta`
-/// map so the pure builder never touches sqlx.
+/// map so the pure builder never touches sqlx. App-local (not a wire type): it
+/// carries the canonical [`ManifestSong`] but is never serialized.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemMeta {
     /// The schema kind (`song`, `scripture`, `custom_deck`, …).
@@ -56,41 +49,6 @@ pub struct ItemMeta {
     /// The song behind a `song` item, with its licensing ids. `None` for
     /// non-song items (scripture/deck/gap).
     pub song: Option<ManifestSong>,
-}
-
-/// One cue in the manifest. `at_ms`/`end_ms` are absolute unix ms.
-/// FIELD-IDENTICAL mirror of canonical `StageManifestItem`
-/// (sunday-contracts v0.4.0, stage.rs).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ManifestItem {
-    pub at_ms: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_ms: Option<i64>,
-    pub kind: String,
-    pub label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_item_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub song: Option<ManifestSong>,
-}
-
-/// A Stage service manifest. FIELD-IDENTICAL mirror of canonical
-/// `StageManifest` (sunday-contracts v0.4.0, stage.rs) — see the module doc for
-/// the one producer-side deviation (`source` required). `source` is always
-/// `"stage"`; `started_at_ms` + `items` are the fields SundayRec requires.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StageManifest {
-    pub source: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub church_id: Option<String>,
-    pub started_at_ms: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ended_at_ms: Option<i64>,
-    pub items: Vec<ManifestItem>,
 }
 
 /// One contiguous run of the same service item in the display timeline, with
@@ -216,7 +174,8 @@ pub fn build_manifest(
         .collect();
 
     StageManifest {
-        source: "stage".to_string(),
+        // Stage always stamps the canonical producer tag.
+        source: Some(STAGE_MANIFEST_SOURCE.to_string()),
         service_id: Some(session.service_id.clone()),
         church_id,
         started_at_ms: session.started_at,
@@ -306,7 +265,7 @@ mod tests {
         s.dispatch(LiveAction::Next, 9_000); // how-great
         let manifest = build_manifest(&s, 12_000, &meta(), None);
 
-        assert_eq!(manifest.source, "stage");
+        assert_eq!(manifest.source.as_deref(), Some("stage"));
         assert_eq!(manifest.service_id.as_deref(), Some("svc-1"));
         assert_eq!(manifest.started_at_ms, 1_000);
         assert_eq!(manifest.ended_at_ms, Some(12_000));
@@ -422,5 +381,22 @@ mod tests {
         assert_eq!(song.title.as_deref(), Some("Amazing Grace"));
         assert_eq!(song.tono_work_id.as_deref(), Some("T-123"));
         assert_eq!(song.ccli_song_id.as_deref(), Some("CCLI-22025"));
+    }
+
+    /// Drift guard: the canonical `StageManifest` round-trips byte-for-byte
+    /// through serde from JSON the Rec parser produces, AND every field this
+    /// builder writes survives. If the contracts crate ever renames/retypes a
+    /// field, this fails to compile or fails the assertion — killing silent
+    /// drift even though we now consume the type directly.
+    #[test]
+    fn canonical_type_round_trips_without_field_drift() {
+        let mut s = two_song_session();
+        s.dispatch(LiveAction::Next, 5_000);
+        s.dispatch(LiveAction::Next, 9_000);
+        let original = build_manifest(&s, 12_000, &meta(), None);
+        let json = serde_json::to_string(&original).unwrap();
+        let parsed: StageManifest =
+            serde_json::from_str(&json).expect("canonical type deserializes its own JSON");
+        assert_eq!(parsed, original, "round-trip must preserve every field");
     }
 }
