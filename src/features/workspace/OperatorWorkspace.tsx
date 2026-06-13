@@ -28,6 +28,7 @@ import type {
 } from "@/lib/bindings";
 import { useT } from "@/lib/i18n";
 import { DEFAULT_OUTPUT_APPEARANCE, useOutputBridge } from "@/lib/outputBridge";
+import { useWebShare, type RemoteCommand } from "@/lib/webShare";
 import { useLiveBridge, type LiveBridgeTransports } from "@/lib/useLiveBridge";
 import {
   buildLiveBridgeContext,
@@ -213,6 +214,37 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     },
     [bridge],
   );
+
+  // ── Network share (stage.sundaysuite.app) ───────────────────────────────────
+  // Forward each live frame to the web app so phones/extra screens follow, and
+  // accept remote-control commands from a web operator → the same dispatcher.
+  const onRemoteCommand = useCallback(
+    (cmd: RemoteCommand) => {
+      if (!isLive) return;
+      const action: LiveAction =
+        cmd === "next"
+          ? { type: "next" }
+          : cmd === "prev"
+            ? { type: "previous" }
+            : cmd === "black"
+              ? { type: "blackout" }
+              : cmd === "logo"
+                ? { type: "show_logo" }
+                : { type: "clear" };
+      dispatch(action);
+    },
+    [isLive, dispatch],
+  );
+  const webShare = useWebShare({
+    frame: session?.frame ?? null,
+    appearance,
+    active: isLive,
+    onCommand: onRemoteCommand,
+  });
+  // Stop sharing when the service ends.
+  useEffect(() => {
+    if (!isLive && webShare.status !== "off") void webShare.stop();
+  }, [isLive, webShare]);
 
   const startSession = useCallback((): Promise<LiveSessionView | null> => {
     if (!service) return Promise.resolve(null);
@@ -445,6 +477,15 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onShortcuts={() => setShortcutsOpen(true)}
       />
 
+      {isLive ? (
+        <WebShareControl
+          status={webShare.status}
+          code={webShare.session?.code ?? null}
+          onStart={() => void webShare.start()}
+          onStop={() => void webShare.stop()}
+        />
+      ) : null}
+
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {service ? (
           <div className="grid min-h-0 flex-1 grid-cols-[280px_1fr_340px]">
@@ -670,6 +711,56 @@ function RecoveryBanner({
           Gjenoppta
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Del over nettverk" — a compact floating control shown while live. Starts a
+ * SundayStage Web session and shows the 6-digit code the operator reads aloud
+ * (or puts on the info screen) so phones and extra screens can follow at
+ * stage.sundaysuite.app. Norwegian-literal for now (operator-only surface);
+ * full i18n rides the next catalog pass.
+ */
+function WebShareControl({
+  status,
+  code,
+  onStart,
+  onStop,
+}: {
+  status: "off" | "starting" | "sharing" | "error";
+  code: string | null;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const sharing = status === "sharing" || status === "starting";
+  return (
+    <div className="pointer-events-auto fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2 shadow-[var(--shadow-elevated)]">
+      {sharing && code ? (
+        <>
+          <span className="flex items-center gap-1.5 text-xs text-[var(--color-fg-muted)]">
+            <span className="inline-block h-2 w-2 rounded-full bg-[var(--color-success,#5dbb78)]" />
+            stage.sundaysuite.app
+          </span>
+          <span className="font-mono text-lg font-bold tracking-[0.2em] text-[var(--color-accent)]">
+            {code}
+          </span>
+          <button
+            onClick={onStop}
+            className="rounded-md px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+          >
+            Stopp deling
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={onStart}
+          disabled={status === "starting"}
+          className="rounded-md px-2.5 py-1 text-xs font-semibold text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+        >
+          {status === "error" ? "Prøv deling igjen" : "Del over nettverk"}
+        </button>
+      )}
     </div>
   );
 }
