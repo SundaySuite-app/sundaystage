@@ -234,11 +234,7 @@ impl<'a> ServiceRepo<'a> {
     /// Set (or clear) the service's secondary translation language (Phase 11.2).
     /// An empty / blank `lang` clears the overlay. Validation of the language
     /// code lives in the command layer.
-    pub async fn set_secondary_language(
-        &self,
-        id: &str,
-        lang: Option<&str>,
-    ) -> AppResult<Service> {
+    pub async fn set_secondary_language(&self, id: &str, lang: Option<&str>) -> AppResult<Service> {
         let lang = lang.map(str::trim).filter(|l| !l.is_empty());
         sqlx::query("UPDATE service SET secondary_language = ?1, updated_at = ?2 WHERE id = ?3")
             .bind(lang)

@@ -12,6 +12,7 @@ pub mod crash;
 pub mod cue_list;
 pub mod demo;
 pub mod display;
+pub mod library_publish;
 pub mod live_session;
 pub mod media;
 pub mod scripture_break;

@@ -156,6 +156,8 @@ pub fn run() {
             commands::onboarding::onboarding_seed_demo,
             // Cloud sync (Phase 9)
             commands::sync::sync_status,
+            // Library publish (desktop → cloud, one-way)
+            commands::library_publish::library_publish,
             // Crash reporting (Phase 6.1)
             commands::crash::crash_reporting_status,
             commands::crash::crash_reporting_set,

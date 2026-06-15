@@ -9,9 +9,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Download, Plus, Search, Sparkles } from "lucide-react";
+import { Download, Plus, Search, Sparkles, UploadCloud } from "lucide-react";
 
-import { ipc } from "@/lib/ipc";
+import { ipc, IPCError } from "@/lib/ipc";
 import type { Library, SongSection } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { Badge, Button, Select } from "@/components/ui";
@@ -123,6 +123,17 @@ export function LibraryPage({ library, openSongId, onDeepLinkDone }: Props) {
     overscan: 12,
   });
 
+  const publishMut = useMutation({
+    mutationFn: () => ipc.library.publish(library.id),
+    onSuccess: (r) => setToast(t("publishDone", { n: r.songCount })),
+    onError: (e) => {
+      const signIn =
+        e instanceof IPCError &&
+        (e.message === "not_signed_in" || e.message === "reauth_required");
+      setToast(signIn ? t("publishSignIn") : t("publishError"));
+    },
+  });
+
   const createSong = useMutation({
     mutationFn: () =>
       ipc.song.create({
@@ -207,6 +218,17 @@ export function LibraryPage({ library, openSongId, onDeepLinkDone }: Props) {
         >
           <Sparkles size={14} aria-hidden />
           <span>{t("libraryPlanWithAi")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => publishMut.mutate()}
+          disabled={publishMut.isPending}
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)] disabled:opacity-50"
+        >
+          <UploadCloud size={14} aria-hidden />
+          <span>
+            {publishMut.isPending ? t("publishing") : t("libraryPublish")}
+          </span>
         </button>
         <button
           type="button"

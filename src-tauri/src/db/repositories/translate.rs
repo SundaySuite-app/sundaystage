@@ -105,7 +105,10 @@ mod tests {
             .get_cached(&["Amazing grace".to_string(), "missing".to_string()], "no")
             .await
             .unwrap();
-        assert_eq!(got.get("Amazing grace").map(String::as_str), Some("Underfull nåde"));
+        assert_eq!(
+            got.get("Amazing grace").map(String::as_str),
+            Some("Underfull nåde")
+        );
         assert!(!got.contains_key("missing"));
         // Wrong target language is a miss.
         let other = repo
