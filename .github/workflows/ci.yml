@@ -100,4 +100,4 @@ jobs:
       # Compiles the frontend + the Rust app on both first-class platforms.
       # Bundling/signing/notarization is wired up in Phase 13.2 (distribution).
       - name: Build Tauri app
-        run: pnpm run tauri build -- --no-bundle
+        run: pnpm exec tauri build --no-bundle
