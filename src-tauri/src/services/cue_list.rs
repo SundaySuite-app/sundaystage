@@ -324,10 +324,7 @@ impl<'a> CueCompiler<'a> {
 
         // source line → translated line. Start from the offline cache.
         let repo = TranslateRepo::new(self.pool);
-        let mut resolved = repo
-            .get_cached(&distinct, target)
-            .await
-            .unwrap_or_default();
+        let mut resolved = repo.get_cached(&distinct, target).await.unwrap_or_default();
 
         // Keyless bundled-Bible fallback for anything still missing, and cache
         // the hit so future compiles (and other services) reuse it.
@@ -715,7 +712,6 @@ async fn translate_via_api(
         .filter(|(_, tr)| !tr.trim().is_empty())
         .collect())
 }
-
 
 /// Split a section's lyrics into slides of at most `lines_per_slide`
 /// lines. Naïve — Phase 4's AI breaker is smarter.
@@ -1536,7 +1532,16 @@ mod tests {
             .await
             .unwrap();
         ServiceRepo::new(&db.pool)
-            .add_item(&svc.id, 0, "scripture", None, None, None, Some(&ref_id), None)
+            .add_item(
+                &svc.id,
+                0,
+                "scripture",
+                None,
+                None,
+                None,
+                Some(&ref_id),
+                None,
+            )
             .await
             .unwrap();
         set_secondary(&db, &svc.id, "no").await;

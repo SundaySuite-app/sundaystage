@@ -101,12 +101,23 @@ async function call<T>(
 
 // ── Library ──────────────────────────────────────────────────────────────────
 
+/** Result of publishing the local library to the shared church cloud. */
+export interface PublishResult {
+  upserted: number;
+  deleted: number;
+  churchId: string;
+  songCount: number;
+}
+
 export const library = {
   create: (input: LibraryInput) => call<Library>("library_create", { input }),
   get: (id: string) => call<Library>("library_get", { id }),
   list: () => call<Library[]>("library_list"),
   rename: (id: string, name: string) =>
     call<Library>("library_rename", { id, name }),
+  /** Publish this library to the shared church cloud (desktop → web, one-way). */
+  publish: (libraryId: string) =>
+    call<PublishResult>("library_publish", { libraryId }),
 };
 
 // ── Song ─────────────────────────────────────────────────────────────────────

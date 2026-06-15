@@ -12,6 +12,7 @@ pub mod crash;
 pub mod decks;
 pub mod import;
 pub mod libraries;
+pub mod library_publish;
 pub mod live;
 pub mod media;
 pub mod onboarding;

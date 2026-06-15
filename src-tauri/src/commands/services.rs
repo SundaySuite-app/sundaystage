@@ -90,7 +90,9 @@ pub async fn service_set_secondary_language(
     id: String,
     language: Option<String>,
 ) -> AppResult<Service> {
-    let lang = language.map(|l| l.trim().to_string()).filter(|l| !l.is_empty());
+    let lang = language
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty());
     if let Some(ref l) = lang {
         if !crate::services::ai::translate::is_supported_target(l) {
             return Err(AppError::Validation(format!(
