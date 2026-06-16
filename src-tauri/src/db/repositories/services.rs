@@ -22,6 +22,7 @@ impl<'a> ServiceRepo<'a> {
     }
 
     pub async fn create(&self, library_id: &str, name: &str, starts_at: i64) -> AppResult<Service> {
+        crate::db::validation::title(name)?;
         let id = new_id();
         let now = now_ms();
         sqlx::query(
@@ -149,6 +150,9 @@ impl<'a> ServiceRepo<'a> {
         bible_reference_id: Option<&str>,
         notes: Option<&str>,
     ) -> AppResult<ServiceItem> {
+        if let Some(n) = notes {
+            crate::db::validation::notes(n)?;
+        }
         let id = new_id();
         let now = now_ms();
         sqlx::query(
@@ -188,6 +192,9 @@ impl<'a> ServiceRepo<'a> {
         key_override: Option<&str>,
         notes: Option<&str>,
     ) -> AppResult<ServiceItem> {
+        if let Some(n) = notes {
+            crate::db::validation::notes(n)?;
+        }
         let affected = sqlx::query(
             "UPDATE service_item SET arrangement_id = ?1, key_override = ?2, notes = ?3,
              updated_at = ?4 WHERE id = ?5",
@@ -215,6 +222,7 @@ impl<'a> ServiceRepo<'a> {
 
     /// Rename a service.
     pub async fn rename(&self, id: &str, name: &str) -> AppResult<Service> {
+        crate::db::validation::title(name)?;
         sqlx::query("UPDATE service SET name = ?1, updated_at = ?2 WHERE id = ?3")
             .bind(name)
             .bind(now_ms())
@@ -226,6 +234,7 @@ impl<'a> ServiceRepo<'a> {
 
     /// Set the service's planner notes.
     pub async fn set_notes(&self, id: &str, notes: &str) -> AppResult<Service> {
+        crate::db::validation::notes(notes)?;
         sqlx::query("UPDATE service SET notes = ?1, updated_at = ?2 WHERE id = ?3")
             .bind(notes)
             .bind(now_ms())
@@ -393,6 +402,76 @@ mod tests {
         let upcoming = repo.upcoming(&lib.id, 0, 10).await.unwrap();
         assert_eq!(upcoming.len(), 1);
         assert_eq!(upcoming[0].id, svc.id);
+    }
+
+    #[tokio::test]
+    async fn service_state_check_constraint_rejects_unknown_values() {
+        // Migration 0006 constrains service.state. Each documented value must be
+        // accepted; anything else must be rejected by the DB.
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib.id, "Svc", 0)
+            .await
+            .unwrap();
+
+        // Every known lifecycle value is allowed.
+        for state in ["planned", "in_progress", "played", "archived"] {
+            sqlx::query("UPDATE service SET state = ?1 WHERE id = ?2")
+                .bind(state)
+                .bind(&svc.id)
+                .execute(&db.pool)
+                .await
+                .unwrap_or_else(|e| panic!("state {state} should be allowed: {e}"));
+        }
+
+        // An unknown value is rejected by the CHECK constraint.
+        let err = sqlx::query("UPDATE service SET state = 'bogus' WHERE id = ?1")
+            .bind(&svc.id)
+            .execute(&db.pool)
+            .await
+            .expect_err("CHECK constraint must reject an unknown state");
+        assert!(
+            err.to_string().to_lowercase().contains("constraint"),
+            "expected a constraint error, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_and_set_notes_enforce_length_caps() {
+        use crate::db::validation::{MAX_NOTES, MAX_TITLE};
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let repo = ServiceRepo::new(&db.pool);
+        // Oversize service title rejected at create.
+        assert_eq!(
+            repo.create(&lib.id, &"t".repeat(MAX_TITLE + 1), 0)
+                .await
+                .unwrap_err()
+                .code(),
+            "validation"
+        );
+        let svc = repo.create(&lib.id, "OK", 0).await.unwrap();
+        // Oversize notes rejected at set_notes.
+        assert_eq!(
+            repo.set_notes(&svc.id, &"n".repeat(MAX_NOTES + 1))
+                .await
+                .unwrap_err()
+                .code(),
+            "validation"
+        );
     }
 
     async fn song_in(db: &Database, library_id: &str, title: &str) -> String {

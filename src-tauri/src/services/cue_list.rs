@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::db::models::{BibleReference, Service, ServiceItem, Slide, SongSection};
 use crate::db::repositories::{
@@ -260,6 +260,23 @@ impl<'a> CueCompiler<'a> {
         })
     }
 
+    /// Batch-load the sections of every distinct song referenced by these items
+    /// in ONE query (the N+1 fix). Items that name an arrangement aren't cached
+    /// here — their section order is arrangement-defined and resolved through
+    /// the arrangement repo at compile time. The returned map is keyed by
+    /// `song_id`; a song with no sections simply doesn't appear.
+    async fn section_cache(
+        &self,
+        items: &[ServiceItem],
+    ) -> AppResult<HashMap<String, Vec<SongSection>>> {
+        let song_ids: Vec<&str> = items
+            .iter()
+            .filter(|i| i.kind == "song" && i.arrangement_id.is_none())
+            .filter_map(|i| i.song_id.as_deref())
+            .collect();
+        SongRepo::new(self.pool).sections_for_songs(&song_ids).await
+    }
+
     /// Compile a Service into a CueList. This is the only entry point
     /// the live engine calls.
     pub async fn compile(&self, service_id: &str) -> AppResult<CueList> {
@@ -267,6 +284,11 @@ impl<'a> CueCompiler<'a> {
         let service = svc_repo.get(service_id).await?;
         let items = svc_repo.items(&service.id).await?;
         let ctx = self.cascade_ctx(&service.library_id).await?;
+        // N+1 fix: batch-load every song item's sections up front (one query),
+        // then resolve each item against this cache instead of one query per
+        // song item. Arrangement-driven items still resolve via the arrangement
+        // repo (their order is arrangement-defined, not display_order).
+        let sections = self.section_cache(&items).await?;
 
         let mut cues: Vec<Cue> = Vec::with_capacity(items.len() * 4);
 
@@ -280,7 +302,10 @@ impl<'a> CueCompiler<'a> {
         // before going live.)
         for item in &items {
             let mut scratch: Vec<Cue> = Vec::new();
-            match self.compile_item(&service, item, &ctx, &mut scratch).await {
+            match self
+                .compile_item(&service, item, &ctx, &sections, &mut scratch)
+                .await
+            {
                 Ok(()) => cues.append(&mut scratch),
                 Err(e) => {
                     tracing::error!(
@@ -329,12 +354,17 @@ impl<'a> CueCompiler<'a> {
             return;
         }
 
-        // Gather every distinct non-empty source line across all slide cues.
+        // Gather every distinct non-empty source line across all slide cues,
+        // preserving first-seen order (the API batch call zips results to this
+        // order). A HashSet does the membership test in O(1) instead of the old
+        // O(n²) linear `distinct` scan — services with many repeated lines
+        // (choruses, refrains) compile noticeably faster.
+        let mut seen: HashSet<&str> = HashSet::new();
         let mut distinct: Vec<String> = Vec::new();
         for cue in cues.iter() {
             if let Cue::ShowSlide { slide_content, .. } = cue {
                 for line in &slide_content.text_lines {
-                    if !line.trim().is_empty() && !distinct.iter().any(|d| d == line) {
+                    if !line.trim().is_empty() && seen.insert(line.as_str()) {
                         distinct.push(line.clone());
                     }
                 }
@@ -407,10 +437,14 @@ impl<'a> CueCompiler<'a> {
         service: &Service,
         item: &ServiceItem,
         ctx: &CascadeCtx,
+        sections: &HashMap<String, Vec<SongSection>>,
         cues: &mut Vec<Cue>,
     ) -> AppResult<()> {
         match item.kind.as_str() {
-            "song" => self.compile_song_item(service, item, ctx, cues).await,
+            "song" => {
+                self.compile_song_item(service, item, ctx, sections, cues)
+                    .await
+            }
             "scripture" => self.compile_scripture_item(service, item, ctx, cues).await,
             "custom_deck" => {
                 self.compile_custom_deck_item(service, item, ctx, cues)
@@ -445,12 +479,14 @@ impl<'a> CueCompiler<'a> {
         let service = svc_repo.get(service_id).await?;
         let items = svc_repo.items(&service.id).await?;
         let ctx = self.cascade_ctx(&service.library_id).await?;
+        let sections = self.section_cache(&items).await?;
 
         let mut all: Vec<Cue> = Vec::new();
         let mut out_items = Vec::with_capacity(items.len());
         for item in &items {
             let before = all.len();
-            self.compile_item(&service, item, &ctx, &mut all).await?;
+            self.compile_item(&service, item, &ctx, &sections, &mut all)
+                .await?;
             let slice = &all[before..];
             out_items.push(ServiceItemCues {
                 service_item_id: item.id.clone(),
@@ -501,6 +537,7 @@ impl<'a> CueCompiler<'a> {
         _service: &Service,
         item: &ServiceItem,
         ctx: &CascadeCtx,
+        section_cache: &HashMap<String, Vec<SongSection>>,
         cues: &mut Vec<Cue>,
     ) -> AppResult<()> {
         let Some(ref song_id) = item.song_id else {
@@ -519,14 +556,20 @@ impl<'a> CueCompiler<'a> {
 
         // Phase 3.3: if the service item names an arrangement, play its
         // ordered (possibly repeating) sections; otherwise fall back to the
-        // song's sections in display_order.
+        // song's sections in display_order. Non-arrangement items read from the
+        // batch section cache (the N+1 fix) — falling back to a direct query
+        // only if the cache somehow lacks this song (defensive; the cache is
+        // built from these very items).
         let sections = match &item.arrangement_id {
             Some(arrangement_id) => {
                 ArrangementRepo::new(self.pool)
                     .resolved_sections(arrangement_id)
                     .await?
             }
-            None => song_repo.sections(song_id).await?,
+            None => match section_cache.get(song_id) {
+                Some(cached) => cached.clone(),
+                None => song_repo.sections(song_id).await?,
+            },
         };
 
         let mut cue_idx: u32 = 0;

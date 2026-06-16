@@ -42,6 +42,9 @@ pub const HEARTBEAT_MS: u64 = 250;
 const RESTART_BACKOFF_MS: u64 = 500;
 /// How long we wait for a spawned child to connect before retrying.
 const CONNECT_TIMEOUT_MS: u64 = 10_000;
+/// How long graceful [`shutdown`](OutputSupervisor::shutdown) waits for the
+/// supervision tasks (and their children) to exit cleanly before aborting them.
+const SHUTDOWN_GRACE_MS: u64 = 500;
 
 /// Everything needed to spawn one output process.
 #[derive(Debug, Clone)]
@@ -209,15 +212,34 @@ impl OutputSupervisor {
         seq
     }
 
-    /// Graceful teardown: tell children to shut down, then reap them.
+    /// Graceful teardown: tell children to shut down, give them a bounded
+    /// window to exit cleanly, then reap whatever remains.
     pub async fn shutdown(&self) {
         self.inner.shutting_down.store(true, Ordering::SeqCst);
         let _ = self.inner.tx.send(OutputMessage::Shutdown);
-        // Give children a moment to exit cleanly; supervision loops observe
-        // `shutting_down` and kill whatever remains.
-        tokio::time::sleep(Duration::from_millis(300)).await;
-        for t in self.inner.tasks.lock().drain(..) {
-            t.abort();
+        // Wait up to SHUTDOWN_GRACE_MS for the supervision tasks to finish on
+        // their own — each one forwards the Shutdown, waits on the child, kills
+        // it and returns. Joining them (rather than a flat sleep) lets a clean
+        // exit complete in a few ms, while still capping the worst case so a
+        // wedged child can't hang app teardown. Whatever hasn't finished by the
+        // deadline is aborted (its child is `kill_on_drop`).
+        let tasks: Vec<JoinHandle<()>> = self.inner.tasks.lock().drain(..).collect();
+        let aborts: Vec<_> = tasks.iter().map(|t| t.abort_handle()).collect();
+        let join_all = async {
+            for t in tasks {
+                let _ = t.await;
+            }
+        };
+        if tokio::time::timeout(Duration::from_millis(SHUTDOWN_GRACE_MS), join_all)
+            .await
+            .is_err()
+        {
+            // Grace expired with tasks still alive — abort the stragglers; the
+            // `kill_on_drop` children die when their command future is dropped.
+            tracing::warn!("output supervisor shutdown grace expired — aborting stragglers");
+            for a in aborts {
+                a.abort();
+            }
         }
     }
 
