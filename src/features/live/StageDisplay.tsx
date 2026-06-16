@@ -144,7 +144,7 @@ export function StageDisplay({
       <div className="grid flex-1 grid-cols-[1fr_auto] overflow-hidden">
         <main className="grid place-items-center overflow-hidden p-12 text-center">
           {session.frame.kind === "black" ? (
-            <p className="text-2xl text-white/30">BLACKOUT</p>
+            <p className="text-2xl text-white/30">{t("sdBlackout")}</p>
           ) : current.lines.length > 0 ? (
             <div>
               {current.lines.map((line, i) => {
@@ -207,8 +207,11 @@ export function StageDisplay({
       </div>
 
       <footer className="border-t border-white/10 px-6 py-2 text-center text-xs text-white/30">
-        Cue {session.index + 1} / {session.total} · {t("liveStageScreen")}:{" "}
-        {preset.name}
+        {t("sdCueProgress", {
+          index: session.index + 1,
+          total: session.total,
+        })}{" "}
+        · {t("liveStageScreen")}: {preset.name}
       </footer>
     </div>
   );

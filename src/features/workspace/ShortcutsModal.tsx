@@ -31,8 +31,8 @@ export function ShortcutsModal({ onClose }: Props) {
       heading: t("kbGroupPlayback"),
       rows: [
         { keys: ["Space", "Enter", "G"], action: t("kbGo") },
-        { keys: ["←", "↑"], action: t("kbPrev") },
-        { keys: ["→", "↓"], action: t("kbNext") },
+        { keys: ["←", "↑", "PgUp"], action: t("kbPrev") },
+        { keys: ["→", "↓", "PgDn"], action: t("kbNext") },
         { keys: ["Home"], action: t("kbFirst") },
         { keys: ["End"], action: t("kbLast") },
       ],
