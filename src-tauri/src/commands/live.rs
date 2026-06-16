@@ -34,7 +34,7 @@ pub fn bridge_protocol_version() -> String {
 }
 
 fn require_session<T>(state: &AppState, f: impl FnOnce(&LiveSession) -> T) -> AppResult<T> {
-    let guard = state.live.lock().expect("live mutex");
+    let guard = state.live.lock();
     let session = guard
         .as_ref()
         .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
@@ -72,7 +72,7 @@ pub async fn bridge_export_manifest(
     // Snapshot the session out of the lock so the DB join can await freely (the
     // live mutex must never be held across `.await`).
     let (session, service_id) = {
-        let guard = state.live.lock().expect("live mutex");
+        let guard = state.live.lock();
         let s = guard
             .as_ref()
             .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
@@ -134,7 +134,7 @@ fn store(state: &AppState) -> SessionStore {
 /// (The legacy in-process windows get the same frame via the frontend's
 /// `ss://render` event bus instead.)
 fn push_to_outputs(state: &AppState, frame: &LiveFrame) {
-    if let Some(supervisor) = state.outputs.lock().expect("outputs mutex").as_ref() {
+    if let Some(supervisor) = state.outputs.lock().as_ref() {
         supervisor.render(frame.clone());
     }
 }
@@ -145,7 +145,12 @@ pub async fn live_start(
     state: State<'_, AppState>,
     service_id: String,
 ) -> AppResult<LiveSessionView> {
-    // Compile first (async, no lock held), then install the session.
+    // Compile first (async, no lock held), then install the session. The
+    // compile may be slow on a big service, but it can NOT false-time-out the
+    // output watchdog: the supervisor's heartbeat pump runs on its own tokio
+    // task (see `output::process`), so awaiting the compile here yields to the
+    // runtime and the beats keep flowing — and even on a missed beat the child
+    // *holds the last frame* rather than blanking (see `output::Watchdog`).
     let cue_list = CueCompiler::new(&state.db.pool)
         .compile(&service_id)
         .await?;
@@ -160,7 +165,7 @@ pub async fn live_start(
     // `companion:<svc>` drops frames whose `seq <= lastSeq`, so a restart that
     // re-zeroed `seq` would freeze every already-connected phone.
     let start_seq = {
-        let mut guard = state.companion.lock().expect("companion mutex");
+        let mut guard = state.companion.lock();
         let start_seq = guard.as_ref().map(|b| b.next_seq()).unwrap_or(0);
         *guard = Some(CompanionBroadcaster::resuming(
             &view.service_id,
@@ -172,7 +177,7 @@ pub async fn live_start(
     // Persist the seed seq so an immediate crash recovers the true stream
     // position — `begin` just truncated the WAL, so its length is 0 here.
     let _ = store(&state).record_seq(start_seq);
-    *state.live.lock().expect("live mutex") = Some(session);
+    *state.live.lock() = Some(session);
     push_to_outputs(&state, &view.frame);
     Ok(view)
 }
@@ -184,7 +189,6 @@ pub fn companion_channel(state: State<'_, AppState>) -> AppResult<Option<String>
     Ok(state
         .companion
         .lock()
-        .expect("companion mutex")
         .as_ref()
         .map(|b| b.channel().to_string()))
 }
@@ -195,13 +199,13 @@ pub fn companion_channel(state: State<'_, AppState>) -> AppResult<Option<String>
 #[tauri::command]
 pub fn companion_broadcast(state: State<'_, AppState>) -> AppResult<u32> {
     let frame = {
-        let guard = state.live.lock().expect("live mutex");
+        let guard = state.live.lock();
         let session = guard
             .as_ref()
             .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
         session.current_frame()
     };
-    let mut guard = state.companion.lock().expect("companion mutex");
+    let mut guard = state.companion.lock();
     let broadcaster = guard
         .as_mut()
         .ok_or_else(|| AppError::Validation("ingen aktiv companion-kringkasting".into()))?;
@@ -220,7 +224,7 @@ pub fn companion_broadcast(state: State<'_, AppState>) -> AppResult<u32> {
 /// Apply one operator action to the running session.
 #[tauri::command]
 pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResult<LiveSessionView> {
-    let mut guard = state.live.lock().expect("live mutex");
+    let mut guard = state.live.lock();
     let session = guard
         .as_mut()
         .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
@@ -234,7 +238,7 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
     // never breaks the show (the companion is off the critical live path).
     drop(guard);
     let next_seq = {
-        let mut comp = state.companion.lock().expect("companion mutex");
+        let mut comp = state.companion.lock();
         match comp.as_mut() {
             Some(broadcaster) => {
                 // `seq` advances even if the publish fails (so a retry never
@@ -257,12 +261,7 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
 /// Snapshot of the current session, or `None` if not live.
 #[tauri::command]
 pub fn live_state(state: State<'_, AppState>) -> AppResult<Option<LiveSessionView>> {
-    Ok(state
-        .live
-        .lock()
-        .expect("live mutex")
-        .as_ref()
-        .map(|s| s.view()))
+    Ok(state.live.lock().as_ref().map(|s| s.view()))
 }
 
 /// End the session and clear the recovery log (marks a clean shutdown).
@@ -270,13 +269,13 @@ pub fn live_state(state: State<'_, AppState>) -> AppResult<Option<LiveSessionVie
 pub fn live_end(state: State<'_, AppState>) -> AppResult<()> {
     // Phase 12.2 — tell phones the service is over, then tear down the
     // broadcaster. Best-effort: a failed publish must not block ending.
-    if let Some(broadcaster) = state.companion.lock().expect("companion mutex").as_mut() {
+    if let Some(broadcaster) = state.companion.lock().as_mut() {
         if let Err(e) = broadcaster.on_service_end() {
             tracing::warn!("companion service-end broadcast failed: {e}");
         }
     }
-    *state.companion.lock().expect("companion mutex") = None;
-    *state.live.lock().expect("live mutex") = None;
+    *state.companion.lock() = None;
+    *state.live.lock() = None;
     store(&state).clear();
     // The outputs stay open (the operator closes them separately) but the
     // service is over — show black, never a stale slide.
@@ -304,12 +303,12 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
         .recover_seq()
         .unwrap_or(0)
         .max(view.log_len as u32);
-    *state.companion.lock().expect("companion mutex") = Some(CompanionBroadcaster::resuming(
+    *state.companion.lock() = Some(CompanionBroadcaster::resuming(
         &view.service_id,
         RealtimeTransport::local_only(),
         resume_seq,
     ));
-    *state.live.lock().expect("live mutex") = Some(session);
+    *state.live.lock() = Some(session);
     push_to_outputs(&state, &view.frame);
     Ok(Some(view))
 }

@@ -171,25 +171,58 @@ impl LiveSession {
         });
     }
 
-    /// What belongs on the output right now.
+    /// What belongs on the output right now. Infallible by design — the live
+    /// output must ALWAYS have something to show, so anything we can't render
+    /// (a missing or malformed cue) degrades to a safe `Black` rather than
+    /// surfacing an error. The dispatcher and output path call this; for
+    /// callers that want to *detect* a malformed cue (operator warnings, the
+    /// companion broadcast) see [`try_current_frame`](Self::try_current_frame).
     pub fn current_frame(&self) -> LiveFrame {
+        self.try_current_frame().unwrap_or(LiveFrame::Black)
+    }
+
+    /// Like [`current_frame`](Self::current_frame) but returns `Err` when the
+    /// cue at the current index is malformed (e.g. a `ShowSlide` carrying no
+    /// renderable text or reference — a corrupt/partially-compiled cue). The
+    /// live path never propagates this (it falls back to `Black`); it lets the
+    /// operator UI surface "this slide is empty" without a panic.
+    pub fn try_current_frame(&self) -> Result<LiveFrame, String> {
         match self.output {
-            OutputState::Blackout => return LiveFrame::Black,
-            OutputState::Logo => return LiveFrame::Logo,
+            OutputState::Blackout => return Ok(LiveFrame::Black),
+            OutputState::Logo => return Ok(LiveFrame::Logo),
             OutputState::Normal => {}
         }
         match self.cue_list.get(self.index) {
-            Some(Cue::ShowSlide { slide_content, .. }) => LiveFrame::Slide {
+            Some(Cue::ShowSlide { slide_content, .. }) => {
+                // A slide with no text AND no reference is unrenderable — a
+                // corrupt or partially-compiled cue. Report it instead of
+                // pushing a blank slide to the projector.
+                let has_text = slide_content
+                    .text_lines
+                    .iter()
+                    .any(|l| !l.trim().is_empty());
+                let has_ref = slide_content
+                    .reference
+                    .as_deref()
+                    .is_some_and(|r| !r.trim().is_empty());
+                if !has_text && !has_ref {
+                    return Err(format!(
+                        "malformed cue at index {}: slide has no renderable content",
+                        self.index
+                    ));
+                }
                 // `slide_content` is `&Box<SlideContent>`; LiveFrame holds it
                 // unboxed, so deref-clone the inner value.
-                slide_content: (**slide_content).clone(),
-            },
-            Some(Cue::BlackOut { .. }) => LiveFrame::Black,
-            Some(Cue::ShowLogo { .. }) => LiveFrame::Logo,
-            Some(Cue::Pause { label, .. }) => LiveFrame::Message {
+                Ok(LiveFrame::Slide {
+                    slide_content: (**slide_content).clone(),
+                })
+            }
+            Some(Cue::BlackOut { .. }) => Ok(LiveFrame::Black),
+            Some(Cue::ShowLogo { .. }) => Ok(LiveFrame::Logo),
+            Some(Cue::Pause { label, .. }) => Ok(LiveFrame::Message {
                 text: label.clone(),
-            },
-            None => LiveFrame::Black,
+            }),
+            None => Ok(LiveFrame::Black),
         }
     }
 
@@ -378,5 +411,74 @@ mod tests {
         s.dispatch(LiveAction::Previous, 2);
         assert_eq!(s.index, 0);
         assert_eq!(s.current_frame(), LiveFrame::Black);
+    }
+
+    /// A `ShowSlide` cue with no text and no reference is corrupt — the
+    /// fallible accessor must REPORT it (Err) rather than panic, and the
+    /// infallible one must degrade to a safe `Black` so the projector never
+    /// shows a blank slide or crashes the live output.
+    #[test]
+    fn malformed_slide_cue_errs_but_never_panics() {
+        let cl = CueList {
+            service_id: "s".into(),
+            compiled_at: 0,
+            cues: vec![Cue::ShowSlide {
+                cue_id: "bad".into(),
+                slide_content: Box::new(SlideContent {
+                    section_label: None,
+                    // Only blank lines + no reference → nothing to render.
+                    text_lines: vec!["".into(), "   ".into()],
+                    translation_lines: None,
+                    reference: None,
+                    sensitive_slide: false,
+                    appearance: None,
+                }),
+                theme_id: None,
+                template_id: None,
+                source: CueSource {
+                    service_item_id: "item".into(),
+                    item_cue_index: 0,
+                    display_label: "bad".into(),
+                },
+            }],
+        };
+        let s = LiveSession::new("s", cl, 0);
+        // Fallible: detects the malformed cue.
+        assert!(s.try_current_frame().is_err());
+        // Infallible (the live path): degrades to Black, never panics.
+        assert_eq!(s.current_frame(), LiveFrame::Black);
+        // `view()` (used by every command) is also safe on a corrupt cue.
+        assert_eq!(s.view().frame, LiveFrame::Black);
+    }
+
+    /// A slide with only a reference (e.g. a scripture cue whose body is empty)
+    /// is still renderable — it must NOT be flagged as malformed.
+    #[test]
+    fn reference_only_slide_is_valid() {
+        let cl = CueList {
+            service_id: "s".into(),
+            compiled_at: 0,
+            cues: vec![Cue::ShowSlide {
+                cue_id: "ref".into(),
+                slide_content: Box::new(SlideContent {
+                    section_label: None,
+                    text_lines: vec![],
+                    translation_lines: None,
+                    reference: Some("John 3:16".into()),
+                    sensitive_slide: false,
+                    appearance: None,
+                }),
+                theme_id: None,
+                template_id: None,
+                source: CueSource {
+                    service_item_id: "item".into(),
+                    item_cue_index: 0,
+                    display_label: "ref".into(),
+                },
+            }],
+        };
+        let s = LiveSession::new("s", cl, 0);
+        assert!(s.try_current_frame().is_ok());
+        assert!(matches!(s.current_frame(), LiveFrame::Slide { .. }));
     }
 }

@@ -270,8 +270,30 @@ impl<'a> CueCompiler<'a> {
 
         let mut cues: Vec<Cue> = Vec::with_capacity(items.len() * 4);
 
+        // Reliability: ONE corrupt service item must never stop the whole
+        // service from going live on a Sunday. Compile each item into a scratch
+        // buffer and only commit it when it succeeds; if it fails (a stub song
+        // item, a dangling scripture reference, an unknown kind), log it and
+        // drop in a visible Pause placeholder so the operator can simply advance
+        // past it — the rest of the service still plays. (`summarize`, used only
+        // by the planning UI, stays strict so the operator sees the real error
+        // before going live.)
         for item in &items {
-            self.compile_item(&service, item, &ctx, &mut cues).await?;
+            let mut scratch: Vec<Cue> = Vec::new();
+            match self.compile_item(&service, item, &ctx, &mut scratch).await {
+                Ok(()) => cues.append(&mut scratch),
+                Err(e) => {
+                    tracing::error!(
+                        "skipping corrupt service item {} (kind={}): {e}",
+                        item.id,
+                        item.kind
+                    );
+                    cues.push(Cue::Pause {
+                        cue_id: format!("svc:{}:item:{}:skipped", service.id, item.id),
+                        label: format!("⚠ {} (hoppet over)", humanize_section_label(&item.kind)),
+                    });
+                }
+            }
         }
 
         // Phase 11.2 — pre-resolve the secondary-language overlay at COMPILE
@@ -926,6 +948,83 @@ mod tests {
             }
             _ => panic!("expected ShowSlide cue"),
         }
+    }
+
+    /// Reliability: one corrupt service item (here a `kind=song` row with no
+    /// `song_id`) must NOT abort the whole "Go Live" — the surrounding valid
+    /// items still compile, and the bad one degrades to a visible Pause
+    /// placeholder the operator can advance past. Never a panic, never an Err.
+    #[tokio::test]
+    async fn compile_tolerates_a_corrupt_item() {
+        let db = Database::open_in_memory().await.unwrap();
+        let (lib_id, song_id) = fixture_library_song(&db).await;
+
+        let svc = ServiceRepo::new(&db.pool)
+            .create(&lib_id, "Service with a bad item", now_ms())
+            .await
+            .unwrap();
+        let now = now_ms();
+
+        // pos 0: a valid song item (2 slides).
+        let good = new_id();
+        sqlx::query(
+            r#"INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, 0, 'song', ?3, NULL, NULL, NULL, NULL, NULL, NULL, ?4, ?4)"#,
+        )
+        .bind(&good)
+        .bind(&svc.id)
+        .bind(&song_id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        // pos 1: CORRUPT — kind=song but song_id is NULL → compile_item Errs.
+        let bad = new_id();
+        sqlx::query(
+            r#"INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, 1, 'song', NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?3, ?3)"#,
+        )
+        .bind(&bad)
+        .bind(&svc.id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        // pos 2: another valid song item (2 more slides).
+        let good2 = new_id();
+        sqlx::query(
+            r#"INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, 2, 'song', ?3, NULL, NULL, NULL, NULL, NULL, NULL, ?4, ?4)"#,
+        )
+        .bind(&good2)
+        .bind(&svc.id)
+        .bind(&song_id)
+        .bind(now)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+
+        // The whole thing must compile WITHOUT erroring.
+        let cl = CueCompiler::new(&db.pool).compile(&svc.id).await.unwrap();
+
+        // 2 (good) + 1 (skip placeholder) + 2 (good2) = 5 cues, in order.
+        assert_eq!(cl.len(), 5, "valid items survive, bad item becomes 1 cue");
+        assert!(matches!(cl.cues[0], Cue::ShowSlide { .. }));
+        assert!(matches!(cl.cues[1], Cue::ShowSlide { .. }));
+        match &cl.cues[2] {
+            Cue::Pause { label, .. } => assert!(label.contains("hoppet over")),
+            other => panic!("expected skip-placeholder Pause, got {other:?}"),
+        }
+        assert!(matches!(cl.cues[3], Cue::ShowSlide { .. }));
+        assert!(matches!(cl.cues[4], Cue::ShowSlide { .. }));
     }
 
     #[tokio::test]

@@ -61,7 +61,7 @@ impl<'a> ServiceRepo<'a> {
             r#"
             SELECT * FROM service
             WHERE library_id = ?1 AND deleted_at IS NULL AND starts_at >= ?2
-            ORDER BY starts_at ASC
+            ORDER BY starts_at ASC, id ASC
             LIMIT ?3
             "#,
         )
@@ -74,8 +74,12 @@ impl<'a> ServiceRepo<'a> {
     }
 
     pub async fn items(&self, service_id: &str) -> AppResult<Vec<ServiceItem>> {
+        // Secondary `id` tiebreaker makes cue compilation deterministic: two
+        // items that ended up sharing a `position` (a drag-reorder race, an
+        // import) must always compile in the same order, so "Go Live" produces
+        // an identical CueList every time and crash-recovery resumes correctly.
         let rows = sqlx::query_as::<_, ServiceItem>(
-            "SELECT * FROM service_item WHERE service_id = ?1 ORDER BY position",
+            "SELECT * FROM service_item WHERE service_id = ?1 ORDER BY position, id",
         )
         .bind(service_id)
         .fetch_all(self.pool)
@@ -105,7 +109,7 @@ impl<'a> ServiceRepo<'a> {
             FROM service_item si
             LEFT JOIN song s ON s.id = si.song_id
             WHERE si.service_id = ?1 AND si.kind = 'song'
-            ORDER BY si.position
+            ORDER BY si.position, si.id
             "#,
         )
         .bind(service_id)
