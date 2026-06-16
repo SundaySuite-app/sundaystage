@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -26,6 +26,8 @@ export function Dialog({
   footer,
   className,
 }: DialogProps) {
+  const titleId = useId();
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -47,7 +49,7 @@ export function Dialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         className={cn(
           "relative w-full max-w-md overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-elevated)]",
@@ -65,7 +67,10 @@ export function Dialog({
         {(title || description) && (
           <div className="flex flex-col gap-1 p-5 pb-3">
             {title && (
-              <h2 className="text-[var(--text-ui-lg)] font-semibold">
+              <h2
+                id={titleId}
+                className="text-[var(--text-ui-lg)] font-semibold"
+              >
                 {title}
               </h2>
             )}

@@ -579,7 +579,11 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       />
 
       {scheduleEditorOpen && (
-        <ModalShell onClose={() => setScheduleEditorOpen(false)} wide>
+        <ModalShell
+          onClose={() => setScheduleEditorOpen(false)}
+          wide
+          label={t("navServices")}
+        >
           <ServicesPage
             library={library}
             openServiceId={service?.id ?? null}
@@ -593,7 +597,11 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       )}
 
       {settingsOpen && (
-        <ModalShell onClose={() => setSettingsOpen(false)} wide>
+        <ModalShell
+          onClose={() => setSettingsOpen(false)}
+          wide
+          label={t("navSettings")}
+        >
           <SettingsPage />
         </ModalShell>
       )}
@@ -669,10 +677,12 @@ function ModalShell({
   children,
   onClose,
   wide,
+  label,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   wide?: boolean;
+  label?: string;
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -689,6 +699,9 @@ function ModalShell({
         aria-hidden
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
         className={
           "relative flex h-full max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)] " +
           (wide ? "max-w-[1100px]" : "max-w-2xl")
@@ -758,8 +771,21 @@ function WebShareControl({
 }) {
   const t = useT();
   const sharing = status === "sharing" || status === "starting";
+  const statusLabel =
+    status === "sharing"
+      ? t("webShareStatusSharing")
+      : status === "starting"
+        ? t("webShareStatusStarting")
+        : status === "error"
+          ? t("webShareStatusError")
+          : t("webShareStatusOff");
   return (
     <div className="pointer-events-auto fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2 shadow-[var(--shadow-elevated)]">
+      {/* Screen-reader status: announce share state changes without cluttering
+          the compact visual control. */}
+      <span aria-live="polite" className="sr-only">
+        {statusLabel}
+      </span>
       {sharing && code ? (
         <>
           <span className="flex items-center gap-1.5 text-xs text-[var(--color-fg-muted)]">

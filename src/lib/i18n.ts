@@ -669,8 +669,13 @@ const en: Catalog = {
   webShareStart: "Share over network",
   webShareStop: "Stop sharing",
   webShareRetry: "Try sharing again",
+  webShareStatusOff: "Network sharing is off",
+  webShareStatusStarting: "Starting network sharing …",
+  webShareStatusSharing: "Sharing live over the network",
+  webShareStatusError: "Network sharing failed",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdPresetLabel: "Layout",
   sdBlackout: "BLACKOUT",
   sdCueProgress: "Cue {index} / {total}",
 
@@ -1315,6 +1320,11 @@ const no: Catalog = {
   webShareStart: "Del over nettverk",
   webShareStop: "Stopp deling",
   webShareRetry: "Prøv deling igjen",
+  webShareStatusOff: "Nettverksdeling er av",
+  webShareStatusStarting: "Starter nettverksdeling …",
+  webShareStatusSharing: "Deler live over nettverket",
+  webShareStatusError: "Nettverksdeling feilet",
+  sdPresetLabel: "Oppsett",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
   sdBlackout: "BLACKOUT",
@@ -1913,6 +1923,11 @@ const sv: Catalog = {
   webShareStart: "Dela över nätverket",
   webShareStop: "Sluta dela",
   webShareRetry: "Försök dela igen",
+  webShareStatusOff: "Nätverksdelning är av",
+  webShareStatusStarting: "Startar nätverksdelning …",
+  webShareStatusSharing: "Delar live över nätverket",
+  webShareStatusError: "Nätverksdelning misslyckades",
+  sdPresetLabel: "Layout",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
   sdBlackout: "BLACKOUT",
@@ -2505,6 +2520,11 @@ const da: Catalog = {
   webShareStart: "Del over netværket",
   webShareStop: "Stop deling",
   webShareRetry: "Prøv deling igen",
+  webShareStatusOff: "Netværksdeling er fra",
+  webShareStatusStarting: "Starter netværksdeling …",
+  webShareStatusSharing: "Deler live over netværket",
+  webShareStatusError: "Netværksdeling mislykkedes",
+  sdPresetLabel: "Layout",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
   sdBlackout: "BLACKOUT",
@@ -3110,6 +3130,11 @@ const de: Catalog = {
   webShareStart: "Über Netzwerk teilen",
   webShareStop: "Teilen beenden",
   webShareRetry: "Erneut teilen",
+  webShareStatusOff: "Netzwerkfreigabe ist aus",
+  webShareStatusStarting: "Netzwerkfreigabe wird gestartet …",
+  webShareStatusSharing: "Live über das Netzwerk geteilt",
+  webShareStatusError: "Netzwerkfreigabe fehlgeschlagen",
+  sdPresetLabel: "Layout",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
   sdBlackout: "BLACKOUT",
@@ -3717,6 +3742,11 @@ const fr: Catalog = {
   webShareStart: "Partager sur le réseau",
   webShareStop: "Arrêter le partage",
   webShareRetry: "Réessayer le partage",
+  webShareStatusOff: "Le partage réseau est désactivé",
+  webShareStatusStarting: "Démarrage du partage réseau …",
+  webShareStatusSharing: "Partage en direct sur le réseau",
+  webShareStatusError: "Échec du partage réseau",
+  sdPresetLabel: "Disposition",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
   sdBlackout: "BLACKOUT",
@@ -4308,6 +4338,11 @@ const pl: Catalog = {
   webShareStart: "Udostępnij w sieci",
   webShareStop: "Zatrzymaj udostępnianie",
   webShareRetry: "Spróbuj udostępnić ponownie",
+  webShareStatusOff: "Udostępnianie sieciowe jest wyłączone",
+  webShareStatusStarting: "Uruchamianie udostępniania sieciowego …",
+  webShareStatusSharing: "Udostępnianie na żywo przez sieć",
+  webShareStatusError: "Udostępnianie sieciowe nie powiodło się",
+  sdPresetLabel: "Układ",
 
   // ── Stage display (extra) ─────────────────────────────────────────────────
   sdBlackout: "BLACKOUT",

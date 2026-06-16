@@ -51,8 +51,15 @@ export function PreviewLivePanel({
 
   return (
     <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
-      {/* PREVIEW */}
-      <div>
+      {/* PREVIEW — while on air this is the *staging* monitor, so it steps back
+          to let the LIVE pane dominate. Dimmed at rest, restored on hover/focus
+          so staging the next slide is never obscured. */}
+      <div
+        className={cn(
+          "transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100",
+          isLive && "opacity-60",
+        )}
+      >
         <div className="mb-1.5 flex items-center justify-between gap-1">
           <Subhead>{t("wsPreviewLabel")}</Subhead>
           <div className="flex items-center gap-1">
@@ -94,20 +101,23 @@ export function PreviewLivePanel({
         )}
       </div>
 
-      {/* PROGRAM / LIVE */}
+      {/* PROGRAM / LIVE — the on-air monitor. When live it is visually promoted
+          (gold subhead) so the operator can never mistake it for Preview. */}
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <Subhead>{t("wsProgramLabel")}</Subhead>
-          {isLive ? (
-            <span className="flex items-center gap-1 rounded bg-[var(--color-on-air)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--color-sunday-blue-900)]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-              {t("wsLiveBadge")}
-            </span>
-          ) : (
-            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase">
-              {t("wsNotLive")}
-            </span>
-          )}
+          <Subhead emphasized={isLive}>{t("wsProgramLabel")}</Subhead>
+          <span aria-live="polite">
+            {isLive ? (
+              <span className="flex items-center gap-1 rounded bg-[var(--color-on-air)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--color-sunday-blue-900)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current motion-reduce:animate-none" />
+                {t("wsLiveBadge")}
+              </span>
+            ) : (
+              <span className="text-[10px] text-[var(--color-fg-muted)] uppercase">
+                {t("wsNotLive")}
+              </span>
+            )}
+          </span>
         </div>
         <div
           className={cn(
@@ -157,9 +167,22 @@ export function PreviewLivePanel({
   );
 }
 
-function Subhead({ children }: { children: React.ReactNode }) {
+function Subhead({
+  children,
+  emphasized,
+}: {
+  children: React.ReactNode;
+  emphasized?: boolean;
+}) {
   return (
-    <h3 className="text-[10px] font-semibold tracking-widest text-[var(--color-fg-muted)] uppercase">
+    <h3
+      className={cn(
+        "text-[10px] font-semibold tracking-widest uppercase",
+        emphasized
+          ? "text-[var(--color-on-air)]"
+          : "text-[var(--color-fg-muted)]",
+      )}
+    >
       {children}
     </h3>
   );
