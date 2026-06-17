@@ -60,7 +60,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNGMERCQTk5NjJFQTgyMDYKUldRR2d1cGltYm9OUDR5NWhXVm1BS3k5UXl0Y3RVZXM3cXVYMWM2TUhra3c2V09QZ1k2Z3BqRWEK",
       "endpoints": [
-        "https://github.com/richardfossland/sundaystage/releases/latest/download/latest.json"
+        "https://github.com/SundaySuite-app/sundaystage/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"
