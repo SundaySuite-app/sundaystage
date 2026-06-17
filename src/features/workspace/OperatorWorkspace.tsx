@@ -27,6 +27,8 @@ import type {
   Service,
 } from "@/lib/bindings";
 import { useT } from "@/lib/i18n";
+import { useErrorToast } from "@/lib/useErrorToast";
+import { ErrorToast } from "@/components/ui";
 import { DEFAULT_OUTPUT_APPEARANCE, useOutputBridge } from "@/lib/outputBridge";
 import { useWebShare, type RemoteCommand } from "@/lib/webShare";
 import { useLiveBridge, type LiveBridgeTransports } from "@/lib/useLiveBridge";
@@ -55,6 +57,13 @@ import type { BibleDeepLink } from "@/features/bible/BiblePage";
 export function OperatorWorkspace({ library }: { library: Library }) {
   const t = useT();
   const qc = useQueryClient();
+  // Surfaces live-IPC failures that would otherwise be swallowed by silent
+  // `.catch(() => {})` — a failed Go-Live or dispatch must reach the operator.
+  const {
+    message: ipcError,
+    showError,
+    dismiss: dismissError,
+  } = useErrorToast();
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
     null,
@@ -210,9 +219,11 @@ export function OperatorWorkspace({ library }: { library: Library }) {
             return next;
           }),
         )
-        .catch(() => {});
+        // A dropped dispatch means the projector didn't move — the operator must
+        // know rather than press again into a void. Live output stays untouched.
+        .catch(() => showError(t("dispatchError")));
     },
-    [bridge],
+    [bridge, showError, t],
   );
 
   // ── Network share (stage.sundaysuite.app) ───────────────────────────────────
@@ -286,11 +297,14 @@ export function OperatorWorkspace({ library }: { library: Library }) {
           void qc.invalidateQueries({ queryKey: ["services", library.id] });
           return v;
         } catch {
+          // Go-Live failed: the projector never went live. Tell the operator
+          // instead of silently leaving them staring at a dark screen.
+          showError(t("lpStartError"));
           return null;
         }
       },
     );
-  }, [service, qc, library.id, bridge]);
+  }, [service, qc, library.id, bridge, showError, t]);
 
   const stopSession = useCallback(() => {
     bridge.end();
@@ -331,33 +345,38 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     exportOpen;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Never hijack typing in a form field.
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
         e.target instanceof HTMLSelectElement
       )
         return;
+      // When any overlay is open it owns the keyboard — bail before every other
+      // case (including ⌘J / the help toggle) so console shortcuts can't fire
+      // behind a modal. ⌘K is left untouched here so cmdk still receives it.
+      if (anyOverlayOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
         if (isLive) setJumpOpen((o) => !o);
         return;
       }
       if (e.metaKey || e.ctrlKey) return; // leave ⌘K etc. to their handlers
-      // "?" opens the shortcuts modal even when other overlays are open
       if (e.key === "?") {
         e.preventDefault();
         setShortcutsOpen((o) => !o);
         return;
       }
-      if (anyOverlayOpen) return;
       switch (e.key) {
         case "ArrowRight":
         case "ArrowDown":
+        case "PageDown":
           e.preventDefault();
           setPreviewIndex((i) => Math.min(i + 1, cues.length - 1));
           break;
         case "ArrowLeft":
         case "ArrowUp":
+        case "PageUp":
           e.preventDefault();
           setPreviewIndex((i) => Math.max(i - 1, 0));
           break;
@@ -560,7 +579,11 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       />
 
       {scheduleEditorOpen && (
-        <ModalShell onClose={() => setScheduleEditorOpen(false)} wide>
+        <ModalShell
+          onClose={() => setScheduleEditorOpen(false)}
+          wide
+          label={t("navServices")}
+        >
           <ServicesPage
             library={library}
             openServiceId={service?.id ?? null}
@@ -574,7 +597,11 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       )}
 
       {settingsOpen && (
-        <ModalShell onClose={() => setSettingsOpen(false)} wide>
+        <ModalShell
+          onClose={() => setSettingsOpen(false)}
+          wide
+          label={t("navSettings")}
+        >
           <SettingsPage />
         </ModalShell>
       )}
@@ -626,6 +653,8 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onOpenResult={onOpenResult}
         libraryId={library.id}
       />
+
+      <ErrorToast message={ipcError} onDismiss={dismissError} />
     </div>
   );
 }
@@ -648,10 +677,12 @@ function ModalShell({
   children,
   onClose,
   wide,
+  label,
 }: {
   children: React.ReactNode;
   onClose: () => void;
   wide?: boolean;
+  label?: string;
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -668,6 +699,9 @@ function ModalShell({
         aria-hidden
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
         className={
           "relative flex h-full max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)] " +
           (wide ? "max-w-[1100px]" : "max-w-2xl")
@@ -688,12 +722,15 @@ function RecoveryBanner({
   onResume: () => void;
   onDiscard: () => void;
 }) {
+  const t = useT();
   return (
     <div className="fixed bottom-4 left-1/2 z-50 w-[min(90vw,560px)] -translate-x-1/2 rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-bg-elevated)] p-4 shadow-[var(--shadow-elevated)]">
-      <p className="text-sm font-semibold">Forrige live-økt ble avbrutt</p>
+      <p className="text-sm font-semibold">{t("recoveryTitle")}</p>
       <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-        En live-økt ble ikke avsluttet normalt. Du kan gjenoppta nøyaktig der du
-        var — cue {session.index + 1} av {session.total}.
+        {t("recoveryBody", {
+          index: session.index + 1,
+          total: session.total,
+        })}
       </p>
       <div className="mt-3 flex justify-end gap-2">
         <button
@@ -701,14 +738,14 @@ function RecoveryBanner({
           onClick={onDiscard}
           className="rounded-md px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
         >
-          Forkast
+          {t("recoveryDiscard")}
         </button>
         <button
           type="button"
           onClick={onResume}
           className="rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-bold text-[var(--color-sunday-blue-900)] hover:brightness-110"
         >
-          Gjenoppta
+          {t("recoveryResume")}
         </button>
       </div>
     </div>
@@ -716,11 +753,10 @@ function RecoveryBanner({
 }
 
 /**
- * "Del over nettverk" — a compact floating control shown while live. Starts a
+ * "Share over network" — a compact floating control shown while live. Starts a
  * SundayStage Web session and shows the 6-digit code the operator reads aloud
  * (or puts on the info screen) so phones and extra screens can follow at
- * stage.sundaysuite.app. Norwegian-literal for now (operator-only surface);
- * full i18n rides the next catalog pass.
+ * stage.sundaysuite.app. Fully localized via the i18n catalog.
  */
 function WebShareControl({
   status,
@@ -733,9 +769,23 @@ function WebShareControl({
   onStart: () => void;
   onStop: () => void;
 }) {
+  const t = useT();
   const sharing = status === "sharing" || status === "starting";
+  const statusLabel =
+    status === "sharing"
+      ? t("webShareStatusSharing")
+      : status === "starting"
+        ? t("webShareStatusStarting")
+        : status === "error"
+          ? t("webShareStatusError")
+          : t("webShareStatusOff");
   return (
     <div className="pointer-events-auto fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2 shadow-[var(--shadow-elevated)]">
+      {/* Screen-reader status: announce share state changes without cluttering
+          the compact visual control. */}
+      <span aria-live="polite" className="sr-only">
+        {statusLabel}
+      </span>
       {sharing && code ? (
         <>
           <span className="flex items-center gap-1.5 text-xs text-[var(--color-fg-muted)]">
@@ -749,7 +799,7 @@ function WebShareControl({
             onClick={onStop}
             className="rounded-md px-2 py-1 text-xs text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
           >
-            Stopp deling
+            {t("webShareStop")}
           </button>
         </>
       ) : (
@@ -758,7 +808,7 @@ function WebShareControl({
           disabled={status === "starting"}
           className="rounded-md px-2.5 py-1 text-xs font-semibold text-[var(--color-fg)] hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
         >
-          {status === "error" ? "Prøv deling igjen" : "Del over nettverk"}
+          {status === "error" ? t("webShareRetry") : t("webShareStart")}
         </button>
       )}
     </div>

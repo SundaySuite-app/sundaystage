@@ -93,10 +93,17 @@ export function StageDisplay({
   const next = cueText(cues[session.index + 1]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stage-display-title"
+      className="fixed inset-0 z-50 flex flex-col bg-black text-white"
+    >
       {/* Top bar */}
       <header className="flex items-center gap-4 border-b border-white/10 px-6 py-3">
-        <span className="text-sm text-white/50">{serviceName}</span>
+        <span id="stage-display-title" className="text-sm text-white/50">
+          {serviceName}
+        </span>
         {preset.show_section_label && current.section && (
           <span className="rounded-full bg-[var(--color-accent)] px-3 py-1 text-sm font-bold text-black">
             {localizeSectionLabel(current.section, t)}
@@ -119,17 +126,23 @@ export function StageDisplay({
             })}
           </span>
         )}
-        <select
-          value={preset.id}
-          onChange={(e) => onPreset(e.target.value)}
-          className="rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs focus:outline-none"
-        >
-          {presets.map((p) => (
-            <option key={p.id} value={p.id} className="text-black">
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <label className="flex items-center gap-1.5 text-xs">
+          <span className="text-white/50 uppercase tracking-wide">
+            {t("sdPresetLabel")}
+          </span>
+          <select
+            value={preset.id}
+            onChange={(e) => onPreset(e.target.value)}
+            aria-label={t("sdPresetLabel")}
+            className="rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs"
+          >
+            {presets.map((p) => (
+              <option key={p.id} value={p.id} className="text-black">
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           onClick={onClose}
@@ -144,7 +157,7 @@ export function StageDisplay({
       <div className="grid flex-1 grid-cols-[1fr_auto] overflow-hidden">
         <main className="grid place-items-center overflow-hidden p-12 text-center">
           {session.frame.kind === "black" ? (
-            <p className="text-2xl text-white/30">BLACKOUT</p>
+            <p className="text-2xl text-white/30">{t("sdBlackout")}</p>
           ) : current.lines.length > 0 ? (
             <div>
               {current.lines.map((line, i) => {
@@ -207,8 +220,11 @@ export function StageDisplay({
       </div>
 
       <footer className="border-t border-white/10 px-6 py-2 text-center text-xs text-white/30">
-        Cue {session.index + 1} / {session.total} · {t("liveStageScreen")}:{" "}
-        {preset.name}
+        {t("sdCueProgress", {
+          index: session.index + 1,
+          total: session.total,
+        })}{" "}
+        · {t("liveStageScreen")}: {preset.name}
       </footer>
     </div>
   );

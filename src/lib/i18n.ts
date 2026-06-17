@@ -657,6 +657,30 @@ const en: Catalog = {
   planPreviewFallbackBadge: "Fallback",
   planPreviewFallbackHint:
     "The arrangement this song asked for isn't in your library — the default arrangement is used.",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "The previous live session was interrupted",
+  recoveryBody:
+    "A live session didn't end normally. You can resume exactly where you were — cue {index} of {total}.",
+  recoveryDiscard: "Discard",
+  recoveryResume: "Resume",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Share over network",
+  webShareStop: "Stop sharing",
+  webShareRetry: "Try sharing again",
+  webShareStatusOff: "Network sharing is off",
+  webShareStatusStarting: "Starting network sharing …",
+  webShareStatusSharing: "Sharing live over the network",
+  webShareStatusError: "Network sharing failed",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdPresetLabel: "Layout",
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError: "Couldn't update the live output — try again.",
 };
 
 const no: Catalog = {
@@ -1284,6 +1308,30 @@ const no: Catalog = {
   planPreviewFallbackBadge: "Reserve",
   planPreviewFallbackHint:
     "Arrangeringen denne sangen ba om finnes ikke i biblioteket ditt – standardarrangeringen brukes.",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "Forrige live-økt ble avbrutt",
+  recoveryBody:
+    "En live-økt ble ikke avsluttet normalt. Du kan gjenoppta nøyaktig der du var — cue {index} av {total}.",
+  recoveryDiscard: "Forkast",
+  recoveryResume: "Gjenoppta",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Del over nettverk",
+  webShareStop: "Stopp deling",
+  webShareRetry: "Prøv deling igjen",
+  webShareStatusOff: "Nettverksdeling er av",
+  webShareStatusStarting: "Starter nettverksdeling …",
+  webShareStatusSharing: "Deler live over nettverket",
+  webShareStatusError: "Nettverksdeling feilet",
+  sdPresetLabel: "Oppsett",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError: "Kunne ikke oppdatere live-utgangen — prøv igjen.",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -1863,6 +1911,30 @@ const sv: Catalog = {
   setOutDispTransitionSlideLeft: "Skjut vänster",
   setOutDispTransitionSlideRight: "Skjut höger",
   setOutDispSaved: "Sparad",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "Den föregående live-sessionen avbröts",
+  recoveryBody:
+    "En live-session avslutades inte normalt. Du kan återuppta exakt där du var — cue {index} av {total}.",
+  recoveryDiscard: "Förkasta",
+  recoveryResume: "Återuppta",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Dela över nätverket",
+  webShareStop: "Sluta dela",
+  webShareRetry: "Försök dela igen",
+  webShareStatusOff: "Nätverksdelning är av",
+  webShareStatusStarting: "Startar nätverksdelning …",
+  webShareStatusSharing: "Delar live över nätverket",
+  webShareStatusError: "Nätverksdelning misslyckades",
+  sdPresetLabel: "Layout",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError: "Kunde inte uppdatera live-utgången — försök igen.",
 };
 const da: Catalog = {
   appTagline: "Live-præsentation",
@@ -2436,6 +2508,30 @@ const da: Catalog = {
   setOutDispTransitionSlideLeft: "Skub til venstre",
   setOutDispTransitionSlideRight: "Skub til højre",
   setOutDispSaved: "Gemt",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "Den forrige live-session blev afbrudt",
+  recoveryBody:
+    "En live-session blev ikke afsluttet normalt. Du kan genoptage præcis hvor du var — cue {index} af {total}.",
+  recoveryDiscard: "Kassér",
+  recoveryResume: "Genoptag",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Del over netværket",
+  webShareStop: "Stop deling",
+  webShareRetry: "Prøv deling igen",
+  webShareStatusOff: "Netværksdeling er fra",
+  webShareStatusStarting: "Starter netværksdeling …",
+  webShareStatusSharing: "Deler live over netværket",
+  webShareStatusError: "Netværksdeling mislykkedes",
+  sdPresetLabel: "Layout",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError: "Kunne ikke opdatere live-udgangen — prøv igen.",
 };
 const de: Catalog = {
   appTagline: "Live-Präsentation",
@@ -3022,6 +3118,31 @@ const de: Catalog = {
   setOutDispTransitionSlideLeft: "Nach links schieben",
   setOutDispTransitionSlideRight: "Nach rechts schieben",
   setOutDispSaved: "Gespeichert",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "Die vorherige Live-Sitzung wurde unterbrochen",
+  recoveryBody:
+    "Eine Live-Sitzung wurde nicht normal beendet. Du kannst genau dort fortsetzen, wo du warst — Cue {index} von {total}.",
+  recoveryDiscard: "Verwerfen",
+  recoveryResume: "Fortsetzen",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Über Netzwerk teilen",
+  webShareStop: "Teilen beenden",
+  webShareRetry: "Erneut teilen",
+  webShareStatusOff: "Netzwerkfreigabe ist aus",
+  webShareStatusStarting: "Netzwerkfreigabe wird gestartet …",
+  webShareStatusSharing: "Live über das Netzwerk geteilt",
+  webShareStatusError: "Netzwerkfreigabe fehlgeschlagen",
+  sdPresetLabel: "Layout",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError:
+    "Live-Ausgabe konnte nicht aktualisiert werden — erneut versuchen.",
 };
 const fr: Catalog = {
   appTagline: "Présentation en direct",
@@ -3609,6 +3730,30 @@ const fr: Catalog = {
   setOutDispTransitionSlideLeft: "Glisser à gauche",
   setOutDispTransitionSlideRight: "Glisser à droite",
   setOutDispSaved: "Enregistré",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "La session en direct précédente a été interrompue",
+  recoveryBody:
+    "Une session en direct ne s'est pas terminée normalement. Vous pouvez reprendre exactement où vous étiez — cue {index} sur {total}.",
+  recoveryDiscard: "Ignorer",
+  recoveryResume: "Reprendre",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Partager sur le réseau",
+  webShareStop: "Arrêter le partage",
+  webShareRetry: "Réessayer le partage",
+  webShareStatusOff: "Le partage réseau est désactivé",
+  webShareStatusStarting: "Démarrage du partage réseau …",
+  webShareStatusSharing: "Partage en direct sur le réseau",
+  webShareStatusError: "Échec du partage réseau",
+  sdPresetLabel: "Disposition",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError: "Impossible de mettre à jour la sortie en direct — réessayez.",
 };
 const pl: Catalog = {
   appTagline: "Prezentacja na żywo",
@@ -4181,6 +4326,31 @@ const pl: Catalog = {
   setOutDispTransitionSlideLeft: "Przesuń w lewo",
   setOutDispTransitionSlideRight: "Przesuń w prawo",
   setOutDispSaved: "Zapisano",
+
+  // ── Crash recovery banner ─────────────────────────────────────────────────
+  recoveryTitle: "Poprzednia sesja na żywo została przerwana",
+  recoveryBody:
+    "Sesja na żywo nie zakończyła się normalnie. Możesz wznowić dokładnie tam, gdzie byłeś — cue {index} z {total}.",
+  recoveryDiscard: "Odrzuć",
+  recoveryResume: "Wznów",
+
+  // ── Network share control (stage.sundaysuite.app) ─────────────────────────
+  webShareStart: "Udostępnij w sieci",
+  webShareStop: "Zatrzymaj udostępnianie",
+  webShareRetry: "Spróbuj udostępnić ponownie",
+  webShareStatusOff: "Udostępnianie sieciowe jest wyłączone",
+  webShareStatusStarting: "Uruchamianie udostępniania sieciowego …",
+  webShareStatusSharing: "Udostępnianie na żywo przez sieć",
+  webShareStatusError: "Udostępnianie sieciowe nie powiodło się",
+  sdPresetLabel: "Układ",
+
+  // ── Stage display (extra) ─────────────────────────────────────────────────
+  sdBlackout: "BLACKOUT",
+  sdCueProgress: "Cue {index} / {total}",
+
+  // ── Live IPC errors (surfaced to the operator) ────────────────────────────
+  dispatchError:
+    "Nie udało się zaktualizować wyjścia na żywo — spróbuj ponownie.",
 };
 
 /** The full per-language catalog. Exported for parity tests. */

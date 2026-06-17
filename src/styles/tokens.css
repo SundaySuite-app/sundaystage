@@ -131,6 +131,10 @@
     --color-fg: var(--color-neutral-900);
     --color-fg-muted: var(--color-neutral-500);
     --color-border: var(--color-neutral-200);
+    /* The operator's Preview/Live monitors mirror the room: a true blackout
+       must read as black, not the dark-mode navy that loses contrast against a
+       light UI. Pin the stage-black surface to pure black in light mode. */
+    --color-stage-black: oklch(0 0 0);
   }
 }
 
@@ -141,4 +145,5 @@
   --color-fg: var(--color-neutral-900);
   --color-fg-muted: var(--color-neutral-500);
   --color-border: var(--color-neutral-200);
+  --color-stage-black: oklch(0 0 0);
 }

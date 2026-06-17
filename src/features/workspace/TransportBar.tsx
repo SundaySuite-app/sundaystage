@@ -140,7 +140,7 @@ export function TransportBar({
         {isLive ? (
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-md bg-[var(--color-on-air)] px-2.5 py-1.5 text-xs font-bold text-[var(--color-sunday-blue-900)]">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-current" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-current motion-reduce:animate-none" />
               {t("wsLiveBadge")}
             </span>
             <button

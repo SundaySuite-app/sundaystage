@@ -31,8 +31,8 @@ export function ShortcutsModal({ onClose }: Props) {
       heading: t("kbGroupPlayback"),
       rows: [
         { keys: ["Space", "Enter", "G"], action: t("kbGo") },
-        { keys: ["←", "↑"], action: t("kbPrev") },
-        { keys: ["→", "↓"], action: t("kbNext") },
+        { keys: ["←", "↑", "PgUp"], action: t("kbPrev") },
+        { keys: ["→", "↓", "PgDn"], action: t("kbNext") },
         { keys: ["Home"], action: t("kbFirst") },
         { keys: ["End"], action: t("kbLast") },
       ],
@@ -60,14 +60,24 @@ export function ShortcutsModal({ onClose }: Props) {
         onClick={onClose}
         aria-hidden
       />
-      <div className="relative w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcuts-modal-title"
+        className="relative w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)]"
+      >
         <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
           <Keyboard
             size={16}
             className="text-[var(--color-accent)]"
             aria-hidden
           />
-          <h2 className="flex-1 text-sm font-semibold">{t("kbModalTitle")}</h2>
+          <h2
+            id="shortcuts-modal-title"
+            className="flex-1 text-sm font-semibold"
+          >
+            {t("kbModalTitle")}
+          </h2>
           <button
             type="button"
             onClick={onClose}
