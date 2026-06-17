@@ -92,6 +92,15 @@ pub struct SongInput {
     pub copyright_notice: Option<String>,
 }
 
+impl SongInput {
+    /// Enforce the input length caps at the command/model boundary
+    /// (`crate::db::validation`). Called by `SongRepo::create` so every caller
+    /// is guarded once. Returns `AppError::Validation` on violation.
+    pub fn validate(&self) -> crate::error::AppResult<()> {
+        crate::db::validation::title(&self.title)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TS)]
 #[ts(export, export_to = "../../src/lib/bindings/SongSection.ts")]
 pub struct SongSection {

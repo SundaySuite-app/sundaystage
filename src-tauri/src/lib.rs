@@ -15,8 +15,8 @@ pub mod error;
 pub mod output;
 pub mod services;
 
+use parking_lot::Mutex;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::Manager;
 
 use crate::db::Database;
@@ -28,9 +28,10 @@ pub struct AppState {
     pub db: Database,
     /// App-local data directory (db file, persisted live session).
     pub data_dir: PathBuf,
-    /// The running live session, if any. Held behind a `Mutex` because cue
-    /// advance mutates it from command handlers; guards are never held across
-    /// an `.await`.
+    /// The running live session, if any. Held behind a poison-free
+    /// `parking_lot::Mutex` because cue advance mutates it from command
+    /// handlers; guards are never held across an `.await`. parking_lot can't be
+    /// poisoned, so a panic in any one handler can never wedge live dispatch.
     pub live: Mutex<Option<LiveSession>>,
     /// Phase 12.2 — the companion broadcaster for the running session, if any.
     /// Created on `live_start`, fed on `live_dispatch`, terminated on
@@ -97,9 +98,9 @@ pub fn run() {
             app.manage(AppState {
                 db,
                 data_dir,
-                live: std::sync::Mutex::new(None),
-                companion: std::sync::Mutex::new(None),
-                outputs: std::sync::Mutex::new(None),
+                live: Mutex::new(None),
+                companion: Mutex::new(None),
+                outputs: Mutex::new(None),
             });
             tracing::info!("SundayStage backend ready");
             Ok(())
@@ -257,10 +258,54 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 let supervisor = app_handle
                     .try_state::<AppState>()
-                    .and_then(|s| s.outputs.lock().expect("outputs mutex").take());
+                    .and_then(|s| s.outputs.lock().take());
                 if let Some(supervisor) = supervisor {
                     tauri::async_runtime::block_on(supervisor.shutdown());
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mutex;
+    use crate::services::cue_list::CueList;
+    use crate::services::live_session::{LiveAction, LiveSession};
+
+    /// The reliability guarantee that motivates `parking_lot`: a thread that
+    /// PANICS while holding the `live` mutex must NOT poison it. With the old
+    /// `std::sync::Mutex`, every later `.lock()` would itself panic — wedging
+    /// `live_dispatch`/`live_state` for the rest of the service (a blanked
+    /// projector on a Sunday). With `parking_lot::Mutex` the lock is released on
+    /// unwind and the next `.lock()` simply succeeds.
+    #[test]
+    fn poisoning_a_held_lock_does_not_wedge_later_locks() {
+        let live: Mutex<Option<LiveSession>> = Mutex::new(Some(LiveSession::new(
+            "svc",
+            CueList {
+                service_id: "svc".into(),
+                compiled_at: 0,
+                cues: vec![],
+            },
+            0,
+        )));
+
+        // A handler panics while holding the guard (e.g. a bug deep in a cue).
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = live.lock();
+            panic!("boom while holding the live mutex");
+        }));
+        assert!(result.is_err(), "the panic propagated as expected");
+
+        // The lock is NOT poisoned — the next live command takes it cleanly and
+        // can still drive the session. (std::sync::Mutex would panic here.)
+        {
+            let mut guard = live.lock();
+            let session = guard.as_mut().expect("session still present");
+            session.dispatch(LiveAction::Blackout, 1);
+        }
+        // And it is still usable for reads afterwards.
+        let view = live.lock().as_ref().map(|s| s.view());
+        assert!(view.is_some(), "live commands keep working after the panic");
+    }
 }

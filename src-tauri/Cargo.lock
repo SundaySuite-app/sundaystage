@@ -4427,6 +4427,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "keyring",
+ "parking_lot",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

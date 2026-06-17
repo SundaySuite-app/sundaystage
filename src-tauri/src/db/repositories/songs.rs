@@ -20,6 +20,7 @@ impl<'a> SongRepo<'a> {
     }
 
     pub async fn create(&self, input: SongInput) -> AppResult<Song> {
+        input.validate()?;
         let id = new_id();
         let now = now_ms();
         let language = input.language.unwrap_or_else(|| "no".to_string());
@@ -181,6 +182,8 @@ impl<'a> SongRepo<'a> {
         label: &str,
         lyrics: &str,
     ) -> AppResult<SongSection> {
+        crate::db::validation::section_label(label)?;
+        crate::db::validation::lyrics(lyrics)?;
         let id = new_id();
         let now = now_ms();
         // Determine display_order = max + 1
@@ -228,6 +231,47 @@ impl<'a> SongRepo<'a> {
         Ok(rows)
     }
 
+    /// Batch-load sections for many songs in ONE query, grouped by `song_id`
+    /// and ordered by `display_order` within each group. Used by the cue
+    /// compiler so a service with N song items costs one section query, not N
+    /// (the live-output N+1 fix). Distinct song ids only need binding once;
+    /// songs with no sections simply don't appear in the returned map. An empty
+    /// input short-circuits to an empty map (no query, no empty `IN ()`).
+    pub async fn sections_for_songs(
+        &self,
+        song_ids: &[&str],
+    ) -> AppResult<std::collections::HashMap<String, Vec<SongSection>>> {
+        use std::collections::HashMap;
+        let mut out: HashMap<String, Vec<SongSection>> = HashMap::new();
+        if song_ids.is_empty() {
+            return Ok(out);
+        }
+        // Distinct ids — repeated songs in one service must not multiply binds.
+        let mut seen: Vec<&str> = Vec::new();
+        for id in song_ids {
+            if !seen.contains(id) {
+                seen.push(id);
+            }
+        }
+        let placeholders = std::iter::repeat_n("?", seen.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        // Order by song_id then display_order so each group is contiguous and
+        // already in play order — preserving the per-song `sections()` order.
+        let sql = format!(
+            "SELECT * FROM song_section WHERE song_id IN ({placeholders}) \
+             ORDER BY song_id, display_order"
+        );
+        let mut q = sqlx::query_as::<_, SongSection>(&sql);
+        for id in &seen {
+            q = q.bind(*id);
+        }
+        for row in q.fetch_all(self.pool).await? {
+            out.entry(row.song_id.clone()).or_default().push(row);
+        }
+        Ok(out)
+    }
+
     pub async fn get_section(&self, id: &str) -> AppResult<SongSection> {
         sqlx::query_as::<_, SongSection>("SELECT * FROM song_section WHERE id = ?1")
             .bind(id)
@@ -247,6 +291,8 @@ impl<'a> SongRepo<'a> {
         label: &str,
         lyrics: &str,
     ) -> AppResult<SongSection> {
+        crate::db::validation::section_label(label)?;
+        crate::db::validation::lyrics(lyrics)?;
         let now = now_ms();
         let res = sqlx::query(
             "UPDATE song_section SET label = ?1, lyrics = ?2, updated_at = ?3 WHERE id = ?4",
@@ -557,6 +603,118 @@ mod tests {
         let repo = SongRepo::new(&db.pool);
         repo.delete_section(&section_id).await.unwrap();
         assert!(repo.sections(&song_id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn sections_for_songs_batches_and_groups_in_play_order() {
+        let (db, library_id) = fixture().await;
+        let repo = SongRepo::new(&db.pool);
+        let mk = |title: &str| SongInput {
+            library_id: library_id.clone(),
+            title: title.into(),
+            language: None,
+            default_key: None,
+            tempo_bpm: None,
+            ccli_song_id: None,
+            tono_work_id: None,
+            copyright_notice: None,
+        };
+        let a = repo.create(mk("A")).await.unwrap();
+        let b = repo.create(mk("B")).await.unwrap();
+        let c = repo.create(mk("C")).await.unwrap(); // no sections
+        repo.add_section(&a.id, "verse_1", "a1").await.unwrap();
+        repo.add_section(&a.id, "chorus", "a2").await.unwrap();
+        repo.add_section(&b.id, "verse_1", "b1").await.unwrap();
+
+        let map = repo
+            .sections_for_songs(&[a.id.as_str(), b.id.as_str(), c.id.as_str()])
+            .await
+            .unwrap();
+        // C has no sections → absent from the map.
+        assert_eq!(map.len(), 2);
+        // Each group is in display_order and matches the per-song query.
+        let a_batch = &map[&a.id];
+        assert_eq!(
+            a_batch.iter().map(|s| s.label.as_str()).collect::<Vec<_>>(),
+            vec!["verse_1", "chorus"],
+        );
+        // Same ids in the same order as the per-song query.
+        assert_eq!(
+            a_batch.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(),
+            repo.sections(&a.id)
+                .await
+                .unwrap()
+                .iter()
+                .map(|s| s.id.as_str())
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(map[&b.id].len(), 1);
+        // Empty input → empty map, no query.
+        assert!(repo.sections_for_songs(&[]).await.unwrap().is_empty());
+        // Repeated ids don't duplicate rows.
+        let dup = repo
+            .sections_for_songs(&[a.id.as_str(), a.id.as_str()])
+            .await
+            .unwrap();
+        assert_eq!(dup[&a.id].len(), 2);
+    }
+
+    #[tokio::test]
+    async fn create_rejects_oversize_title() {
+        use crate::db::validation::MAX_TITLE;
+        let (db, library_id) = fixture().await;
+        let err = SongRepo::new(&db.pool)
+            .create(SongInput {
+                library_id,
+                title: "x".repeat(MAX_TITLE + 1),
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
+            })
+            .await
+            .unwrap_err();
+        assert_eq!(err.code(), "validation");
+    }
+
+    #[tokio::test]
+    async fn add_section_rejects_oversize_lyrics_and_label() {
+        use crate::db::validation::{MAX_LYRICS, MAX_SECTION_LABEL};
+        let (db, library_id) = fixture().await;
+        let repo = SongRepo::new(&db.pool);
+        let song = repo
+            .create(SongInput {
+                library_id,
+                title: "T".into(),
+                language: None,
+                default_key: None,
+                tempo_bpm: None,
+                ccli_song_id: None,
+                tono_work_id: None,
+                copyright_notice: None,
+            })
+            .await
+            .unwrap();
+        // Oversize lyrics rejected.
+        assert_eq!(
+            repo.add_section(&song.id, "verse_1", &"a".repeat(MAX_LYRICS + 1))
+                .await
+                .unwrap_err()
+                .code(),
+            "validation"
+        );
+        // Oversize label rejected.
+        assert_eq!(
+            repo.add_section(&song.id, &"l".repeat(MAX_SECTION_LABEL + 1), "ok")
+                .await
+                .unwrap_err()
+                .code(),
+            "validation"
+        );
+        // No section was actually written.
+        assert!(repo.sections(&song.id).await.unwrap().is_empty());
     }
 
     #[tokio::test]

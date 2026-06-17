@@ -12,6 +12,7 @@
 
 pub mod models;
 pub mod repositories;
+pub mod validation;
 
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},

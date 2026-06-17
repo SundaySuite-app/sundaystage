@@ -119,7 +119,7 @@ pub async fn output_open(app: AppHandle, state: State<'_, AppState>) -> AppResul
             // Replace any previous supervisor (re-apply after a role change).
             // Take it out of the lock first — the guard must not live across
             // the await.
-            let old = state.outputs.lock().expect("outputs mutex").take();
+            let old = state.outputs.lock().take();
             if let Some(old) = old {
                 old.shutdown().await;
             }
@@ -128,16 +128,10 @@ pub async fn output_open(app: AppHandle, state: State<'_, AppState>) -> AppResul
             let supervisor = process::OutputSupervisor::start(binary, specs);
             // A service may already be live (outputs opened mid-service) —
             // seed the current frame so the first paint is correct.
-            if let Some(frame) = state
-                .live
-                .lock()
-                .expect("live mutex")
-                .as_ref()
-                .map(|s| s.current_frame())
-            {
+            if let Some(frame) = state.live.lock().as_ref().map(|s| s.current_frame()) {
                 supervisor.render(frame);
             }
-            *state.outputs.lock().expect("outputs mutex") = Some(supervisor);
+            *state.outputs.lock() = Some(supervisor);
             return Ok(());
         }
         tracing::warn!(
@@ -150,7 +144,7 @@ pub async fn output_open(app: AppHandle, state: State<'_, AppState>) -> AppResul
 /// Close all live outputs (isolated processes and/or in-process windows).
 #[tauri::command]
 pub async fn output_close(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
-    let supervisor = state.outputs.lock().expect("outputs mutex").take();
+    let supervisor = state.outputs.lock().take();
     if let Some(supervisor) = supervisor {
         supervisor.shutdown().await;
     }
@@ -164,7 +158,6 @@ pub fn output_is_open(app: AppHandle, state: State<'_, AppState>) -> bool {
     let supervised = state
         .outputs
         .lock()
-        .expect("outputs mutex")
         .as_ref()
         .is_some_and(|s| s.is_running());
     supervised || window::outputs_open(&app)

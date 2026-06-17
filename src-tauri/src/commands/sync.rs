@@ -17,6 +17,6 @@ const CLOUD_ENABLED: bool = false;
 
 #[tauri::command]
 pub fn sync_status(state: State<'_, AppState>) -> AppResult<SyncStatus> {
-    let is_live = state.live.lock().expect("live mutex").is_some();
+    let is_live = state.live.lock().is_some();
     Ok(compute_status(CLOUD_ENABLED, true, is_live, 0, 0))
 }
