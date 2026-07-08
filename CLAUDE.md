@@ -29,7 +29,7 @@ SundayStage is a live presentation application for churches. It is the visual st
 - **Tauri 2** (Rust backend) + React 19 + TypeScript + Tailwind CSS v4
 - **shadcn/ui** primitives as base (customized)
 - **TanStack Query** (server state) + **Zustand** (UI state)
-- **TanStack Router** (file-based routing not used — typed routes preferred)
+- **No router** — the app is a single unified operator workspace (`OperatorWorkspace`); features open as docked panels/overlays, not pages
 - **SQLite** via `sqlx` (local-first storage)
 - **cmdk** for command palette
 - **lucide-react** for icons
