@@ -567,6 +567,8 @@ const en: Catalog = {
   kbBlackout: "Blackout screen",
   kbLogo: "Show logo",
   kbJump: "Jump to cue",
+  kbPalette: "Command palette",
+  kbBrowse: "Open / close the library panel",
   kbShortcutsHelp: "Show this help",
 
   // ── Bible verse deep-open ───────────────────────────────────────────────
@@ -1219,6 +1221,8 @@ const no: Catalog = {
   kbBlackout: "Svart skjerm",
   kbLogo: "Vis logo",
   kbJump: "Hopp til cue",
+  kbPalette: "Kommandopalett",
+  kbBrowse: "Åpne/lukk bibliotekpanelet",
   kbShortcutsHelp: "Vis denne hjelpen",
 
   // ── Bibel-vers deep-open ────────────────────────────────────────────────
@@ -1846,6 +1850,8 @@ const sv: Catalog = {
   kbBlackout: "Svart skärm",
   kbLogo: "Visa logo",
   kbJump: "Hoppa till cue",
+  kbPalette: "Kommandopalett",
+  kbBrowse: "Öppna/stäng bibliotekspanelen",
   kbShortcutsHelp: "Visa denna hjälp",
 
   // ── Gudstjänstmallar ─────────────────────────────────────────────────────
@@ -2445,6 +2451,8 @@ const da: Catalog = {
   kbBlackout: "Sort skærm",
   kbLogo: "Vis logo",
   kbJump: "Hop til cue",
+  kbPalette: "Kommandopalet",
+  kbBrowse: "Åbn/luk bibliotekspanelet",
   kbShortcutsHelp: "Vis denne hjælp",
 
   // ── Gudstjenesteskabeloner ───────────────────────────────────────────────
@@ -3055,6 +3063,8 @@ const de: Catalog = {
   kbBlackout: "Bildschirm schwarz",
   kbLogo: "Logo anzeigen",
   kbJump: "Zu Cue springen",
+  kbPalette: "Befehlspalette",
+  kbBrowse: "Bibliothekspanel öffnen/schließen",
   kbShortcutsHelp: "Diese Hilfe anzeigen",
 
   // ── Gottesdienst-Vorlagen ────────────────────────────────────────────────
@@ -3669,6 +3679,8 @@ const fr: Catalog = {
   kbBlackout: "Écran noir",
   kbLogo: "Afficher le logo",
   kbJump: "Aller au cue",
+  kbPalette: "Palette de commandes",
+  kbBrowse: "Ouvrir/fermer le panneau bibliothèque",
   kbShortcutsHelp: "Afficher cette aide",
 
   // ── Modèles de service ───────────────────────────────────────────────────
@@ -4269,6 +4281,8 @@ const pl: Catalog = {
   kbBlackout: "Czarny ekran",
   kbLogo: "Pokaż logo",
   kbJump: "Przejdź do cue",
+  kbPalette: "Paleta poleceń",
+  kbBrowse: "Otwórz/zamknij panel biblioteki",
   kbShortcutsHelp: "Pokaż tę pomoc",
 
   // ── Szablony nabożeństw ──────────────────────────────────────────────────

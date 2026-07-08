@@ -52,6 +52,8 @@ import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { cueServiceItemId, parseBibleRef } from "./cueUtils";
+import { keyScope } from "./consoleKeys";
+import { cn } from "@/lib/cn";
 import { SingleFlight } from "./singleFlight";
 import type { BibleDeepLink } from "@/features/bible/BiblePage";
 
@@ -350,8 +352,10 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   }, [recoverable]);
 
   // ── Hotkeys ─────────────────────────────────────────────────────────────
-  const anyOverlayOpen =
-    !!browser ||
+  // True modals own the keyboard entirely. The docked browser does NOT — the
+  // whole point of docking it is that the operator can look up content while
+  // the console stays armed (see consoleKeys.ts for the scoping rules).
+  const modalOpen =
     settingsOpen ||
     scheduleEditorOpen ||
     jumpOpen ||
@@ -360,26 +364,53 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     exportOpen;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const scope = keyScope(e.target);
       // Never hijack typing in a form field.
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement
-      )
-        return;
-      // When any overlay is open it owns the keyboard — bail before every other
-      // case (including ⌘J / the help toggle) so console shortcuts can't fire
-      // behind a modal. ⌘K is left untouched here so cmdk still receives it.
-      if (anyOverlayOpen) return;
+      if (scope === "text") return;
+      // A modal owns the keyboard — bail before every other case so console
+      // shortcuts can't fire behind it. ⌘K is left untouched here so cmdk
+      // still receives it.
+      if (modalOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
         if (isLive) setJumpOpen((o) => !o);
         return;
       }
+      // ⌘B toggles the resource browser (find a song → back, keyboard-only).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setBrowser((b) => (b ? null : { tab: "songs" }));
+        return;
+      }
       if (e.metaKey || e.ctrlKey) return; // leave ⌘K etc. to their handlers
+      // Esc closes the docked browser first; blackout keeps B (and Esc when
+      // the browser is closed).
+      if (e.key === "Escape" && browser) {
+        e.preventDefault();
+        setBrowser(null);
+        return;
+      }
       if (e.key === "?") {
         e.preventDefault();
         setShortcutsOpen((o) => !o);
+        return;
+      }
+      // Focus inside the docked browser: only the panic keys reach the
+      // console — Space/Enter/arrows keep doing browser navigation.
+      if (scope === "dock") {
+        switch (e.key) {
+          case "b":
+          case "B":
+            if (isLive) {
+              e.preventDefault();
+              dispatch({ type: "blackout" });
+            }
+            break;
+          case "l":
+          case "L":
+            if (isLive) dispatch({ type: "show_logo" });
+            break;
+        }
         return;
       }
       switch (e.key) {
@@ -424,7 +455,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [anyOverlayOpen, cues.length, go, dispatch, isLive]);
+  }, [modalOpen, browser, cues.length, go, dispatch, isLive]);
 
   // ── Command palette routing ───────────────────────────────────────────────
   const onNavigate = useCallback((route: Route) => {
@@ -561,17 +592,44 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       ) : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Docked resource browser: replaces the schedule column while open so
+            the grid and Preview/Program never move — content lookup and live
+            transport are no longer mutually exclusive. */}
+        <LibraryBrowser
+          library={library}
+          open={!!browser}
+          initialTab={browser?.tab ?? "songs"}
+          openSongId={browserSongId}
+          onDeepLinkDone={() => setBrowserSongId(null)}
+          bibleDeepLink={bibleDeepLink}
+          onBibleDeepLinkDone={() => setBibleDeepLink(null)}
+          activeService={
+            service ? { id: service.id, name: service.name } : null
+          }
+          isLive={isLive}
+          onBibleAdded={onBibleAdded}
+          onClose={() => setBrowser(null)}
+        />
         {service ? (
-          <div className="grid min-h-0 flex-1 grid-cols-[280px_1fr_340px]">
-            <ScheduleRail
-              service={service}
-              focusedItemId={focusedItemId}
-              onFocusItem={(itemId) => {
-                const idx = itemFirstIndex.get(itemId);
-                if (idx != null) setPreviewIndex(idx);
-              }}
-              onEditSchedule={() => setScheduleEditorOpen(true)}
-            />
+          <div
+            className={cn(
+              "grid min-h-0 flex-1",
+              browser
+                ? "grid-cols-[1fr_340px]"
+                : "grid-cols-[280px_1fr_340px]",
+            )}
+          >
+            {!browser && (
+              <ScheduleRail
+                service={service}
+                focusedItemId={focusedItemId}
+                onFocusItem={(itemId) => {
+                  const idx = itemFirstIndex.get(itemId);
+                  if (idx != null) setPreviewIndex(idx);
+                }}
+                onEditSchedule={() => setScheduleEditorOpen(true)}
+              />
+            )}
             <main className="min-h-0 overflow-hidden bg-[var(--color-bg)]">
               <SlideGrid
                 cues={cues}
@@ -622,20 +680,6 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       />
 
       {/* Overlays */}
-      <LibraryBrowser
-        library={library}
-        open={!!browser}
-        initialTab={browser?.tab ?? "songs"}
-        openSongId={browserSongId}
-        onDeepLinkDone={() => setBrowserSongId(null)}
-        bibleDeepLink={bibleDeepLink}
-        onBibleDeepLinkDone={() => setBibleDeepLink(null)}
-        activeService={service ? { id: service.id, name: service.name } : null}
-        isLive={isLive}
-        onBibleAdded={onBibleAdded}
-        onClose={() => setBrowser(null)}
-      />
-
       {scheduleEditorOpen && (
         <ModalShell
           onClose={() => setScheduleEditorOpen(false)}

@@ -1,9 +1,12 @@
 /**
- * The resource browser — ProPresenter's library + FreeShow's tabbed drawer.
- * Slides in from the left over the workspace so the operator can find a song,
- * scripture, deck or theme without leaving the console. Each tab reuses the
- * existing full-page feature wholesale, so all their behaviour (search,
- * editing, AI formatting, deep-link) comes along for free.
+ * The resource browser — ProPresenter's library + FreeShow's tabbed drawer,
+ * DOCKED as a left panel instead of an overlay: the console (grid, Preview,
+ * Program, transport) stays visible and its hotkeys stay armed while the
+ * operator finds a song, scripture, deck or theme. `data-console-dock` marks
+ * the subtree for the workspace's keyboard scoping (see consoleKeys.ts):
+ * navigation keys stay local in here, panic keys (B/L/Esc) still reach the
+ * console. Each tab reuses the existing full-page feature wholesale, so all
+ * their behaviour (search, editing, AI formatting, deep-link) comes for free.
  */
 import { useEffect, useState } from "react";
 import {
@@ -70,26 +73,16 @@ export function LibraryBrowser({
     if (open) setTab(initialTab);
   }, [open, initialTab]);
 
-  // Esc closes the browser.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // Esc is handled by the workspace's scoped key handler (close the dock,
+  // otherwise blackout) — no listener of our own, it would double-fire.
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div className="relative flex h-full w-[min(92vw,1100px)] flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)]">
+    <div
+      data-console-dock
+      className="flex h-full w-[clamp(380px,38vw,620px)] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)]"
+    >
         <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-3 py-2">
           {TABS.map(({ id, tkey, icon: Icon }) => (
             <button
@@ -154,7 +147,6 @@ export function LibraryBrowser({
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

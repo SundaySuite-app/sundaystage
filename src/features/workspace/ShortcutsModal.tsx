@@ -48,6 +48,8 @@ export function ShortcutsModal({ onClose }: Props) {
       heading: t("kbGroupWorkspace"),
       rows: [
         { keys: ["⌘J"], action: t("kbJump") },
+        { keys: ["⌘K"], action: t("kbPalette") },
+        { keys: ["⌘B"], action: t("kbBrowse") },
         { keys: ["?"], action: t("kbShortcutsHelp") },
       ],
     },
