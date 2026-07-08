@@ -38,7 +38,11 @@ import {
   type BridgeCue,
   type LiveBridgeContext,
 } from "@/lib/liveBridge";
-import { CommandPalette, type Route } from "@/components/CommandPalette";
+import {
+  CommandPalette,
+  type PaletteAction,
+  type Route,
+} from "@/components/CommandPalette";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ServicesPage } from "@/features/services/ServicesPage";
 import { StageDisplay } from "@/features/live/StageDisplay";
@@ -477,6 +481,9 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       case "media":
         setMediaOpen(true);
         break;
+      case "services":
+        setScheduleEditorOpen(true);
+        break;
       case "settings":
         setSettingsOpen(true);
         break;
@@ -484,6 +491,24 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         break;
     }
   }, []);
+
+  /** Palette quick actions — every advertised action does something real. */
+  const onPaletteAction = useCallback(
+    (action: PaletteAction) => {
+      switch (action) {
+        case "new-song":
+          setBrowser({ tab: "songs" });
+          break;
+        case "new-service":
+          setScheduleEditorOpen(true);
+          break;
+        case "go-live":
+          if (!isLive && cues.length > 0) void startSession();
+          break;
+      }
+    },
+    [isLive, cues.length, startSession],
+  );
 
   const onOpenResult = useCallback((route: Route, id: string) => {
     if (route === "services") {
@@ -767,6 +792,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       <CommandPalette
         onNavigate={onNavigate}
         onOpenResult={onOpenResult}
+        onAction={onPaletteAction}
         libraryId={library.id}
       />
 

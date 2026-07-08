@@ -204,8 +204,18 @@ export const service = {
       arrangementId,
       keyOverride,
     }),
-  addItem: (serviceId: string, kind: string, label: string | null = null) =>
-    call<ServiceItem>("service_add_item", { serviceId, kind, label }),
+  addItem: (
+    serviceId: string,
+    kind: string,
+    label: string | null = null,
+    customDeckId: string | null = null,
+  ) =>
+    call<ServiceItem>("service_add_item", {
+      serviceId,
+      kind,
+      label,
+      customDeckId,
+    }),
   updateItem: (
     itemId: string,
     arrangementId: string | null,

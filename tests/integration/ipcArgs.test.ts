@@ -181,7 +181,7 @@ describe("ipc arg-shape contract", () => {
     await expectCall(
       () => ipc.service.addItem("s", "kind"),
       "service_add_item",
-      ["serviceId", "kind", "label"],
+      ["serviceId", "kind", "label", "customDeckId"],
     );
     await expectCall(
       () => ipc.service.updateItem("i", null, null, null),

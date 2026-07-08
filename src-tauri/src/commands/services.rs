@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use tauri::State;
 
 use crate::db::models::{Service, ServiceItem, ServiceItemSong};
-use crate::db::repositories::ServiceRepo;
+use crate::db::repositories::{DeckRepo, ServiceRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::cue_list::{CueCompiler, CueSummary};
 use crate::services::sundayplan::{self, PlanImportResult};
@@ -171,21 +171,32 @@ pub async fn service_update_item(
         .await
 }
 
-/// Append a non-song item to the queue (a pause/announcement/video). Songs go
-/// through `service_add_song`; scripture/decks need their own ids.
+/// Append a non-song item to the queue (a pause/announcement/video, or a
+/// custom slide deck via `custom_deck_id`). Songs go through
+/// `service_add_song`; scripture has its own command.
 #[tauri::command]
 pub async fn service_add_item(
     state: State<'_, AppState>,
     service_id: String,
     kind: String,
     label: Option<String>,
+    custom_deck_id: Option<String>,
 ) -> AppResult<ServiceItem> {
+    let repo = ServiceRepo::new(&state.db.pool);
+    if kind == "custom_deck" {
+        let deck_id = custom_deck_id.ok_or_else(|| {
+            crate::error::AppError::Validation("custom_deck krever en deck-id".into())
+        })?;
+        // A clear error beats a queue item that compiles to nothing.
+        DeckRepo::new(&state.db.pool).get_deck(&deck_id).await?;
+        let position = repo.next_position(&service_id).await?;
+        return repo.add_deck_item(&service_id, position, &deck_id).await;
+    }
     if !matches!(kind.as_str(), "gap" | "announcement" | "video") {
         return Err(crate::error::AppError::Validation(format!(
-            "service_add_item støtter kun gap/announcement/video, ikke '{kind}'"
+            "service_add_item støtter kun gap/announcement/video/custom_deck, ikke '{kind}'"
         )));
     }
-    let repo = ServiceRepo::new(&state.db.pool);
     let position = repo.next_position(&service_id).await?;
     repo.add_item(
         &service_id,

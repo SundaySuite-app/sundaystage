@@ -34,13 +34,17 @@ export type Route =
   | "bible"
   | "media"
   | "settings"
-  | "dashboard"
   | "design";
+
+/** Quick actions under the palette's "Actions" group. */
+export type PaletteAction = "new-song" | "new-service" | "go-live";
 
 interface CommandPaletteProps {
   onNavigate: (route: Route) => void;
   /** Open a specific search hit (song/service) rather than just its page. */
   onOpenResult?: (route: Route, id: string) => void;
+  /** Run a quick action (new song / new service / go live). */
+  onAction?: (action: PaletteAction) => void;
   libraryId?: string | null;
 }
 
@@ -53,6 +57,7 @@ const KIND_ROUTE: Record<string, Route> = {
 export function CommandPalette({
   onNavigate,
   onOpenResult,
+  onAction,
   libraryId,
 }: CommandPaletteProps) {
   const t = useT();
@@ -84,6 +89,10 @@ export function CommandPalette({
   }
   function go(route: Route) {
     onNavigate(route);
+    close();
+  }
+  function act(action: PaletteAction) {
+    onAction?.(action);
     close();
   }
   function openHit(route: Route, id: string) {
@@ -213,22 +222,19 @@ export function CommandPalette({
 
               <Group heading={t("cmdGroupActions")}>
                 <Item
-                  onSelect={() => {}}
+                  onSelect={() => act("new-song")}
                   icon={<Plus size={14} />}
                   label={t("cmdNewSong")}
-                  shortcut="N"
                 />
                 <Item
-                  onSelect={() => {}}
+                  onSelect={() => act("new-service")}
                   icon={<Plus size={14} />}
                   label={t("cmdNewService")}
-                  shortcut="⌘N"
                 />
                 <Item
-                  onSelect={() => {}}
+                  onSelect={() => act("go-live")}
                   icon={<Play size={14} fill="currentColor" />}
                   label={t("goLive")}
-                  shortcut="⌘L"
                 />
               </Group>
 
