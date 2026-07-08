@@ -13,7 +13,9 @@ use crate::db::repositories::{ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::cue_list::{CueCompiler, CueList};
-use crate::services::live_session::{LiveAction, LiveFrame, LiveSession, LiveSessionView};
+use crate::services::live_session::{
+    LiveAction, LiveFrame, LiveSession, LiveSessionView, OutputState,
+};
 use crate::services::session_store::SessionStore;
 use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
 use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
@@ -264,13 +266,18 @@ pub async fn live_reload_cue_list(state: State<'_, AppState>) -> AppResult<LiveS
         index: snapshot.index,
     });
     match snapshot.output {
-        crate::services::live_session::OutputState::Blackout => {
+        OutputState::Blackout => {
             let _ = s.record(&LiveAction::Blackout);
         }
-        crate::services::live_session::OutputState::Logo => {
+        OutputState::Logo => {
             let _ = s.record(&LiveAction::ShowLogo);
         }
-        crate::services::live_session::OutputState::Normal => {}
+        OutputState::Message => {
+            let _ = s.record(&LiveAction::ShowMessage {
+                text: snapshot.message_text.clone().unwrap_or_default(),
+            });
+        }
+        OutputState::Normal => {}
     }
     push_to_outputs(&state, &view.frame);
     Ok(view)

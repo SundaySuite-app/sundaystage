@@ -3,4 +3,4 @@
 /**
  * An operator action. The only way to mutate a session.
  */
-export type LiveAction = { "type": "next" } | { "type": "previous" } | { "type": "go_to", index: number, } | { "type": "blackout" } | { "type": "show_logo" } | { "type": "clear" };
+export type LiveAction = { "type": "next" } | { "type": "previous" } | { "type": "go_to", index: number, } | { "type": "blackout" } | { "type": "show_logo" } | { "type": "show_message", text: string, } | { "type": "clear" };

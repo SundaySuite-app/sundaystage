@@ -48,6 +48,7 @@ import { ScheduleRail } from "./ScheduleRail";
 import { SlideGrid } from "./SlideGrid";
 import { PreviewLivePanel } from "./PreviewLivePanel";
 import { LibraryBrowser, type BrowserTab } from "./LibraryBrowser";
+import { MessagePanel } from "./MessagePanel";
 import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
 import { ShortcutsModal } from "./ShortcutsModal";
@@ -86,6 +87,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     null,
   );
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -575,11 +577,23 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onStop={stopSession}
         onBlackout={() => dispatch({ type: "blackout" })}
         onLogo={() => dispatch({ type: "show_logo" })}
+        onMessage={() => isLive && setMessageOpen((o) => !o)}
+        onClear={() => dispatch({ type: "clear" })}
         onJump={() => isLive && setJumpOpen(true)}
         onStage={() => isLive && setStageOpen(true)}
         onExport={() => isLive && setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
+      />
+
+      {/* Operator message popover — a light popover, never a modal: the
+          console keeps its keyboard while it is open. */}
+      <MessagePanel
+        open={messageOpen && isLive}
+        active={session?.output === "message"}
+        onShow={(text) => dispatch({ type: "show_message", text })}
+        onClear={() => dispatch({ type: "clear" })}
+        onClose={() => setMessageOpen(false)}
       />
 
       {isLive ? (
