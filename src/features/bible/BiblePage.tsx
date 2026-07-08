@@ -185,9 +185,7 @@ export function BiblePage({
       range?.start ?? null,
       range?.end ?? null,
     );
-    setAddMsg(
-      showNow ? t("bibShownNow") : t("bibAddedTo", { name: svc.name }),
-    );
+    setAddMsg(showNow ? t("bibShownNow") : t("bibAddedTo", { name: svc.name }));
     await onAdded?.(item, { showNow });
   }
 

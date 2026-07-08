@@ -175,7 +175,9 @@ function validate(value: unknown, schema: JsonSchema, path = "$"): string[] {
         errs.push(`${path}: more than ${schema.maxItems} items`);
       if (schema.items)
         value.forEach((v, i) =>
-          errs.push(...validate(v, schema.items as JsonSchema, `${path}[${i}]`)),
+          errs.push(
+            ...validate(v, schema.items as JsonSchema, `${path}[${i}]`),
+          ),
         );
       return errs;
     }
@@ -206,9 +208,8 @@ function validate(value: unknown, schema: JsonSchema, path = "$"): string[] {
 }
 
 function assertValidWebFrame(frame: unknown) {
-  const schema = (
-    webframeSchema as { definitions: Record<string, JsonSchema> }
-  ).definitions.WebFrame;
+  const schema = (webframeSchema as { definitions: Record<string, JsonSchema> })
+    .definitions.WebFrame;
   expect(validate(frame, schema)).toEqual([]);
 }
 
@@ -253,7 +254,10 @@ describe("WebFrame contract (vendored schema from sundaystage-web)", () => {
           bg_color: "b".repeat(100),
           text_color: "c".repeat(100),
         },
-        { lines: Array.from({ length: 80 }, () => "n".repeat(2000)), label: "l".repeat(500) },
+        {
+          lines: Array.from({ length: 80 }, () => "n".repeat(2000)),
+          label: "l".repeat(500),
+        },
       ),
     );
     assertValidWebFrame(

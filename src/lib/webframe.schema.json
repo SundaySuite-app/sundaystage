@@ -10,13 +10,7 @@
         },
         "kind": {
           "type": "string",
-          "enum": [
-            "slide",
-            "black",
-            "logo",
-            "message",
-            "ended"
-          ]
+          "enum": ["slide", "black", "logo", "message", "ended"]
         },
         "text_lines": {
           "type": "array",
@@ -113,10 +107,7 @@
           ]
         }
       },
-      "required": [
-        "v",
-        "kind"
-      ],
+      "required": ["v", "kind"],
       "additionalProperties": false
     }
   },

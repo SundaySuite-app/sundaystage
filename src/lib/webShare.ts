@@ -62,7 +62,8 @@ const MAX_COLOR_CHARS = 32;
 const FONT_SCALE_MIN = 0.3;
 const FONT_SCALE_MAX = 3;
 
-const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max) : s);
+const truncate = (s: string, max: number) =>
+  s.length > max ? s.slice(0, max) : s;
 const clampLines = (lines: string[]) =>
   lines.slice(0, MAX_LINES).map((l) => truncate(l, MAX_LINE_CHARS));
 const clampLabel = (s: string | null | undefined) =>
@@ -324,7 +325,15 @@ export function useWebShare(opts: {
           void (async () => {
             // Only the web server can sign with the session secret — an
             // unsigned/forged broadcast must never drive the live output.
-            if (!(await verifyRemoteCommand(session.secret, session.id, cmd, seq, sig)))
+            if (
+              !(await verifyRemoteCommand(
+                session.secret,
+                session.id,
+                cmd,
+                seq,
+                sig,
+              ))
+            )
               return;
             if (seq <= lastCmdSeq) return; // re-check: another command may have won the await
             lastCmdSeq = seq;

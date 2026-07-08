@@ -653,9 +653,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
           <div
             className={cn(
               "grid min-h-0 flex-1",
-              browser
-                ? "grid-cols-[1fr_340px]"
-                : "grid-cols-[280px_1fr_340px]",
+              browser ? "grid-cols-[1fr_340px]" : "grid-cols-[280px_1fr_340px]",
             )}
           >
             {!browser && (

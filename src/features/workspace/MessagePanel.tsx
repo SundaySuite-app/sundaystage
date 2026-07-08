@@ -25,7 +25,13 @@ interface Props {
   onClose: () => void;
 }
 
-export function MessagePanel({ open, active, onShow, onClear, onClose }: Props) {
+export function MessagePanel({
+  open,
+  active,
+  onShow,
+  onClear,
+  onClose,
+}: Props) {
   const t = useT();
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);

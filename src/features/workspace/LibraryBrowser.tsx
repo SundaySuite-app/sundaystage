@@ -83,70 +83,70 @@ export function LibraryBrowser({
       data-console-dock
       className="flex h-full w-[clamp(380px,38vw,620px)] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)]"
     >
-        <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-3 py-2">
-          {TABS.map(({ id, tkey, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                tab === id
-                  ? "bg-[var(--color-bg-surface)] text-[var(--color-fg)]"
-                  : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]/60 hover:text-[var(--color-fg)]",
-              )}
-            >
-              <Icon size={15} aria-hidden />
-              {t(tkey)}
-            </button>
-          ))}
-          <div className="flex-1" />
+      <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-3 py-2">
+        {TABS.map(({ id, tkey, icon: Icon }) => (
           <button
+            key={id}
             type="button"
-            onClick={onClose}
-            title={t("actionClose")}
-            className="rounded-md p-1.5 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+            onClick={() => setTab(id)}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              tab === id
+                ? "bg-[var(--color-bg-surface)] text-[var(--color-fg)]"
+                : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]/60 hover:text-[var(--color-fg)]",
+            )}
           >
-            <X size={16} />
+            <Icon size={15} aria-hidden />
+            {t(tkey)}
           </button>
-        </div>
+        ))}
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={onClose}
+          title={t("actionClose")}
+          className="rounded-md p-1.5 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <X size={16} />
+        </button>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {tab === "songs" ? (
-            <LibraryPage
-              library={library}
-              openSongId={openSongId ?? null}
-              onDeepLinkDone={onDeepLinkDone}
-            />
-          ) : tab === "scripture" ? (
-            <BiblePage
-              library={library}
-              deepLink={bibleDeepLink}
-              onDeepLinkDone={onBibleDeepLinkDone}
-              activeService={activeService}
-              isLive={isLive}
-              onAdded={onBibleAdded}
-            />
-          ) : tab === "decks" ? (
-            <DecksPage library={library} />
-          ) : (
-            <div className="grid h-full place-items-center p-10 text-center">
-              <div className="max-w-sm">
-                <Palette
-                  size={28}
-                  className="mx-auto mb-3 text-[var(--color-fg-muted)]"
-                  aria-hidden
-                />
-                <h3 className="text-[var(--text-ui-lg)] font-semibold">
-                  {t("wsThemesTab")}
-                </h3>
-                <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-                  {t("wsThemesComingSoon")}
-                </p>
-              </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {tab === "songs" ? (
+          <LibraryPage
+            library={library}
+            openSongId={openSongId ?? null}
+            onDeepLinkDone={onDeepLinkDone}
+          />
+        ) : tab === "scripture" ? (
+          <BiblePage
+            library={library}
+            deepLink={bibleDeepLink}
+            onDeepLinkDone={onBibleDeepLinkDone}
+            activeService={activeService}
+            isLive={isLive}
+            onAdded={onBibleAdded}
+          />
+        ) : tab === "decks" ? (
+          <DecksPage library={library} />
+        ) : (
+          <div className="grid h-full place-items-center p-10 text-center">
+            <div className="max-w-sm">
+              <Palette
+                size={28}
+                className="mx-auto mb-3 text-[var(--color-fg-muted)]"
+                aria-hidden
+              />
+              <h3 className="text-[var(--text-ui-lg)] font-semibold">
+                {t("wsThemesTab")}
+              </h3>
+              <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+                {t("wsThemesComingSoon")}
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

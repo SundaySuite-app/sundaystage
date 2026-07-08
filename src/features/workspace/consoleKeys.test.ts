@@ -21,10 +21,14 @@ describe("keyScope", () => {
 
   it("classifies focus inside the docked browser as dock", () => {
     expect(
-      keyScope(el(`<div data-console-dock><button data-target>b</button></div>`)),
+      keyScope(
+        el(`<div data-console-dock><button data-target>b</button></div>`),
+      ),
     ).toBe("dock");
     expect(
-      keyScope(el(`<div data-console-dock><div><a data-target>x</a></div></div>`)),
+      keyScope(
+        el(`<div data-console-dock><div><a data-target>x</a></div></div>`),
+      ),
     ).toBe("dock");
   });
 

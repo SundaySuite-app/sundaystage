@@ -268,7 +268,8 @@ const en: Catalog = {
   kindGap: "Break",
   kindAnnouncement: "Announcement",
   kindCustomDeck: "Slides",
-  svcNoDecksHint: "No slide decks yet — create one under Decks in the library panel.",
+  svcNoDecksHint:
+    "No slide decks yet — create one under Decks in the library panel.",
   kindVideo: "Video",
   actionPreview: "Preview",
 
@@ -928,7 +929,8 @@ const no: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Kunngjøring",
   kindCustomDeck: "Lysbilder",
-  svcNoDecksHint: "Ingen lysbildeserier ennå — lag en under Decks i bibliotekpanelet.",
+  svcNoDecksHint:
+    "Ingen lysbildeserier ennå — lag en under Decks i bibliotekpanelet.",
   kindVideo: "Video",
   actionPreview: "Forhåndsvis",
 
@@ -1545,7 +1547,8 @@ const sv: Catalog = {
   kindGap: "Paus",
   kindAnnouncement: "Meddelande",
   kindCustomDeck: "Bilder",
-  svcNoDecksHint: "Inga bildspel ännu — skapa ett under Decks i bibliotekspanelen.",
+  svcNoDecksHint:
+    "Inga bildspel ännu — skapa ett under Decks i bibliotekspanelen.",
   kindVideo: "Video",
   actionPreview: "Förhandsvisa",
   svcNewDefaultTitle: "Ny gudstjänst {date}",
@@ -2156,7 +2159,8 @@ const da: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Meddelelse",
   kindCustomDeck: "Dias",
-  svcNoDecksHint: "Ingen slide-serier endnu — opret en under Decks i bibliotekspanelet.",
+  svcNoDecksHint:
+    "Ingen slide-serier endnu — opret en under Decks i bibliotekspanelet.",
   kindVideo: "Video",
   actionPreview: "Forhåndsvis",
   svcNewDefaultTitle: "Ny gudstjeneste {date}",
@@ -2768,7 +2772,8 @@ const de: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Ankündigung",
   kindCustomDeck: "Folien",
-  svcNoDecksHint: "Noch keine Folien-Decks — erstelle eins unter Decks im Bibliothekspanel.",
+  svcNoDecksHint:
+    "Noch keine Folien-Decks — erstelle eins unter Decks im Bibliothekspanel.",
   kindVideo: "Video",
   actionPreview: "Vorschau",
   svcNewDefaultTitle: "Neuer Gottesdienst {date}",
@@ -3392,7 +3397,8 @@ const fr: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Annonce",
   kindCustomDeck: "Diapositives",
-  svcNoDecksHint: "Aucun deck de diapositives — créez-en un sous Decks dans le panneau bibliothèque.",
+  svcNoDecksHint:
+    "Aucun deck de diapositives — créez-en un sous Decks dans le panneau bibliothèque.",
   kindVideo: "Vidéo",
   actionPreview: "Aperçu",
   svcNewDefaultTitle: "Nouveau service {date}",
@@ -4013,7 +4019,8 @@ const pl: Catalog = {
   kindGap: "Przerwa",
   kindAnnouncement: "Ogłoszenie",
   kindCustomDeck: "Slajdy",
-  svcNoDecksHint: "Brak zestawów slajdów — utwórz je w zakładce Decks w panelu biblioteki.",
+  svcNoDecksHint:
+    "Brak zestawów slajdów — utwórz je w zakładce Decks w panelu biblioteki.",
   kindVideo: "Wideo",
   actionPreview: "Podgląd",
   svcNewDefaultTitle: "Nowe nabożeństwo {date}",
