@@ -246,9 +246,23 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     },
     [isLive, dispatch],
   );
+  // The upcoming cue's text, for the web scene/confidence monitor (/s).
+  // Sensitive slides never leave the building — not even as a "next" preview.
+  const webShareNext = useMemo(() => {
+    if (session == null) return null;
+    const nextCue = cues[session.index + 1];
+    if (!nextCue || nextCue.kind !== "show_slide") return null;
+    if (nextCue.slide_content.sensitive_slide) return null;
+    return {
+      lines: nextCue.slide_content.text_lines,
+      label:
+        nextCue.slide_content.section_label ?? nextCue.source.display_label,
+    };
+  }, [cues, session]);
   const webShare = useWebShare({
     frame: session?.frame ?? null,
     appearance,
+    next: webShareNext,
     active: isLive,
     onCommand: onRemoteCommand,
   });
