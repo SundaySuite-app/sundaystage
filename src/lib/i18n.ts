@@ -470,6 +470,8 @@ const en: Catalog = {
     "Look up a reference (John 3:16) or search the text (shepherd)…",
   bibAddToService: "Add to service",
   bibAddedTo: "Added to «{name}».",
+  bibShowNow: "Show now",
+  bibShownNow: "On screen now.",
   bibSelectBookChapter: "Pick a book and chapter, or search above.",
   bibBundledNote:
     "Bundled: King James Version + Bibelen 1930 (selected passages). Full download is coming.",
@@ -1119,6 +1121,8 @@ const no: Catalog = {
     "Slå opp en referanse (John 3:16) eller søk i teksten (shepherd)…",
   bibAddToService: "Legg til i gudstjeneste",
   bibAddedTo: "Lagt til i «{name}».",
+  bibShowNow: "Vis nå",
+  bibShownNow: "Vises på skjermen nå.",
   bibSelectBookChapter: "Velg en bok og et kapittel, eller søk over.",
   bibBundledNote:
     "Innebygd: King James Version + Bibelen 1930 (utvalgte passasjer). Full nedlasting kommer.",
@@ -1705,6 +1709,8 @@ const sv: Catalog = {
     "Slå upp en referens (John 3:16) eller sök i texten (herde)…",
   bibAddToService: "Lägg till i gudstjänst",
   bibAddedTo: "Tillagd i «{name}».",
+  bibShowNow: "Visa nu",
+  bibShownNow: "Visas på skärmen nu.",
   bibSelectBookChapter: "Välj en bok och ett kapitel, eller sök ovan.",
   bibBundledNote:
     "Inbyggt: King James Version + Bibelen 1930 (utvalda avsnitt). Full nedladdning kommer.",
@@ -2302,6 +2308,8 @@ const da: Catalog = {
     "Slå en reference op (John 3:16) eller søg i teksten (shepherd)…",
   bibAddToService: "Tilføj til gudstjeneste",
   bibAddedTo: "Tilføjet til «{name}».",
+  bibShowNow: "Vis nu",
+  bibShownNow: "Vises på skærmen nu.",
   bibSelectBookChapter: "Vælg en bog og et kapitel, eller søg ovenfor.",
   bibBundledNote:
     "Indbygget: King James Version + Bibelen 1930 (udvalgte passager). Fuld download kommer.",
@@ -2904,6 +2912,8 @@ const de: Catalog = {
     "Schlage eine Stelle nach (Johannes 3:16) oder durchsuche den Text (Hirte)…",
   bibAddToService: "Zum Gottesdienst hinzufügen",
   bibAddedTo: "Zu «{name}» hinzugefügt.",
+  bibShowNow: "Jetzt zeigen",
+  bibShownNow: "Wird jetzt angezeigt.",
   bibSelectBookChapter: "Wähle ein Buch und ein Kapitel oder suche oben.",
   bibBundledNote:
     "Mitgeliefert: King James Version + Bibelen 1930 (ausgewählte Passagen). Der vollständige Download kommt.",
@@ -3518,6 +3528,8 @@ const fr: Catalog = {
     "Cherchez une référence (Jean 3:16) ou recherchez dans le texte (berger)…",
   bibAddToService: "Ajouter au service",
   bibAddedTo: "Ajouté à «{name}».",
+  bibShowNow: "Afficher maintenant",
+  bibShownNow: "Affiché à l'écran.",
   bibSelectBookChapter:
     "Choisissez un livre et un chapitre, ou recherchez ci-dessus.",
   bibBundledNote:
@@ -4120,6 +4132,8 @@ const pl: Catalog = {
     "Wyszukaj odnośnik (Jan 3:16) lub przeszukaj tekst (pasterz)…",
   bibAddToService: "Dodaj do nabożeństwa",
   bibAddedTo: "Dodano do «{name}».",
+  bibShowNow: "Pokaż teraz",
+  bibShownNow: "Wyświetlane teraz.",
   bibSelectBookChapter: "Wybierz księgę i rozdział lub wyszukaj powyżej.",
   bibBundledNote:
     "W zestawie: King James Version + Bibelen 1930 (wybrane fragmenty). Pełne pobieranie wkrótce.",

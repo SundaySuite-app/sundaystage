@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { Library } from "@/lib/bindings";
+import type { Library, ServiceItem } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 import { LibraryPage } from "@/features/library/LibraryPage";
@@ -40,6 +40,13 @@ interface Props {
   /** Deep-link a bible passage open in the Scripture tab. */
   bibleDeepLink?: BibleDeepLink | null;
   onBibleDeepLinkDone?: () => void;
+  /** Workspace context for the Scripture tab's add/show-now actions. */
+  activeService?: { id: string; name: string } | null;
+  isLive?: boolean;
+  onBibleAdded?: (
+    item: ServiceItem,
+    opts: { showNow: boolean },
+  ) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -51,6 +58,9 @@ export function LibraryBrowser({
   onDeepLinkDone,
   bibleDeepLink,
   onBibleDeepLinkDone,
+  activeService,
+  isLive,
+  onBibleAdded,
   onClose,
 }: Props) {
   const t = useT();
@@ -120,6 +130,9 @@ export function LibraryBrowser({
               library={library}
               deepLink={bibleDeepLink}
               onDeepLinkDone={onBibleDeepLinkDone}
+              activeService={activeService}
+              isLive={isLive}
+              onAdded={onBibleAdded}
             />
           ) : tab === "decks" ? (
             <DecksPage library={library} />

@@ -221,6 +221,61 @@ pub fn companion_broadcast(state: State<'_, AppState>) -> AppResult<u32> {
     Ok(seq)
 }
 
+/// Recompile the running service and swap the fresh cue list into the live
+/// session — the operator added a verse or edited the plan mid-service. The
+/// cue on air stays on air (remapped by cue id; see
+/// [`LiveSession::replace_cue_list`]) and the output override is preserved.
+#[tauri::command]
+pub async fn live_reload_cue_list(state: State<'_, AppState>) -> AppResult<LiveSessionView> {
+    // Compile without holding the live lock (same rule as `live_start`: the
+    // lock is never held across an await).
+    let service_id = {
+        let guard = state.live.lock();
+        guard
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?
+            .service_id
+            .clone()
+    };
+    let cue_list = CueCompiler::new(&state.db.pool)
+        .compile(&service_id)
+        .await?;
+
+    let mut guard = state.live.lock();
+    let session = guard
+        .as_mut()
+        .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
+    if session.service_id != service_id {
+        return Err(AppError::Validation(
+            "live-sesjonen byttet tjeneste under rekompilering".into(),
+        ));
+    }
+    session.replace_cue_list(cue_list, now_ms());
+    let view = session.view();
+    // The recovery WAL's header holds the cue list, so replaying old actions
+    // against the new list would resume at the wrong cue. Rewrite the log:
+    // fresh header (new list) + synthetic actions that reproduce the current
+    // position and output override. Best-effort, like every store write.
+    let snapshot = session.clone();
+    drop(guard);
+    let s = store(&state);
+    let _ = s.begin(&snapshot);
+    let _ = s.record(&LiveAction::GoTo {
+        index: snapshot.index,
+    });
+    match snapshot.output {
+        crate::services::live_session::OutputState::Blackout => {
+            let _ = s.record(&LiveAction::Blackout);
+        }
+        crate::services::live_session::OutputState::Logo => {
+            let _ = s.record(&LiveAction::ShowLogo);
+        }
+        crate::services::live_session::OutputState::Normal => {}
+    }
+    push_to_outputs(&state, &view.frame);
+    Ok(view)
+}
+
 /// Apply one operator action to the running session.
 #[tauri::command]
 pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResult<LiveSessionView> {

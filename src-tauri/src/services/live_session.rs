@@ -171,6 +171,44 @@ impl LiveSession {
         });
     }
 
+    /// Swap in a freshly compiled cue list mid-session — the operator added a
+    /// verse, reordered items, edited a song. Without this the session plays
+    /// the list snapshotted at `live_start` while the grid shows the recompile,
+    /// and `go_to(index)` silently lands on the wrong cue.
+    ///
+    /// The cue on air stays on air: the index is remapped by `cue_id` (cue ids
+    /// are deterministic across recompiles), falling back to the same
+    /// (service_item_id, item_cue_index) source, falling back to clamping into
+    /// range. The output override (blackout/logo) is preserved and the swap is
+    /// logged.
+    pub fn replace_cue_list(&mut self, cue_list: CueList, now: i64) {
+        let remapped = self.cue_list.get(self.index).and_then(|current| {
+            let by_id = cue_list
+                .cues
+                .iter()
+                .position(|c| c.cue_id() == current.cue_id());
+            by_id.or_else(|| {
+                let source = current.source()?;
+                cue_list.cues.iter().position(|c| {
+                    c.source().is_some_and(|s| {
+                        s.service_item_id == source.service_item_id
+                            && s.item_cue_index == source.item_cue_index
+                    })
+                })
+            })
+        });
+        self.index = remapped.unwrap_or_else(|| {
+            self.index.min(cue_list.len().saturating_sub(1))
+        });
+        self.cue_list = cue_list;
+        self.log.push(SessionLogEntry {
+            at: now,
+            action: "reload".to_string(),
+            index: self.index,
+            output: self.output,
+        });
+    }
+
     /// What belongs on the output right now. Infallible by design — the live
     /// output must ALWAYS have something to show, so anything we can't render
     /// (a missing or malformed cue) degrades to a safe `Black` rather than
@@ -449,6 +487,101 @@ mod tests {
         assert_eq!(s.current_frame(), LiveFrame::Black);
         // `view()` (used by every command) is also safe on a corrupt cue.
         assert_eq!(s.view().frame, LiveFrame::Black);
+    }
+
+    fn cue_list_of(cues: Vec<Cue>) -> CueList {
+        CueList {
+            service_id: "svc".into(),
+            compiled_at: 1,
+            cues,
+        }
+    }
+
+    /// Inserting a cue BEFORE the live one must keep the live cue on air
+    /// (index shifts by the insertion).
+    #[test]
+    fn reload_remaps_index_across_insertion_before_current() {
+        let mut s = session(3);
+        s.dispatch(LiveAction::GoTo { index: 1 }, 1); // live on c1
+        let new = cue_list_of(vec![
+            slide_cue("c0", "line 0"),
+            slide_cue("new", "inserted"),
+            slide_cue("c1", "line 1"),
+            slide_cue("c2", "line 2"),
+        ]);
+        s.replace_cue_list(new, 2);
+        assert_eq!(s.index, 2); // still c1
+        match s.current_frame() {
+            LiveFrame::Slide { slide_content } => {
+                assert_eq!(slide_content.text_lines, vec!["line 1"])
+            }
+            other => panic!("expected slide, got {other:?}"),
+        }
+    }
+
+    /// Appending after the live cue must not move it at all.
+    #[test]
+    fn reload_keeps_index_across_append() {
+        let mut s = session(2);
+        s.dispatch(LiveAction::Next, 1); // live on c1
+        let new = cue_list_of(vec![
+            slide_cue("c0", "line 0"),
+            slide_cue("c1", "line 1"),
+            slide_cue("c2", "added"),
+        ]);
+        s.replace_cue_list(new, 2);
+        assert_eq!(s.index, 1);
+    }
+
+    /// When the live cue was REMOVED, fall back to clamping into range — never
+    /// panic, never leave the index dangling past the end.
+    #[test]
+    fn reload_clamps_when_current_cue_removed() {
+        let mut s = session(3);
+        s.dispatch(LiveAction::GoTo { index: 2 }, 1); // live on c2
+        // Neither the id nor the source of c2 survives → pure clamp path.
+        let mut survivor = slide_cue("c0", "line 0");
+        if let Cue::ShowSlide { source, .. } = &mut survivor {
+            source.service_item_id = "other-item".into();
+        }
+        let new = cue_list_of(vec![survivor]);
+        s.replace_cue_list(new, 2);
+        assert_eq!(s.index, 0);
+        // An empty recompile is also safe.
+        s.replace_cue_list(cue_list_of(vec![]), 3);
+        assert_eq!(s.index, 0);
+        assert_eq!(s.current_frame(), LiveFrame::Black);
+    }
+
+    /// Blackout must survive a reload — the projector state is the operator's,
+    /// not the recompiler's.
+    #[test]
+    fn reload_preserves_output_override_and_logs() {
+        let mut s = session(2);
+        s.dispatch(LiveAction::Blackout, 1);
+        let log_before = s.log.len();
+        s.replace_cue_list(cue_list_of(vec![slide_cue("c0", "line 0")]), 2);
+        assert_eq!(s.output, OutputState::Blackout);
+        assert_eq!(s.current_frame(), LiveFrame::Black);
+        assert_eq!(s.log.len(), log_before + 1);
+        assert_eq!(s.log.last().unwrap().action, "reload");
+    }
+
+    /// A cue whose id changed but whose source survived (e.g. the scripture
+    /// ref-id changed after an edit) remaps via (service_item_id, cue index).
+    #[test]
+    fn reload_falls_back_to_source_match() {
+        let mut s = session(2);
+        s.dispatch(LiveAction::Next, 1); // live on c1 (source item/idx 0)
+        let mut replacement = slide_cue("renamed", "line 1 edited");
+        if let Cue::ShowSlide { source, .. } = &mut replacement {
+            source.service_item_id = "item".into();
+            source.item_cue_index = 0;
+        }
+        // c1 is gone; "renamed" carries the same source as every test cue.
+        let new = cue_list_of(vec![replacement, slide_cue("other", "x")]);
+        s.replace_cue_list(new, 2);
+        assert_eq!(s.index, 0);
     }
 
     /// A slide with only a reference (e.g. a scripture cue whose body is empty)

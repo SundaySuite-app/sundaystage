@@ -25,6 +25,7 @@ import type {
   LiveSessionView,
   OutputAppearance,
   Service,
+  ServiceItem,
 } from "@/lib/bindings";
 import { useT } from "@/lib/i18n";
 import { useErrorToast } from "@/lib/useErrorToast";
@@ -473,6 +474,46 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     }
   }, []);
 
+  /**
+   * A bible passage was appended to the selected service from the browser.
+   * Refresh the plan + grid, and when live hot-swap the running session's cue
+   * list so the new cue is actually reachable — then either put it on air
+   * ("Vis nå") or stage it in Preview.
+   */
+  const onBibleAdded = useCallback(
+    async (item: ServiceItem, opts: { showNow: boolean }) => {
+      if (!service) return;
+      void qc.invalidateQueries({ queryKey: ["cueSummary", service.id] });
+      // Refetch through the query cache so the grid and the index we compute
+      // here see the exact same list.
+      const list = await qc.fetchQuery({
+        queryKey: ["cueList", service.id],
+        queryFn: () => ipc.live.compileCueList(service.id),
+      });
+      const cueIndex = list.cues.findIndex(
+        (c) => cueServiceItemId(c) === item.id,
+      );
+      // Hot-swap the live session's snapshot (it never recompiles by itself).
+      // Only when the live session runs the service we just added to.
+      if (session && session.service_id === service.id) {
+        try {
+          const view = await ipc.live.reload();
+          setSession(view);
+          if (opts.showNow && cueIndex >= 0) {
+            dispatch({ type: "go_to", index: cueIndex });
+            setPreviewIndex(Math.min(cueIndex + 1, list.cues.length - 1));
+            return;
+          }
+        } catch {
+          showError(t("dispatchError"));
+          return;
+        }
+      }
+      if (cueIndex >= 0) setPreviewIndex(cueIndex);
+    },
+    [service, session, qc, dispatch, showError, t],
+  );
+
   /** Open the bible browser pre-navigated to the current preview cue's passage. */
   const openBibleCue = useCallback(() => {
     const cue = cues[clampedPreview];
@@ -589,6 +630,9 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onDeepLinkDone={() => setBrowserSongId(null)}
         bibleDeepLink={bibleDeepLink}
         onBibleDeepLinkDone={() => setBibleDeepLink(null)}
+        activeService={service ? { id: service.id, name: service.name } : null}
+        isLive={isLive}
+        onBibleAdded={onBibleAdded}
         onClose={() => setBrowser(null)}
       />
 

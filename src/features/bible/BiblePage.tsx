@@ -8,10 +8,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Plus, Search } from "lucide-react";
+import { BookOpen, Play, Plus, Search } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
-import type { BibleVerse, Library } from "@/lib/bindings";
+import type { BibleVerse, Library, ServiceItem } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { Button, Select } from "@/components/ui";
@@ -31,9 +31,32 @@ interface Props {
   deepLink?: BibleDeepLink | null;
   /** Called after the deep-link has been applied so the parent can clear it. */
   onDeepLinkDone?: () => void;
+  /**
+   * The workspace's selected service. When set, passages are added HERE — not
+   * to whatever service happens to be first upcoming.
+   */
+  activeService?: { id: string; name: string } | null;
+  /** True while a live session runs — enables the "show now" action. */
+  isLive?: boolean;
+  /**
+   * Fired after a passage was appended, so the workspace can refresh its cue
+   * list (and, live, hot-swap the session's list). `showNow` asks the
+   * workspace to put the new cue on air; otherwise it stages it in Preview.
+   */
+  onAdded?: (
+    item: ServiceItem,
+    opts: { showNow: boolean },
+  ) => void | Promise<void>;
 }
 
-export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
+export function BiblePage({
+  library,
+  deepLink,
+  onDeepLinkDone,
+  activeService,
+  isLive,
+  onAdded,
+}: Props) {
   const t = useT();
   const [primaryId, setPrimaryId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -145,14 +168,16 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
     setHits(await ipc.bible.search(query, primaryId));
   }
 
-  async function addToService() {
+  async function addToService(showNow = false) {
     if (!primaryId || !book || chapter == null) return;
     setAddMsg(null);
-    const upcoming = await ipc.service.upcoming(library.id, 0, 1);
+    // Target the workspace's selected service; fall back to the old
+    // first-upcoming behaviour only when used outside the workspace.
     const svc =
-      upcoming[0] ??
+      activeService ??
+      (await ipc.service.upcoming(library.id, 0, 1))[0] ??
       (await ipc.service.create(library.id, t("svcNewService"), Date.now()));
-    await ipc.bible.addToService(
+    const item = await ipc.bible.addToService(
       svc.id,
       primaryId,
       book,
@@ -160,7 +185,10 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
       range?.start ?? null,
       range?.end ?? null,
     );
-    setAddMsg(t("bibAddedTo", { name: svc.name }));
+    setAddMsg(
+      showNow ? t("bibShownNow") : t("bibAddedTo", { name: svc.name }),
+    );
+    await onAdded?.(item, { showNow });
   }
 
   const inRange = (v: number) =>
@@ -282,9 +310,18 @@ export function BiblePage({ library, deepLink, onDeepLinkDone }: Props) {
                   {chapter}
                   {formatVerseSuffix(range)}
                 </h2>
-                <Button size="sm" variant="outline" onClick={addToService}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addToService(false)}
+                >
                   <Plus size={14} /> {t("bibAddToService")}
                 </Button>
+                {isLive && (
+                  <Button size="sm" onClick={() => addToService(true)}>
+                    <Play size={14} /> {t("bibShowNow")}
+                  </Button>
+                )}
                 {addMsg && (
                   <span className="text-xs text-[var(--color-success)]">
                     {addMsg}
