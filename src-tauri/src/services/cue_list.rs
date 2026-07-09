@@ -129,6 +129,29 @@ pub struct CueList {
     pub cues: Vec<Cue>,
 }
 
+impl Cue {
+    /// The stable, deterministic id of this cue. Cue ids are derived from
+    /// their source rows (`svc:{svc}:song:{id}:...`), so the same content
+    /// keeps the same id across recompiles — which is what lets the live
+    /// session remap its position when the cue list is swapped mid-service.
+    pub fn cue_id(&self) -> &str {
+        match self {
+            Cue::ShowSlide { cue_id, .. }
+            | Cue::BlackOut { cue_id }
+            | Cue::ShowLogo { cue_id }
+            | Cue::Pause { cue_id, .. } => cue_id,
+        }
+    }
+
+    /// The service-item back-reference, when this cue has one.
+    pub fn source(&self) -> Option<&CueSource> {
+        match self {
+            Cue::ShowSlide { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+}
+
 impl CueList {
     pub fn len(&self) -> usize {
         self.cues.len()

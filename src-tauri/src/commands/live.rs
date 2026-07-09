@@ -13,7 +13,9 @@ use crate::db::repositories::{ServiceRepo, SongRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::cue_list::{CueCompiler, CueList};
-use crate::services::live_session::{LiveAction, LiveFrame, LiveSession, LiveSessionView};
+use crate::services::live_session::{
+    LiveAction, LiveFrame, LiveSession, LiveSessionView, OutputState,
+};
 use crate::services::session_store::SessionStore;
 use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
 use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
@@ -219,6 +221,66 @@ pub fn companion_broadcast(state: State<'_, AppState>) -> AppResult<u32> {
     drop(guard);
     let _ = store(&state).record_seq(next);
     Ok(seq)
+}
+
+/// Recompile the running service and swap the fresh cue list into the live
+/// session — the operator added a verse or edited the plan mid-service. The
+/// cue on air stays on air (remapped by cue id; see
+/// [`LiveSession::replace_cue_list`]) and the output override is preserved.
+#[tauri::command]
+pub async fn live_reload_cue_list(state: State<'_, AppState>) -> AppResult<LiveSessionView> {
+    // Compile without holding the live lock (same rule as `live_start`: the
+    // lock is never held across an await).
+    let service_id = {
+        let guard = state.live.lock();
+        guard
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?
+            .service_id
+            .clone()
+    };
+    let cue_list = CueCompiler::new(&state.db.pool)
+        .compile(&service_id)
+        .await?;
+
+    let mut guard = state.live.lock();
+    let session = guard
+        .as_mut()
+        .ok_or_else(|| AppError::Validation("ingen aktiv live-sesjon".into()))?;
+    if session.service_id != service_id {
+        return Err(AppError::Validation(
+            "live-sesjonen byttet tjeneste under rekompilering".into(),
+        ));
+    }
+    session.replace_cue_list(cue_list, now_ms());
+    let view = session.view();
+    // The recovery WAL's header holds the cue list, so replaying old actions
+    // against the new list would resume at the wrong cue. Rewrite the log:
+    // fresh header (new list) + synthetic actions that reproduce the current
+    // position and output override. Best-effort, like every store write.
+    let snapshot = session.clone();
+    drop(guard);
+    let s = store(&state);
+    let _ = s.begin(&snapshot);
+    let _ = s.record(&LiveAction::GoTo {
+        index: snapshot.index,
+    });
+    match snapshot.output {
+        OutputState::Blackout => {
+            let _ = s.record(&LiveAction::Blackout);
+        }
+        OutputState::Logo => {
+            let _ = s.record(&LiveAction::ShowLogo);
+        }
+        OutputState::Message => {
+            let _ = s.record(&LiveAction::ShowMessage {
+                text: snapshot.message_text.clone().unwrap_or_default(),
+            });
+        }
+        OutputState::Normal => {}
+    }
+    push_to_outputs(&state, &view.frame);
+    Ok(view)
 }
 
 /// Apply one operator action to the running session.

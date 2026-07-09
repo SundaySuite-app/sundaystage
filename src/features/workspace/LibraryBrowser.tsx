@@ -1,9 +1,12 @@
 /**
- * The resource browser — ProPresenter's library + FreeShow's tabbed drawer.
- * Slides in from the left over the workspace so the operator can find a song,
- * scripture, deck or theme without leaving the console. Each tab reuses the
- * existing full-page feature wholesale, so all their behaviour (search,
- * editing, AI formatting, deep-link) comes along for free.
+ * The resource browser — ProPresenter's library + FreeShow's tabbed drawer,
+ * DOCKED as a left panel instead of an overlay: the console (grid, Preview,
+ * Program, transport) stays visible and its hotkeys stay armed while the
+ * operator finds a song, scripture, deck or theme. `data-console-dock` marks
+ * the subtree for the workspace's keyboard scoping (see consoleKeys.ts):
+ * navigation keys stay local in here, panic keys (B/L/Esc) still reach the
+ * console. Each tab reuses the existing full-page feature wholesale, so all
+ * their behaviour (search, editing, AI formatting, deep-link) comes for free.
  */
 import { useEffect, useState } from "react";
 import {
@@ -14,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { Library } from "@/lib/bindings";
+import type { Library, ServiceItem } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 import { LibraryPage } from "@/features/library/LibraryPage";
@@ -40,6 +43,13 @@ interface Props {
   /** Deep-link a bible passage open in the Scripture tab. */
   bibleDeepLink?: BibleDeepLink | null;
   onBibleDeepLinkDone?: () => void;
+  /** Workspace context for the Scripture tab's add/show-now actions. */
+  activeService?: { id: string; name: string } | null;
+  isLive?: boolean;
+  onBibleAdded?: (
+    item: ServiceItem,
+    opts: { showNow: boolean },
+  ) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -51,6 +61,9 @@ export function LibraryBrowser({
   onDeepLinkDone,
   bibleDeepLink,
   onBibleDeepLinkDone,
+  activeService,
+  isLive,
+  onBibleAdded,
   onClose,
 }: Props) {
   const t = useT();
@@ -60,87 +73,79 @@ export function LibraryBrowser({
     if (open) setTab(initialTab);
   }, [open, initialTab]);
 
-  // Esc closes the browser.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // Esc is handled by the workspace's scoped key handler (close the dock,
+  // otherwise blackout) — no listener of our own, it would double-fire.
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div className="relative flex h-full w-[min(92vw,1100px)] flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)] shadow-[var(--shadow-elevated)]">
-        <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-3 py-2">
-          {TABS.map(({ id, tkey, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                tab === id
-                  ? "bg-[var(--color-bg-surface)] text-[var(--color-fg)]"
-                  : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]/60 hover:text-[var(--color-fg)]",
-              )}
-            >
-              <Icon size={15} aria-hidden />
-              {t(tkey)}
-            </button>
-          ))}
-          <div className="flex-1" />
+    <div
+      data-console-dock
+      className="flex h-full w-[clamp(380px,38vw,620px)] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)]"
+    >
+      <div className="flex items-center gap-1 border-b border-[var(--color-border)] px-3 py-2">
+        {TABS.map(({ id, tkey, icon: Icon }) => (
           <button
+            key={id}
             type="button"
-            onClick={onClose}
-            title={t("actionClose")}
-            className="rounded-md p-1.5 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+            onClick={() => setTab(id)}
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              tab === id
+                ? "bg-[var(--color-bg-surface)] text-[var(--color-fg)]"
+                : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)]/60 hover:text-[var(--color-fg)]",
+            )}
           >
-            <X size={16} />
+            <Icon size={15} aria-hidden />
+            {t(tkey)}
           </button>
-        </div>
+        ))}
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={onClose}
+          title={t("actionClose")}
+          className="rounded-md p-1.5 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <X size={16} />
+        </button>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {tab === "songs" ? (
-            <LibraryPage
-              library={library}
-              openSongId={openSongId ?? null}
-              onDeepLinkDone={onDeepLinkDone}
-            />
-          ) : tab === "scripture" ? (
-            <BiblePage
-              library={library}
-              deepLink={bibleDeepLink}
-              onDeepLinkDone={onBibleDeepLinkDone}
-            />
-          ) : tab === "decks" ? (
-            <DecksPage library={library} />
-          ) : (
-            <div className="grid h-full place-items-center p-10 text-center">
-              <div className="max-w-sm">
-                <Palette
-                  size={28}
-                  className="mx-auto mb-3 text-[var(--color-fg-muted)]"
-                  aria-hidden
-                />
-                <h3 className="text-[var(--text-ui-lg)] font-semibold">
-                  {t("wsThemesTab")}
-                </h3>
-                <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-                  {t("wsThemesComingSoon")}
-                </p>
-              </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {tab === "songs" ? (
+          <LibraryPage
+            library={library}
+            openSongId={openSongId ?? null}
+            onDeepLinkDone={onDeepLinkDone}
+          />
+        ) : tab === "scripture" ? (
+          <BiblePage
+            library={library}
+            deepLink={bibleDeepLink}
+            onDeepLinkDone={onBibleDeepLinkDone}
+            activeService={activeService}
+            isLive={isLive}
+            onAdded={onBibleAdded}
+          />
+        ) : tab === "decks" ? (
+          <DecksPage library={library} />
+        ) : (
+          <div className="grid h-full place-items-center p-10 text-center">
+            <div className="max-w-sm">
+              <Palette
+                size={28}
+                className="mx-auto mb-3 text-[var(--color-fg-muted)]"
+                aria-hidden
+              />
+              <h3 className="text-[var(--text-ui-lg)] font-semibold">
+                {t("wsThemesTab")}
+              </h3>
+              <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+                {t("wsThemesComingSoon")}
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

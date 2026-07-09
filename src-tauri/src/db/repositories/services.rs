@@ -182,6 +182,38 @@ impl<'a> ServiceRepo<'a> {
             .map_err(Into::into)
     }
 
+    /// Append a custom-deck item — the cue compiler expands the deck's slides
+    /// into cues at go-live.
+    pub async fn add_deck_item(
+        &self,
+        service_id: &str,
+        position: i64,
+        custom_deck_id: &str,
+    ) -> AppResult<ServiceItem> {
+        let id = new_id();
+        let now = now_ms();
+        sqlx::query(
+            r#"
+            INSERT INTO service_item (id, service_id, position, kind, song_id,
+                arrangement_id, key_override, bible_reference_id, custom_deck_id,
+                media_asset_id, notes, created_at, updated_at)
+            VALUES (?1, ?2, ?3, 'custom_deck', NULL, NULL, NULL, NULL, ?4, NULL, NULL, ?5, ?5)
+            "#,
+        )
+        .bind(&id)
+        .bind(service_id)
+        .bind(position)
+        .bind(custom_deck_id)
+        .bind(now)
+        .execute(self.pool)
+        .await?;
+        sqlx::query_as::<_, ServiceItem>("SELECT * FROM service_item WHERE id = ?1")
+            .bind(&id)
+            .fetch_one(self.pool)
+            .await
+            .map_err(Into::into)
+    }
+
     /// Update an existing item's arrangement / key / notes. Each field is set to
     /// exactly the value given (None → NULL), so callers submit the full desired
     /// state of those fields.
@@ -491,6 +523,36 @@ mod tests {
             .await
             .unwrap()
             .id
+    }
+
+    #[tokio::test]
+    async fn add_deck_item_persists_kind_and_deck_reference() {
+        let db = Database::open_in_memory().await.unwrap();
+        let lib = LibraryRepo::new(&db.pool)
+            .create(LibraryInput {
+                name: "Test".into(),
+                default_locale: None,
+            })
+            .await
+            .unwrap();
+        let deck = crate::db::repositories::DeckRepo::new(&db.pool)
+            .create_deck(&lib.id, "Kunngjøringer")
+            .await
+            .unwrap();
+        let repo = ServiceRepo::new(&db.pool);
+        let svc = repo.create(&lib.id, "Svc", now_ms()).await.unwrap();
+
+        let pos = repo.next_position(&svc.id).await.unwrap();
+        let item = repo.add_deck_item(&svc.id, pos, &deck.id).await.unwrap();
+        assert_eq!(item.kind, "custom_deck");
+        assert_eq!(item.custom_deck_id.as_deref(), Some(deck.id.as_str()));
+
+        // The FK still guards against dangling deck ids.
+        let pos = repo.next_position(&svc.id).await.unwrap();
+        assert!(repo
+            .add_deck_item(&svc.id, pos, "no-such-deck")
+            .await
+            .is_err());
     }
 
     #[tokio::test]

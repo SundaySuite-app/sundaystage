@@ -211,6 +211,7 @@ pub fn run() {
             // Live engine
             commands::live::live_compile_cue_list,
             commands::live::live_start,
+            commands::live::live_reload_cue_list,
             commands::live::live_dispatch,
             commands::live::live_state,
             commands::live::live_end,

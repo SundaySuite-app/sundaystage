@@ -25,6 +25,7 @@ import type {
   LiveSessionView,
   OutputAppearance,
   Service,
+  ServiceItem,
 } from "@/lib/bindings";
 import { useT } from "@/lib/i18n";
 import { useErrorToast } from "@/lib/useErrorToast";
@@ -37,7 +38,11 @@ import {
   type BridgeCue,
   type LiveBridgeContext,
 } from "@/lib/liveBridge";
-import { CommandPalette, type Route } from "@/components/CommandPalette";
+import {
+  CommandPalette,
+  type PaletteAction,
+  type Route,
+} from "@/components/CommandPalette";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { ServicesPage } from "@/features/services/ServicesPage";
 import { StageDisplay } from "@/features/live/StageDisplay";
@@ -47,10 +52,13 @@ import { ScheduleRail } from "./ScheduleRail";
 import { SlideGrid } from "./SlideGrid";
 import { PreviewLivePanel } from "./PreviewLivePanel";
 import { LibraryBrowser, type BrowserTab } from "./LibraryBrowser";
+import { MessagePanel } from "./MessagePanel";
 import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { cueServiceItemId, parseBibleRef } from "./cueUtils";
+import { keyScope } from "./consoleKeys";
+import { cn } from "@/lib/cn";
 import { SingleFlight } from "./singleFlight";
 import type { BibleDeepLink } from "@/features/bible/BiblePage";
 
@@ -83,6 +91,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     null,
   );
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -246,9 +255,23 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     },
     [isLive, dispatch],
   );
+  // The upcoming cue's text, for the web scene/confidence monitor (/s).
+  // Sensitive slides never leave the building — not even as a "next" preview.
+  const webShareNext = useMemo(() => {
+    if (session == null) return null;
+    const nextCue = cues[session.index + 1];
+    if (!nextCue || nextCue.kind !== "show_slide") return null;
+    if (nextCue.slide_content.sensitive_slide) return null;
+    return {
+      lines: nextCue.slide_content.text_lines,
+      label:
+        nextCue.slide_content.section_label ?? nextCue.source.display_label,
+    };
+  }, [cues, session]);
   const webShare = useWebShare({
     frame: session?.frame ?? null,
     appearance,
+    next: webShareNext,
     active: isLive,
     onCommand: onRemoteCommand,
   });
@@ -335,8 +358,10 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   }, [recoverable]);
 
   // ── Hotkeys ─────────────────────────────────────────────────────────────
-  const anyOverlayOpen =
-    !!browser ||
+  // True modals own the keyboard entirely. The docked browser does NOT — the
+  // whole point of docking it is that the operator can look up content while
+  // the console stays armed (see consoleKeys.ts for the scoping rules).
+  const modalOpen =
     settingsOpen ||
     scheduleEditorOpen ||
     jumpOpen ||
@@ -345,26 +370,53 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     exportOpen;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const scope = keyScope(e.target);
       // Never hijack typing in a form field.
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement
-      )
-        return;
-      // When any overlay is open it owns the keyboard — bail before every other
-      // case (including ⌘J / the help toggle) so console shortcuts can't fire
-      // behind a modal. ⌘K is left untouched here so cmdk still receives it.
-      if (anyOverlayOpen) return;
+      if (scope === "text") return;
+      // A modal owns the keyboard — bail before every other case so console
+      // shortcuts can't fire behind it. ⌘K is left untouched here so cmdk
+      // still receives it.
+      if (modalOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
         if (isLive) setJumpOpen((o) => !o);
         return;
       }
+      // ⌘B toggles the resource browser (find a song → back, keyboard-only).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setBrowser((b) => (b ? null : { tab: "songs" }));
+        return;
+      }
       if (e.metaKey || e.ctrlKey) return; // leave ⌘K etc. to their handlers
+      // Esc closes the docked browser first; blackout keeps B (and Esc when
+      // the browser is closed).
+      if (e.key === "Escape" && browser) {
+        e.preventDefault();
+        setBrowser(null);
+        return;
+      }
       if (e.key === "?") {
         e.preventDefault();
         setShortcutsOpen((o) => !o);
+        return;
+      }
+      // Focus inside the docked browser: only the panic keys reach the
+      // console — Space/Enter/arrows keep doing browser navigation.
+      if (scope === "dock") {
+        switch (e.key) {
+          case "b":
+          case "B":
+            if (isLive) {
+              e.preventDefault();
+              dispatch({ type: "blackout" });
+            }
+            break;
+          case "l":
+          case "L":
+            if (isLive) dispatch({ type: "show_logo" });
+            break;
+        }
         return;
       }
       switch (e.key) {
@@ -409,7 +461,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [anyOverlayOpen, cues.length, go, dispatch, isLive]);
+  }, [modalOpen, browser, cues.length, go, dispatch, isLive]);
 
   // ── Command palette routing ───────────────────────────────────────────────
   const onNavigate = useCallback((route: Route) => {
@@ -429,6 +481,9 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       case "media":
         setMediaOpen(true);
         break;
+      case "services":
+        setScheduleEditorOpen(true);
+        break;
       case "settings":
         setSettingsOpen(true);
         break;
@@ -436,6 +491,24 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         break;
     }
   }, []);
+
+  /** Palette quick actions — every advertised action does something real. */
+  const onPaletteAction = useCallback(
+    (action: PaletteAction) => {
+      switch (action) {
+        case "new-song":
+          setBrowser({ tab: "songs" });
+          break;
+        case "new-service":
+          setScheduleEditorOpen(true);
+          break;
+        case "go-live":
+          if (!isLive && cues.length > 0) void startSession();
+          break;
+      }
+    },
+    [isLive, cues.length, startSession],
+  );
 
   const onOpenResult = useCallback((route: Route, id: string) => {
     if (route === "services") {
@@ -458,6 +531,46 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       setBrowser({ tab: "scripture" });
     }
   }, []);
+
+  /**
+   * A bible passage was appended to the selected service from the browser.
+   * Refresh the plan + grid, and when live hot-swap the running session's cue
+   * list so the new cue is actually reachable — then either put it on air
+   * ("Vis nå") or stage it in Preview.
+   */
+  const onBibleAdded = useCallback(
+    async (item: ServiceItem, opts: { showNow: boolean }) => {
+      if (!service) return;
+      void qc.invalidateQueries({ queryKey: ["cueSummary", service.id] });
+      // Refetch through the query cache so the grid and the index we compute
+      // here see the exact same list.
+      const list = await qc.fetchQuery({
+        queryKey: ["cueList", service.id],
+        queryFn: () => ipc.live.compileCueList(service.id),
+      });
+      const cueIndex = list.cues.findIndex(
+        (c) => cueServiceItemId(c) === item.id,
+      );
+      // Hot-swap the live session's snapshot (it never recompiles by itself).
+      // Only when the live session runs the service we just added to.
+      if (session && session.service_id === service.id) {
+        try {
+          const view = await ipc.live.reload();
+          setSession(view);
+          if (opts.showNow && cueIndex >= 0) {
+            dispatch({ type: "go_to", index: cueIndex });
+            setPreviewIndex(Math.min(cueIndex + 1, list.cues.length - 1));
+            return;
+          }
+        } catch {
+          showError(t("dispatchError"));
+          return;
+        }
+      }
+      if (cueIndex >= 0) setPreviewIndex(cueIndex);
+    },
+    [service, session, qc, dispatch, showError, t],
+  );
 
   /** Open the bible browser pre-navigated to the current preview cue's passage. */
   const openBibleCue = useCallback(() => {
@@ -489,11 +602,23 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onStop={stopSession}
         onBlackout={() => dispatch({ type: "blackout" })}
         onLogo={() => dispatch({ type: "show_logo" })}
+        onMessage={() => isLive && setMessageOpen((o) => !o)}
+        onClear={() => dispatch({ type: "clear" })}
         onJump={() => isLive && setJumpOpen(true)}
         onStage={() => isLive && setStageOpen(true)}
         onExport={() => isLive && setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
+      />
+
+      {/* Operator message popover — a light popover, never a modal: the
+          console keeps its keyboard while it is open. */}
+      <MessagePanel
+        open={messageOpen && isLive}
+        active={session?.output === "message"}
+        onShow={(text) => dispatch({ type: "show_message", text })}
+        onClear={() => dispatch({ type: "clear" })}
+        onClose={() => setMessageOpen(false)}
       />
 
       {isLive ? (
@@ -506,17 +631,42 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       ) : null}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Docked resource browser: replaces the schedule column while open so
+            the grid and Preview/Program never move — content lookup and live
+            transport are no longer mutually exclusive. */}
+        <LibraryBrowser
+          library={library}
+          open={!!browser}
+          initialTab={browser?.tab ?? "songs"}
+          openSongId={browserSongId}
+          onDeepLinkDone={() => setBrowserSongId(null)}
+          bibleDeepLink={bibleDeepLink}
+          onBibleDeepLinkDone={() => setBibleDeepLink(null)}
+          activeService={
+            service ? { id: service.id, name: service.name } : null
+          }
+          isLive={isLive}
+          onBibleAdded={onBibleAdded}
+          onClose={() => setBrowser(null)}
+        />
         {service ? (
-          <div className="grid min-h-0 flex-1 grid-cols-[280px_1fr_340px]">
-            <ScheduleRail
-              service={service}
-              focusedItemId={focusedItemId}
-              onFocusItem={(itemId) => {
-                const idx = itemFirstIndex.get(itemId);
-                if (idx != null) setPreviewIndex(idx);
-              }}
-              onEditSchedule={() => setScheduleEditorOpen(true)}
-            />
+          <div
+            className={cn(
+              "grid min-h-0 flex-1",
+              browser ? "grid-cols-[1fr_340px]" : "grid-cols-[280px_1fr_340px]",
+            )}
+          >
+            {!browser && (
+              <ScheduleRail
+                service={service}
+                focusedItemId={focusedItemId}
+                onFocusItem={(itemId) => {
+                  const idx = itemFirstIndex.get(itemId);
+                  if (idx != null) setPreviewIndex(idx);
+                }}
+                onEditSchedule={() => setScheduleEditorOpen(true)}
+              />
+            )}
             <main className="min-h-0 overflow-hidden bg-[var(--color-bg)]">
               <SlideGrid
                 cues={cues}
@@ -567,17 +717,6 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       />
 
       {/* Overlays */}
-      <LibraryBrowser
-        library={library}
-        open={!!browser}
-        initialTab={browser?.tab ?? "songs"}
-        openSongId={browserSongId}
-        onDeepLinkDone={() => setBrowserSongId(null)}
-        bibleDeepLink={bibleDeepLink}
-        onBibleDeepLinkDone={() => setBibleDeepLink(null)}
-        onClose={() => setBrowser(null)}
-      />
-
       {scheduleEditorOpen && (
         <ModalShell
           onClose={() => setScheduleEditorOpen(false)}
@@ -651,6 +790,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       <CommandPalette
         onNavigate={onNavigate}
         onOpenResult={onOpenResult}
+        onAction={onPaletteAction}
         libraryId={library.id}
       />
 

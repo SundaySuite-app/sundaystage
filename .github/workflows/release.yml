@@ -30,10 +30,12 @@ jobs:
         include:
           # macos-latest is Apple Silicon (arm64). Universal/Intel is a
           # follow-up (needs a universal target + matching deps).
+          # --features ai compiles the real Anthropic client into releases
+          # (default = [] ships only the offline heuristic fallback).
           - platform: macos-latest
-            args: ""
+            args: "--features ai"
           - platform: windows-latest
-            args: ""
+            args: "--features ai"
 
     runs-on: ${{ matrix.platform }}
     steps:

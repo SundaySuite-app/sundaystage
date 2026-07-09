@@ -268,6 +268,8 @@ const en: Catalog = {
   kindGap: "Break",
   kindAnnouncement: "Announcement",
   kindCustomDeck: "Slides",
+  svcNoDecksHint:
+    "No slide decks yet — create one under Decks in the library panel.",
   kindVideo: "Video",
   actionPreview: "Preview",
 
@@ -382,6 +384,14 @@ const en: Catalog = {
   lpNoNotes: "No notes for this service.",
   lpPrevious: "Previous",
   liveBlackout: "Blackout",
+  liveMessage: "Message",
+  liveClearOverride: "Clear",
+  msgPanelTitle: "Operator message",
+  msgShow: "Show",
+  msgClear: "Remove message from output",
+  msgPlaceholder: "Write a message …",
+  msgPresetStartingSoon: "The service starts in 5 minutes",
+  msgPresetNursery: "Nursery: you are needed in the children's room",
   liveLogo: "Logo",
   lpJumpTo: "Jump to",
   lpExport: "Export",
@@ -470,6 +480,8 @@ const en: Catalog = {
     "Look up a reference (John 3:16) or search the text (shepherd)…",
   bibAddToService: "Add to service",
   bibAddedTo: "Added to «{name}».",
+  bibShowNow: "Show now",
+  bibShownNow: "On screen now.",
   bibSelectBookChapter: "Pick a book and chapter, or search above.",
   bibBundledNote:
     "Bundled: King James Version + Bibelen 1930 (selected passages). Full download is coming.",
@@ -565,6 +577,8 @@ const en: Catalog = {
   kbBlackout: "Blackout screen",
   kbLogo: "Show logo",
   kbJump: "Jump to cue",
+  kbPalette: "Command palette",
+  kbBrowse: "Open / close the library panel",
   kbShortcutsHelp: "Show this help",
 
   // ── Bible verse deep-open ───────────────────────────────────────────────
@@ -915,6 +929,8 @@ const no: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Kunngjøring",
   kindCustomDeck: "Lysbilder",
+  svcNoDecksHint:
+    "Ingen lysbildeserier ennå — lag en under Decks i bibliotekpanelet.",
   kindVideo: "Video",
   actionPreview: "Forhåndsvis",
 
@@ -1031,6 +1047,14 @@ const no: Catalog = {
   lpNoNotes: "Ingen notater for denne gudstjenesten.",
   lpPrevious: "Forrige",
   liveBlackout: "Blackout",
+  liveMessage: "Melding",
+  liveClearOverride: "Nullstill",
+  msgPanelTitle: "Operatørmelding",
+  msgShow: "Vis",
+  msgClear: "Fjern melding fra skjermen",
+  msgPlaceholder: "Skriv en melding …",
+  msgPresetStartingSoon: "Gudstjenesten starter om 5 minutter",
+  msgPresetNursery: "Barnevakt: du trengs på barnerommet",
   liveLogo: "Logo",
   lpJumpTo: "Hopp til",
   lpExport: "Eksport",
@@ -1119,6 +1143,8 @@ const no: Catalog = {
     "Slå opp en referanse (John 3:16) eller søk i teksten (shepherd)…",
   bibAddToService: "Legg til i gudstjeneste",
   bibAddedTo: "Lagt til i «{name}».",
+  bibShowNow: "Vis nå",
+  bibShownNow: "Vises på skjermen nå.",
   bibSelectBookChapter: "Velg en bok og et kapittel, eller søk over.",
   bibBundledNote:
     "Innebygd: King James Version + Bibelen 1930 (utvalgte passasjer). Full nedlasting kommer.",
@@ -1215,6 +1241,8 @@ const no: Catalog = {
   kbBlackout: "Svart skjerm",
   kbLogo: "Vis logo",
   kbJump: "Hopp til cue",
+  kbPalette: "Kommandopalett",
+  kbBrowse: "Åpne/lukk bibliotekpanelet",
   kbShortcutsHelp: "Vis denne hjelpen",
 
   // ── Bibel-vers deep-open ────────────────────────────────────────────────
@@ -1519,6 +1547,8 @@ const sv: Catalog = {
   kindGap: "Paus",
   kindAnnouncement: "Meddelande",
   kindCustomDeck: "Bilder",
+  svcNoDecksHint:
+    "Inga bildspel ännu — skapa ett under Decks i bibliotekspanelen.",
   kindVideo: "Video",
   actionPreview: "Förhandsvisa",
   svcNewDefaultTitle: "Ny gudstjänst {date}",
@@ -1625,6 +1655,14 @@ const sv: Catalog = {
   lpNoNotes: "Inga anteckningar för denna gudstjänst.",
   lpPrevious: "Föregående",
   liveBlackout: "Blackout",
+  liveMessage: "Meddelande",
+  liveClearOverride: "Rensa",
+  msgPanelTitle: "Operatörsmeddelande",
+  msgShow: "Visa",
+  msgClear: "Ta bort meddelandet från skärmen",
+  msgPlaceholder: "Skriv ett meddelande …",
+  msgPresetStartingSoon: "Gudstjänsten börjar om 5 minuter",
+  msgPresetNursery: "Barnvakt: du behövs i barnrummet",
   liveLogo: "Logo",
   lpJumpTo: "Hoppa till",
   lpExport: "Exportera",
@@ -1705,6 +1743,8 @@ const sv: Catalog = {
     "Slå upp en referens (John 3:16) eller sök i texten (herde)…",
   bibAddToService: "Lägg till i gudstjänst",
   bibAddedTo: "Tillagd i «{name}».",
+  bibShowNow: "Visa nu",
+  bibShownNow: "Visas på skärmen nu.",
   bibSelectBookChapter: "Välj en bok och ett kapitel, eller sök ovan.",
   bibBundledNote:
     "Inbyggt: King James Version + Bibelen 1930 (utvalda avsnitt). Full nedladdning kommer.",
@@ -1840,6 +1880,8 @@ const sv: Catalog = {
   kbBlackout: "Svart skärm",
   kbLogo: "Visa logo",
   kbJump: "Hoppa till cue",
+  kbPalette: "Kommandopalett",
+  kbBrowse: "Öppna/stäng bibliotekspanelen",
   kbShortcutsHelp: "Visa denna hjälp",
 
   // ── Gudstjänstmallar ─────────────────────────────────────────────────────
@@ -2117,6 +2159,8 @@ const da: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Meddelelse",
   kindCustomDeck: "Dias",
+  svcNoDecksHint:
+    "Ingen slide-serier endnu — opret en under Decks i bibliotekspanelet.",
   kindVideo: "Video",
   actionPreview: "Forhåndsvis",
   svcNewDefaultTitle: "Ny gudstjeneste {date}",
@@ -2222,6 +2266,14 @@ const da: Catalog = {
   lpNoNotes: "Ingen noter til denne gudstjeneste.",
   lpPrevious: "Forrige",
   liveBlackout: "Blackout",
+  liveMessage: "Besked",
+  liveClearOverride: "Ryd",
+  msgPanelTitle: "Operatørbesked",
+  msgShow: "Vis",
+  msgClear: "Fjern besked fra skærmen",
+  msgPlaceholder: "Skriv en besked …",
+  msgPresetStartingSoon: "Gudstjenesten begynder om 5 minutter",
+  msgPresetNursery: "Børnepasning: du er ønsket i børneværelset",
   liveLogo: "Logo",
   lpJumpTo: "Hop til",
   lpExport: "Eksport",
@@ -2302,6 +2354,8 @@ const da: Catalog = {
     "Slå en reference op (John 3:16) eller søg i teksten (shepherd)…",
   bibAddToService: "Tilføj til gudstjeneste",
   bibAddedTo: "Tilføjet til «{name}».",
+  bibShowNow: "Vis nu",
+  bibShownNow: "Vises på skærmen nu.",
   bibSelectBookChapter: "Vælg en bog og et kapitel, eller søg ovenfor.",
   bibBundledNote:
     "Indbygget: King James Version + Bibelen 1930 (udvalgte passager). Fuld download kommer.",
@@ -2437,6 +2491,8 @@ const da: Catalog = {
   kbBlackout: "Sort skærm",
   kbLogo: "Vis logo",
   kbJump: "Hop til cue",
+  kbPalette: "Kommandopalet",
+  kbBrowse: "Åbn/luk bibliotekspanelet",
   kbShortcutsHelp: "Vis denne hjælp",
 
   // ── Gudstjenesteskabeloner ───────────────────────────────────────────────
@@ -2716,6 +2772,8 @@ const de: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Ankündigung",
   kindCustomDeck: "Folien",
+  svcNoDecksHint:
+    "Noch keine Folien-Decks — erstelle eins unter Decks im Bibliothekspanel.",
   kindVideo: "Video",
   actionPreview: "Vorschau",
   svcNewDefaultTitle: "Neuer Gottesdienst {date}",
@@ -2823,6 +2881,14 @@ const de: Catalog = {
   lpNoNotes: "Keine Notizen für diesen Gottesdienst.",
   lpPrevious: "Vorherige",
   liveBlackout: "Blackout",
+  liveMessage: "Nachricht",
+  liveClearOverride: "Zurücksetzen",
+  msgPanelTitle: "Operator-Nachricht",
+  msgShow: "Anzeigen",
+  msgClear: "Nachricht vom Bildschirm entfernen",
+  msgPlaceholder: "Nachricht schreiben …",
+  msgPresetStartingSoon: "Der Gottesdienst beginnt in 5 Minuten",
+  msgPresetNursery: "Kinderbetreuung: Du wirst im Kinderraum gebraucht",
   liveLogo: "Logo",
   lpJumpTo: "Springen zu",
   lpExport: "Export",
@@ -2904,6 +2970,8 @@ const de: Catalog = {
     "Schlage eine Stelle nach (Johannes 3:16) oder durchsuche den Text (Hirte)…",
   bibAddToService: "Zum Gottesdienst hinzufügen",
   bibAddedTo: "Zu «{name}» hinzugefügt.",
+  bibShowNow: "Jetzt zeigen",
+  bibShownNow: "Wird jetzt angezeigt.",
   bibSelectBookChapter: "Wähle ein Buch und ein Kapitel oder suche oben.",
   bibBundledNote:
     "Mitgeliefert: King James Version + Bibelen 1930 (ausgewählte Passagen). Der vollständige Download kommt.",
@@ -3045,6 +3113,8 @@ const de: Catalog = {
   kbBlackout: "Bildschirm schwarz",
   kbLogo: "Logo anzeigen",
   kbJump: "Zu Cue springen",
+  kbPalette: "Befehlspalette",
+  kbBrowse: "Bibliothekspanel öffnen/schließen",
   kbShortcutsHelp: "Diese Hilfe anzeigen",
 
   // ── Gottesdienst-Vorlagen ────────────────────────────────────────────────
@@ -3327,6 +3397,8 @@ const fr: Catalog = {
   kindGap: "Pause",
   kindAnnouncement: "Annonce",
   kindCustomDeck: "Diapositives",
+  svcNoDecksHint:
+    "Aucun deck de diapositives — créez-en un sous Decks dans le panneau bibliothèque.",
   kindVideo: "Vidéo",
   actionPreview: "Aperçu",
   svcNewDefaultTitle: "Nouveau service {date}",
@@ -3435,6 +3507,14 @@ const fr: Catalog = {
   lpNoNotes: "Aucune note pour ce service.",
   lpPrevious: "Précédent",
   liveBlackout: "Blackout",
+  liveMessage: "Message",
+  liveClearOverride: "Effacer",
+  msgPanelTitle: "Message opérateur",
+  msgShow: "Afficher",
+  msgClear: "Retirer le message de l'écran",
+  msgPlaceholder: "Écrire un message …",
+  msgPresetStartingSoon: "Le culte commence dans 5 minutes",
+  msgPresetNursery: "Garderie : on a besoin de vous en salle des enfants",
   liveLogo: "Logo",
   lpJumpTo: "Aller à",
   lpExport: "Exporter",
@@ -3518,6 +3598,8 @@ const fr: Catalog = {
     "Cherchez une référence (Jean 3:16) ou recherchez dans le texte (berger)…",
   bibAddToService: "Ajouter au service",
   bibAddedTo: "Ajouté à «{name}».",
+  bibShowNow: "Afficher maintenant",
+  bibShownNow: "Affiché à l'écran.",
   bibSelectBookChapter:
     "Choisissez un livre et un chapitre, ou recherchez ci-dessus.",
   bibBundledNote:
@@ -3657,6 +3739,8 @@ const fr: Catalog = {
   kbBlackout: "Écran noir",
   kbLogo: "Afficher le logo",
   kbJump: "Aller au cue",
+  kbPalette: "Palette de commandes",
+  kbBrowse: "Ouvrir/fermer le panneau bibliothèque",
   kbShortcutsHelp: "Afficher cette aide",
 
   // ── Modèles de service ───────────────────────────────────────────────────
@@ -3935,6 +4019,8 @@ const pl: Catalog = {
   kindGap: "Przerwa",
   kindAnnouncement: "Ogłoszenie",
   kindCustomDeck: "Slajdy",
+  svcNoDecksHint:
+    "Brak zestawów slajdów — utwórz je w zakładce Decks w panelu biblioteki.",
   kindVideo: "Wideo",
   actionPreview: "Podgląd",
   svcNewDefaultTitle: "Nowe nabożeństwo {date}",
@@ -4040,6 +4126,14 @@ const pl: Catalog = {
   lpNoNotes: "Brak notatek do tego nabożeństwa.",
   lpPrevious: "Poprzedni",
   liveBlackout: "Blackout",
+  liveMessage: "Komunikat",
+  liveClearOverride: "Wyczyść",
+  msgPanelTitle: "Komunikat operatora",
+  msgShow: "Pokaż",
+  msgClear: "Usuń komunikat z ekranu",
+  msgPlaceholder: "Napisz komunikat …",
+  msgPresetStartingSoon: "Nabożeństwo rozpocznie się za 5 minut",
+  msgPresetNursery: "Opieka nad dziećmi: jesteś potrzebny w sali dzieci",
   liveLogo: "Logo",
   lpJumpTo: "Przejdź do",
   lpExport: "Eksport",
@@ -4120,6 +4214,8 @@ const pl: Catalog = {
     "Wyszukaj odnośnik (Jan 3:16) lub przeszukaj tekst (pasterz)…",
   bibAddToService: "Dodaj do nabożeństwa",
   bibAddedTo: "Dodano do «{name}».",
+  bibShowNow: "Pokaż teraz",
+  bibShownNow: "Wyświetlane teraz.",
   bibSelectBookChapter: "Wybierz księgę i rozdział lub wyszukaj powyżej.",
   bibBundledNote:
     "W zestawie: King James Version + Bibelen 1930 (wybrane fragmenty). Pełne pobieranie wkrótce.",
@@ -4255,6 +4351,8 @@ const pl: Catalog = {
   kbBlackout: "Czarny ekran",
   kbLogo: "Pokaż logo",
   kbJump: "Przejdź do cue",
+  kbPalette: "Paleta poleceń",
+  kbBrowse: "Otwórz/zamknij panel biblioteki",
   kbShortcutsHelp: "Pokaż tę pomoc",
 
   // ── Szablony nabożeństw ──────────────────────────────────────────────────

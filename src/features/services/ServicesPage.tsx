@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   BookOpen,
   CalendarDays,
@@ -22,6 +23,7 @@ import {
   GripVertical,
   Import,
   Languages,
+  LayoutTemplate,
   Megaphone,
   Music,
   Pause,
@@ -54,6 +56,7 @@ import { DEFAULT_OUTPUT_APPEARANCE } from "@/lib/outputBridge";
 import { SlideView } from "@/components/SlideView";
 import { Button, Select } from "@/components/ui";
 import { PlanPreviewModal } from "./PlanPreviewModal";
+import { TemplatesPage } from "./TemplatesPage";
 
 interface Props {
   library: Library;
@@ -76,6 +79,7 @@ export function ServicesPage({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const servicesQuery = useQuery({
@@ -147,6 +151,34 @@ export function ServicesPage({
     reader.readAsText(file);
   }
 
+  // Service templates — full feature, one click away from the schedule editor.
+  if (templatesOpen) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setTemplatesOpen(false)}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+          >
+            <ArrowLeft size={14} aria-hidden />
+            {t("navServices")}
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <TemplatesPage
+            libraryId={library.id}
+            onApplied={(serviceId) => {
+              setTemplatesOpen(false);
+              void servicesQuery.refetch();
+              setSelectedId(serviceId);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
@@ -184,6 +216,14 @@ export function ServicesPage({
         >
           <ClipboardPaste size={14} aria-hidden />
           <span>{t("planPreviewButton")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTemplatesOpen(true)}
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <LayoutTemplate size={14} aria-hidden />
+          <span>{t("tmplPageTitle")}</span>
         </button>
         <button
           type="button"
@@ -290,7 +330,9 @@ function QueueEditor({
 }) {
   const t = useT();
   const qc = useQueryClient();
-  const [adding, setAdding] = useState<null | "song" | "scripture">(null);
+  const [adding, setAdding] = useState<null | "song" | "scripture" | "deck">(
+    null,
+  );
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -331,6 +373,11 @@ function QueueEditor({
   const addNonSong = useMutation({
     mutationFn: (a: { kind: string; label: string }) =>
       ipc.service.addItem(service.id, a.kind, a.label),
+    onSuccess: () => refresh(),
+  });
+  const addDeck = useMutation({
+    mutationFn: (deckId: string) =>
+      ipc.service.addItem(service.id, "custom_deck", null, deckId),
     onSuccess: () => refresh(),
   });
   const addScripture = useMutation({
@@ -519,6 +566,14 @@ function QueueEditor({
                   }}
                 />
                 <AddMenuItem
+                  icon={LayoutTemplate}
+                  label={t("kindCustomDeck")}
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    setAdding("deck");
+                  }}
+                />
+                <AddMenuItem
                   icon={Pause}
                   label={t("kindGap")}
                   onClick={() => {
@@ -584,6 +639,16 @@ function QueueEditor({
         <AddScripturePanel
           onAdd={(a) => {
             addScripture.mutate(a);
+            setAdding(null);
+          }}
+          onClose={() => setAdding(null)}
+        />
+      )}
+      {adding === "deck" && (
+        <AddDeckPanel
+          library={library}
+          onAdd={(deckId) => {
+            addDeck.mutate(deckId);
             setAdding(null);
           }}
           onClose={() => setAdding(null)}
@@ -1013,6 +1078,63 @@ function EditableName({
       }}
       className="w-full rounded border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-1 font-semibold focus:border-[var(--color-accent)] focus:outline-none"
     />
+  );
+}
+
+/** Pick a custom slide deck to append — the cue compiler expands its slides. */
+function AddDeckPanel({
+  library,
+  onAdd,
+  onClose,
+}: {
+  library: Library;
+  onAdd: (deckId: string) => void;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const [deckId, setDeckId] = useState("");
+  const decks = useQuery({
+    queryKey: ["decks", library.id],
+    queryFn: () => ipc.deck.list(library.id),
+  });
+
+  // Default to the first deck once loaded.
+  useEffect(() => {
+    const list = decks.data;
+    if (list && list.length && !deckId) setDeckId(list[0].id);
+  }, [decks.data, deckId]);
+
+  return (
+    <div className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/40 px-6 py-3">
+      {decks.data && decks.data.length === 0 ? (
+        <p className="text-sm text-[var(--color-fg-muted)]">
+          {t("svcNoDecksHint")}
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label={t("kindCustomDeck")}>
+            <Select
+              className="w-64"
+              value={deckId}
+              onChange={(e) => setDeckId(e.target.value)}
+            >
+              {(decks.data ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button size="sm" disabled={!deckId} onClick={() => onAdd(deckId)}>
+            <Plus size={14} aria-hidden />
+            {t("actionAdd")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            {t("actionCancel")}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 

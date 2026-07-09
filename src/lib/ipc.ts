@@ -204,8 +204,18 @@ export const service = {
       arrangementId,
       keyOverride,
     }),
-  addItem: (serviceId: string, kind: string, label: string | null = null) =>
-    call<ServiceItem>("service_add_item", { serviceId, kind, label }),
+  addItem: (
+    serviceId: string,
+    kind: string,
+    label: string | null = null,
+    customDeckId: string | null = null,
+  ) =>
+    call<ServiceItem>("service_add_item", {
+      serviceId,
+      kind,
+      label,
+      customDeckId,
+    }),
   updateItem: (
     itemId: string,
     arrangementId: string | null,
@@ -234,6 +244,9 @@ export const live = {
     call<CueList>("live_compile_cue_list", { serviceId }),
   start: (serviceId: string) =>
     call<LiveSessionView>("live_start", { serviceId }),
+  /** Recompile the running service and hot-swap the session's cue list
+   *  (mid-service edits). The cue on air stays on air. */
+  reload: () => call<LiveSessionView>("live_reload_cue_list"),
   dispatch: (action: LiveAction) =>
     call<LiveSessionView>("live_dispatch", { action }),
   state: () => call<LiveSessionView | null>("live_state"),

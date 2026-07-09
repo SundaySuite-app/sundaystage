@@ -32,24 +32,64 @@ interface WebFrame {
   kind: "slide" | "black" | "logo" | "message" | "ended";
   text_lines?: string[];
   translation_lines?: string[] | null;
+  /** The NEXT slide's content, for the web scene/confidence monitor (/s). */
+  next_lines?: string[];
+  next_label?: string | null;
   section_label?: string | null;
   reference?: string | null;
   message?: string;
   appearance?: WebFrameAppearance | null;
 }
 
+/** The next slide's content, threaded through for the scene monitor. */
+export interface NextSlideInfo {
+  lines: string[];
+  label?: string | null;
+}
+
+// ── Contract limits ──────────────────────────────────────────────────────────
+// Mirror the web app's zod schema (sundaystage-web/lib/webframe.ts). The
+// server rejects the WHOLE frame on any out-of-range field — which silently
+// freezes every display on the previous slide — so we clamp/truncate here and
+// a frame is never rejected wholesale. Pinned by webShare.test.ts against the
+// vendored webframe.schema.json.
+const MAX_LINES = 40;
+const MAX_LINE_CHARS = 500;
+const MAX_LABEL_CHARS = 80;
+const MAX_REFERENCE_CHARS = 120;
+const MAX_MESSAGE_CHARS = 2000;
+const MAX_COLOR_CHARS = 32;
+const FONT_SCALE_MIN = 0.3;
+const FONT_SCALE_MAX = 3;
+
+const truncate = (s: string, max: number) =>
+  s.length > max ? s.slice(0, max) : s;
+const clampLines = (lines: string[]) =>
+  lines.slice(0, MAX_LINES).map((l) => truncate(l, MAX_LINE_CHARS));
+const clampLabel = (s: string | null | undefined) =>
+  s == null ? s : truncate(s, MAX_LABEL_CHARS);
+
+function clampAppearance(
+  appearance?: OutputAppearance,
+): WebFrameAppearance | undefined {
+  if (!appearance) return undefined;
+  const scale = appearance.text_scale;
+  return {
+    bg_color: truncate(appearance.bg_color, MAX_COLOR_CHARS),
+    text_color: truncate(appearance.text_color, MAX_COLOR_CHARS),
+    font_scale: Number.isFinite(scale)
+      ? Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, scale))
+      : 1,
+  };
+}
+
 /** Map a desktop LiveFrame → the web WebFrame, gating sensitive slides. */
 export function liveFrameToWebFrame(
   frame: LiveFrame,
   appearance?: OutputAppearance,
+  next?: NextSlideInfo | null,
 ): WebFrame {
-  const app: WebFrameAppearance | undefined = appearance
-    ? {
-        bg_color: appearance.bg_color,
-        text_color: appearance.text_color,
-        font_scale: appearance.text_scale,
-      }
-    : undefined;
+  const app = clampAppearance(appearance);
 
   if (frame.kind === "slide" && frame.slide_content.sensitive_slide) {
     return {
@@ -64,19 +104,68 @@ export function liveFrameToWebFrame(
       return {
         v: 1,
         kind: "slide",
-        text_lines: frame.slide_content.text_lines,
-        translation_lines: frame.slide_content.translation_lines,
-        section_label: frame.slide_content.section_label,
-        reference: frame.slide_content.reference,
+        text_lines: clampLines(frame.slide_content.text_lines),
+        translation_lines: frame.slide_content.translation_lines
+          ? clampLines(frame.slide_content.translation_lines)
+          : frame.slide_content.translation_lines,
+        next_lines: next ? clampLines(next.lines) : undefined,
+        next_label: next ? clampLabel(next.label) : undefined,
+        section_label: clampLabel(frame.slide_content.section_label),
+        reference:
+          frame.slide_content.reference == null
+            ? frame.slide_content.reference
+            : truncate(frame.slide_content.reference, MAX_REFERENCE_CHARS),
         appearance: app,
       };
     case "message":
-      return { v: 1, kind: "message", message: frame.text, appearance: app };
+      return {
+        v: 1,
+        kind: "message",
+        message: truncate(frame.text, MAX_MESSAGE_CHARS),
+        appearance: app,
+      };
     case "black":
       return { v: 1, kind: "black", appearance: app };
     case "logo":
       return { v: 1, kind: "logo", appearance: app };
   }
+}
+
+// ── Remote-command authentication ────────────────────────────────────────────
+// The commands channel is reachable by anyone with the public anon key and the
+// session UUID (handed out by the unauthenticated by-code join), so broadcasts
+// on it cannot be trusted by themselves. The web server signs every command
+// with the session's bearer secret (which we hold — we created the session);
+// we recompute the HMAC and drop anything unsigned or mismatched. Mirrors
+// sundaystage-web/lib/commandSig.ts — keep the payload format in sync.
+
+export async function verifyRemoteCommand(
+  secret: string,
+  sessionId: string,
+  cmd: string,
+  cmdSeq: number,
+  sig: string | undefined,
+): Promise<boolean> {
+  if (!sig) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`${sessionId}:${cmd}:${cmdSeq}`),
+  );
+  return base64url(new Uint8Array(mac)) === sig;
+}
+
+function base64url(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 export interface WebShareSession {
@@ -108,11 +197,13 @@ export interface WebShareController {
 export function useWebShare(opts: {
   frame: LiveFrame | null;
   appearance?: OutputAppearance;
+  /** The next slide's content, for the web scene monitor (never sensitive). */
+  next?: NextSlideInfo | null;
   active: boolean;
   baseUrl?: string;
   onCommand?: (cmd: RemoteCommand) => void;
 }): WebShareController {
-  const { frame, appearance, active, onCommand } = opts;
+  const { frame, appearance, next, active, onCommand } = opts;
   const baseUrl = (opts.baseUrl ?? DEFAULT_WEB_BASE).replace(/\/$/, "");
 
   const [status, setStatus] = useState<ShareStatus>("off");
@@ -195,9 +286,9 @@ export function useWebShare(opts: {
   // Forward frames while sharing + active.
   useEffect(() => {
     if (!session || !active || !frame) return;
-    pending.current = liveFrameToWebFrame(frame, appearance);
+    pending.current = liveFrameToWebFrame(frame, appearance, next);
     void drain(session);
-  }, [frame, appearance, active, session, drain]);
+  }, [frame, appearance, next, active, session, drain]);
 
   // Subscribe to the remote-control channel (the smart desktop integration).
   useEffect(() => {
@@ -216,18 +307,38 @@ export function useWebShare(opts: {
         if (!url || !anon) return; // remote control needs the public Supabase creds
         const supabase = createClient(url, anon);
         let lastCmdSeq = 0;
+        // Private channel (receive authorized by the wildcard SELECT policy on
+        // stage:session:%), matching the web displays' subscription mode.
         const channel = supabase.channel(
           `stage:session:${session.id}:commands`,
+          { config: { private: true } },
         );
         channel.on("broadcast", { event: "command" }, (msg) => {
           const payload = (msg.payload ?? {}) as {
             cmd?: RemoteCommand;
             cmd_seq?: number;
+            sig?: string;
           };
           const seq = payload.cmd_seq ?? 0;
           if (seq <= lastCmdSeq || !payload.cmd) return; // replay / stale guard
-          lastCmdSeq = seq;
-          onCommandRef.current?.(payload.cmd);
+          const { cmd, sig } = payload;
+          void (async () => {
+            // Only the web server can sign with the session secret — an
+            // unsigned/forged broadcast must never drive the live output.
+            if (
+              !(await verifyRemoteCommand(
+                session.secret,
+                session.id,
+                cmd,
+                seq,
+                sig,
+              ))
+            )
+              return;
+            if (seq <= lastCmdSeq) return; // re-check: another command may have won the await
+            lastCmdSeq = seq;
+            onCommandRef.current?.(cmd);
+          })();
         });
         channel.subscribe();
         if (cancelled) {

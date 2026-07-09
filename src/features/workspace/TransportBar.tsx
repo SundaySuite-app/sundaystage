@@ -13,8 +13,10 @@ import {
   Clapperboard,
   Keyboard,
   Menu,
+  MessageSquare,
   Monitor,
   Play,
+  RotateCcw,
   Search,
   Settings as SettingsIcon,
   Square,
@@ -42,6 +44,10 @@ interface Props {
   onStop: () => void;
   onBlackout: () => void;
   onLogo: () => void;
+  /** Toggle the operator-message popover. */
+  onMessage: () => void;
+  /** Drop any blackout/logo/message override — back to the current cue. */
+  onClear: () => void;
   onJump: () => void;
   onStage: () => void;
   onExport: () => void;
@@ -62,6 +68,8 @@ export function TransportBar({
   onStop,
   onBlackout,
   onLogo,
+  onMessage,
+  onClear,
   onJump,
   onStage,
   onExport,
@@ -135,6 +143,20 @@ export function TransportBar({
           active={outputState === "logo"}
           disabled={!isLive}
           onClick={onLogo}
+        />
+        <TransportButton
+          icon={MessageSquare}
+          labelKey="liveMessage"
+          active={outputState === "message"}
+          disabled={!isLive}
+          onClick={onMessage}
+        />
+        <TransportButton
+          icon={RotateCcw}
+          labelKey="liveClearOverride"
+          active={false}
+          disabled={!isLive || outputState === "normal" || outputState == null}
+          onClick={onClear}
         />
         <div className="mx-2 h-6 w-px bg-[var(--color-border)]" />
         {isLive ? (

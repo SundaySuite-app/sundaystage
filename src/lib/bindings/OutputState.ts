@@ -2,6 +2,8 @@
 
 /**
  * What the output is currently doing. `Normal` shows the cue at `index`;
- * `Blackout`/`Logo` override it without losing the cue position.
+ * `Blackout`/`Logo`/`Message` override it without losing the cue position
+ * (the message text itself lives in [`LiveSession::message_text`] so this
+ * stays `Copy`).
  */
-export type OutputState = "normal" | "blackout" | "logo";
+export type OutputState = "normal" | "blackout" | "logo" | "message";

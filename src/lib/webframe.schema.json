@@ -1,0 +1,115 @@
+{
+  "$ref": "#/definitions/WebFrame",
+  "definitions": {
+    "WebFrame": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["slide", "black", "logo", "message", "ended"]
+        },
+        "text_lines": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 40
+        },
+        "translation_lines": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "maxItems": 40
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "next_lines": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 40
+        },
+        "next_label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "section_label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "appearance": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "bg_color": {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                "text_color": {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                "font_scale": {
+                  "type": "number",
+                  "minimum": 0.3,
+                  "maximum": 3
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["v", "kind"],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
