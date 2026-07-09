@@ -549,7 +549,10 @@ mod tests {
 
         // The FK still guards against dangling deck ids.
         let pos = repo.next_position(&svc.id).await.unwrap();
-        assert!(repo.add_deck_item(&svc.id, pos, "no-such-deck").await.is_err());
+        assert!(repo
+            .add_deck_item(&svc.id, pos, "no-such-deck")
+            .await
+            .is_err());
     }
 
     #[tokio::test]

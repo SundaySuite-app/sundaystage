@@ -226,9 +226,7 @@ impl LiveSession {
                 })
             })
         });
-        self.index = remapped.unwrap_or_else(|| {
-            self.index.min(cue_list.len().saturating_sub(1))
-        });
+        self.index = remapped.unwrap_or_else(|| self.index.min(cue_list.len().saturating_sub(1)));
         self.cue_list = cue_list;
         self.log.push(SessionLogEntry {
             at: now,
@@ -540,7 +538,7 @@ mod tests {
             }
         );
         assert_eq!(s.index, 0); // cue position untouched
-        // Advancing returns to the cue and drops the message.
+                                // Advancing returns to the cue and drops the message.
         s.dispatch(LiveAction::Next, 2);
         assert_eq!(s.output, OutputState::Normal);
         assert_eq!(s.message_text, None);
@@ -656,7 +654,7 @@ mod tests {
     fn reload_clamps_when_current_cue_removed() {
         let mut s = session(3);
         s.dispatch(LiveAction::GoTo { index: 2 }, 1); // live on c2
-        // Neither the id nor the source of c2 survives → pure clamp path.
+                                                      // Neither the id nor the source of c2 survives → pure clamp path.
         let mut survivor = slide_cue("c0", "line 0");
         if let Cue::ShowSlide { source, .. } = &mut survivor {
             source.service_item_id = "other-item".into();
