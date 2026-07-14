@@ -179,6 +179,24 @@ export type ShareStatus = "off" | "starting" | "sharing" | "error";
 /** A remote command from the web operator (the desktop maps these to actions). */
 export type RemoteCommand = "next" | "prev" | "black" | "logo" | "clear";
 
+/** Realtime topic the web operator broadcasts remote-control commands on. */
+export function commandsTopic(sessionId: string): string {
+  return `stage:session:${sessionId}:commands`;
+}
+
+/**
+ * The commands channel is PRIVATE. Supabase Realtime authorizes every
+ * subscriber against the stage-web `realtime.messages` RLS policy, so a forged
+ * anon `.send()` of a command is denied — closing the hole where anyone who
+ * learned the session UUID could hijack the desktop's slide control. The web
+ * `/command` route dual-sends (public + private) during the fleet-upgrade
+ * window, so this build listens ONLY on the protected private topic.
+ * (Coordinated with sundaystage-web branch feat/rt-hardening-coordinated.)
+ */
+export const COMMANDS_CHANNEL_CONFIG = {
+  config: { private: true },
+} as const;
+
 export interface WebShareController {
   status: ShareStatus;
   session: WebShareSession | null;
@@ -310,8 +328,8 @@ export function useWebShare(opts: {
         // Private channel (receive authorized by the wildcard SELECT policy on
         // stage:session:%), matching the web displays' subscription mode.
         const channel = supabase.channel(
-          `stage:session:${session.id}:commands`,
-          { config: { private: true } },
+          commandsTopic(session.id),
+          COMMANDS_CHANNEL_CONFIG,
         );
         channel.on("broadcast", { event: "command" }, (msg) => {
           const payload = (msg.payload ?? {}) as {
