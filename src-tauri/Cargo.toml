@@ -33,7 +33,7 @@ tauri-plugin-opener = "2"
 # (see sunday-platform README) so each app builds standalone in CI — a path dep
 # would break the single-repo checkout. For local sunday-auth co-dev, override
 # with a `[patch]` in .cargo/config.toml.
-sunday-auth = { git = "https://github.com/richardfossland/sunday-platform.git", tag = "v0.3.0" }
+sunday-auth = { git = "https://github.com/richardfossland/sunday-platform.git", tag = "v0.4.1" }
 # Canonical cross-app wire contracts (the StageManifest type lives here too —
 # `manifest.rs` re-exports it instead of keeping a hand-rolled mirror). Same
 # git-tag distribution as sunday-auth: no path dep, builds standalone in CI.
