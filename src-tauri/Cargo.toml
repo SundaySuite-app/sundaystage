@@ -68,7 +68,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Type generation for the frontend (run with `cargo test export_bindings`)
-ts-rs = { version = "11", features = ["serde-compat", "chrono-impl", "uuid-impl"] }
+ts-rs = { version = "12", features = ["serde-compat", "chrono-impl", "uuid-impl"] }
 
 # HTTP client — the `ai` feature (Anthropic) and library publish (desktop →
 # cloud) both use it. Core (non-optional) since publish ships in the default build.
