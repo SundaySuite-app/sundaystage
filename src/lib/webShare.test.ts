@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { liveFrameToWebFrame, verifyRemoteCommand } from "@/lib/webShare";
+import {
+  COMMANDS_CHANNEL_CONFIG,
+  commandsTopic,
+  liveFrameToWebFrame,
+  verifyRemoteCommand,
+} from "@/lib/webShare";
 import webframeSchema from "@/lib/webframe.schema.json";
 import type { LiveFrame, OutputAppearance, SlideContent } from "@/lib/bindings";
 
@@ -326,5 +331,18 @@ describe("verifyRemoteCommand", () => {
     const good = await sign(SECRET, ID, "next", 3);
     expect(await verifyRemoteCommand(SECRET, ID, "black", 3, good)).toBe(false);
     expect(await verifyRemoteCommand(SECRET, ID, "next", 4, good)).toBe(false);
+  });
+});
+
+describe("remote-control commands channel", () => {
+  it("derives the per-session commands topic", () => {
+    expect(commandsTopic("abc-123")).toBe("stage:session:abc-123:commands");
+  });
+
+  it("subscribes as a PRIVATE channel (rejects forged anon commands)", () => {
+    // A public channel would let anyone who learned the session UUID `.send()`
+    // a forged command and hijack the desktop's slide control. Private makes
+    // Realtime authorize the subscriber against the stage-web RLS policy.
+    expect(COMMANDS_CHANNEL_CONFIG.config.private).toBe(true);
   });
 });
