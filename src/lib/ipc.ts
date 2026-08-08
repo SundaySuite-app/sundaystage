@@ -17,6 +17,8 @@ import type {
   AiKeyStatus,
   AiTestResult,
   AppError,
+  CounterTotal,
+  CrashKind,
   ArrangementItem,
   BibleBook,
   BiblePassage,
@@ -57,7 +59,9 @@ import type {
   SongArrangement,
   SongInput,
   SongSection,
+  QualityRow,
   SyncStatus,
+  TelemetryFlush,
   Template,
   Theme,
   ThemeTokens,
@@ -478,6 +482,44 @@ export const crash = {
   set: (enabled: boolean) => call<void>("crash_reporting_set", { enabled }),
   count: () => call<number>("crash_reports_count"),
   clear: () => call<void>("crash_reports_clear"),
+  /**
+   * Report an error the RENDERER caught into the same bounded, scrubbed ring
+   * the Rust panic hook writes to.
+   *
+   * `kind` is a closed set on the Rust side, so an invented value is rejected
+   * at the IPC boundary rather than widening the vocabulary. Resolves to
+   * nothing and — see `lib/errorReporting.ts` — must never be awaited in a way
+   * that lets a failure here become a second error.
+   */
+  report: (entry: {
+    kind: CrashKind;
+    message: string;
+    location?: string | null;
+    component?: string | null;
+  }) =>
+    call<void>("crash_report_frontend", {
+      kind: entry.kind,
+      message: entry.message,
+      location: entry.location ?? null,
+      component: entry.component ?? null,
+    }),
+};
+
+// ── Local observation (E3) ─────────────────────────────────────────────────────
+//
+// Reads of what this machine has accumulated, plus the log tail. NOTHING here
+// sends anything anywhere — that is E5. `logTail` takes a LINE COUNT and no
+// path, deliberately: the renderer cannot aim the reader at a file.
+
+export const telemetry = {
+  counters: () => call<CounterTotal[]>("telemetry_counters"),
+  quality: (limit?: number) =>
+    call<QualityRow[]>("telemetry_quality_recent", { limit: limit ?? null }),
+  /** Fold the in-memory buffer into SQLite — a no-op while a service is live. */
+  flush: () => call<TelemetryFlush>("telemetry_flush"),
+  clear: () => call<void>("telemetry_clear"),
+  logTail: (lines?: number) =>
+    call<string>("log_tail", { lines: lines ?? null }),
 };
 
 // ── Auto-update over the app-scoped rings (E2) ──────────────────────────────────
@@ -512,6 +554,7 @@ export const ipc = {
   sync,
   output,
   crash,
+  telemetry,
   bible,
   search,
   serviceTemplate,

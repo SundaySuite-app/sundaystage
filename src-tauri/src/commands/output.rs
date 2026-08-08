@@ -13,6 +13,8 @@ use crate::output::{process, window};
 use crate::services::display::{
     self, MonitorInfo, OutputAppearance, OutputConfig, OutputDisplayConfig,
 };
+use crate::telemetry::counters::CounterName;
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 fn config_path(state: &AppState) -> PathBuf {
@@ -125,7 +127,13 @@ pub async fn output_open(app: AppHandle, state: State<'_, AppState>) -> AppResul
             }
             // Make sure no in-process windows linger from a fallback run.
             window::close_outputs(&app);
-            let supervisor = process::OutputSupervisor::start(binary, specs);
+            // E3 — the outputs are running WITH crash isolation; clear the
+            // sticky fallback flag so a later session is not still blamed for
+            // a fallback that has since been fixed.
+            state.telemetry.note_counter(CounterName::OutputOpened);
+            state.telemetry.note_isolated_outputs();
+            let supervisor =
+                process::OutputSupervisor::start(binary, specs, state.telemetry.clone());
             // A service may already be live (outputs opened mid-service) —
             // seed the current frame so the first paint is correct.
             if let Some(frame) = state.live.lock().as_ref().map(|s| s.current_frame()) {
@@ -138,6 +146,13 @@ pub async fn output_open(app: AppHandle, state: State<'_, AppState>) -> AppResul
             "sundaystage-output binary not found — falling back to in-process output windows"
         );
     }
+    // Reached two ways, and both are the same fact: these outputs run WITHOUT
+    // crash isolation, either because the operator turned it off or because the
+    // sidecar was not there. E3 — a fallback is a quality signal, not just a
+    // log line: without the isolated child, a crash in the operator UI takes
+    // the projector with it. Sticky until the outputs next open isolated.
+    state.telemetry.note_fallback_in_process();
+    state.telemetry.note_counter(CounterName::OutputOpened);
     window::open_outputs(&app, &monitors, &cfg.assignments).map_err(AppError::Validation)
 }
 
@@ -149,6 +164,11 @@ pub async fn output_close(app: AppHandle, state: State<'_, AppState>) -> AppResu
         supervisor.shutdown().await;
     }
     window::close_outputs(&app);
+    // E3 — closing the outputs is the other natural quiet moment (the operator
+    // is packing up). The live gate is inside `flush`; a service that is still
+    // running simply means nothing is written yet. E5 replaces these hand-placed
+    // calls with the supervised pump.
+    let _ = crate::commands::telemetry::flush(&state).await;
     Ok(())
 }
 

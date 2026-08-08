@@ -14,14 +14,17 @@ pub mod db;
 pub mod error;
 pub mod output;
 pub mod services;
+pub mod telemetry;
 
 use parking_lot::Mutex;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::Manager;
 
 use crate::db::Database;
 use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::live_session::LiveSession;
+use crate::telemetry::quality::QualityCollector;
 
 /// Tauri-managed shared state.
 pub struct AppState {
@@ -48,16 +51,42 @@ pub struct AppState {
     /// `update_install` installs exactly what the operator was shown. `None`
     /// until the first check finds something on the ring.
     pub pending_update: Mutex<Option<tauri_plugin_updater::Update>>,
+    /// E3 — the local session-quality collector and counter buffer.
+    ///
+    /// An `Arc` because the output supervisor holds its own handle: restarts,
+    /// connect timeouts, held frames and cue latencies are observed inside the
+    /// supervision tasks, not in a command. Everything the live path may call
+    /// on it is on `telemetry::quality::LiveSafe` and returns `()` — see that
+    /// module for why the type, not a convention, is what keeps a cue safe.
+    pub telemetry: Arc<QualityCollector>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
+    // E3 — the file log's producer side is built FIRST so a line logged during
+    // plugin setup is already queued; the writer thread starts in `setup`, once
+    // the app-data directory exists. `tracing_subscriber` can only be
+    // initialised once, so the file layer has to be here rather than later.
+    let file_writer = crate::telemetry::logfile::writer();
+    use tracing_subscriber::layer::SubscriberExt as _;
+    use tracing_subscriber::util::SubscriberInitExt as _;
+    tracing_subscriber::registry()
+        .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
-        .with_target(false)
+        .with(tracing_subscriber::fmt::layer().with_target(false))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_ansi(false)
+                .with_writer(file_writer),
+        )
         .init();
+
+    // The panic hook goes on before the builder, so a panic during plugin setup
+    // is already covered. It only WRITES once `crash_ring::arm` has resolved a
+    // directory (in `setup`) and the operator has opted in.
+    crate::telemetry::crash_ring::install_panic_hook();
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
@@ -79,15 +108,28 @@ pub fn run() {
                 .expect("app_local_data_dir resolves on supported platforms");
             std::fs::create_dir_all(&data_dir).ok();
 
-            // Opt-in crash capture (Phase 6.1): the hook checks the user's
-            // choice at panic time, so installing it always is safe.
-            crate::services::crash::install_panic_hook(data_dir.clone());
+            // E3 — arm the local observation ground floor:
+            //   * the crash ring learns where to write (the hook installed in
+            //     `run()` has been armed with nothing until now);
+            //   * the file log's writer thread starts and drains the queue that
+            //     has been filling since the subscriber was installed.
+            // Both are best-effort: without them the app logs to stdout and
+            // captures no crash files, which is a degradation, not a failure.
+            crate::telemetry::crash_ring::arm(&data_dir);
+            crate::telemetry::logfile::start(&data_dir);
+            crate::telemetry::logfile::log_startup_banner();
 
             let db_path: PathBuf = data_dir.join("sundaystage.db");
 
             // Open the database synchronously — Tauri's setup is not async.
             // Seed the bundled Bible translations and built-in service
             // templates (both operations are idempotent).
+            //
+            // E3 — and, while nothing can possibly be live yet, reconstruct a
+            // quality row for a session the PREVIOUS process never finished.
+            // The recovery WAL is only read here; `live_recover` still needs it
+            // to offer the operator a resume.
+            let reconstruction_dir = data_dir.clone();
             let db = tauri::async_runtime::block_on(async move {
                 let db = Database::open(&db_path).await?;
                 crate::db::repositories::BibleRepo::new(&db.pool)
@@ -96,6 +138,19 @@ pub fn run() {
                 crate::db::repositories::ServiceTemplateRepo::new(&db.pool)
                     .seed_builtins()
                     .await?;
+                if let Some(row) = crate::telemetry::quality::reconstruct_previous_session(
+                    &reconstruction_dir,
+                    crate::telemetry::now_ms(),
+                ) {
+                    tracing::warn!(
+                        verdict = row.verdict.as_str(),
+                        cues = row.cue_count,
+                        "the previous live session did not end cleanly"
+                    );
+                    let _ = crate::db::repositories::TelemetryRepo::new(&db.pool)
+                        .insert_quality(&row)
+                        .await;
+                }
                 crate::error::AppResult::Ok(db)
             })?;
 
@@ -106,6 +161,7 @@ pub fn run() {
                 companion: Mutex::new(None),
                 outputs: Mutex::new(None),
                 pending_update: Mutex::new(None),
+                telemetry: Arc::new(QualityCollector::new()),
             });
             tracing::info!("SundayStage backend ready");
             Ok(())
@@ -164,11 +220,18 @@ pub fn run() {
             commands::sync::sync_status,
             // Library publish (desktop → cloud, one-way)
             commands::library_publish::library_publish,
-            // Crash reporting (Phase 6.1)
+            // Crash reporting (Phase 6.1, rebuilt on the E3 crash ring)
             commands::crash::crash_reporting_status,
             commands::crash::crash_reporting_set,
             commands::crash::crash_reports_count,
             commands::crash::crash_reports_clear,
+            commands::crash::crash_report_frontend,
+            // Local observation (E3) — nothing here sends anything anywhere
+            commands::telemetry::telemetry_counters,
+            commands::telemetry::telemetry_quality_recent,
+            commands::telemetry::telemetry_flush,
+            commands::telemetry::telemetry_clear,
+            commands::telemetry::log_tail,
             // Auto-update over the app-scoped rings (E2)
             commands::updater::update_channel_get,
             commands::updater::update_channel_set,
