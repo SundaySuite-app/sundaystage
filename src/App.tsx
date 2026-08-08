@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { installErrorReporting } from "@/lib/errorReporting";
 import { hasSeenTutorial, markTutorialSeen } from "@/lib/tutorial";
 import { OperatorWorkspace } from "@/features/workspace/OperatorWorkspace";
 import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
@@ -13,6 +15,14 @@ import type { Library } from "@/lib/bindings";
 const ONBOARDED_KEY = "ss-onboarded";
 
 function App() {
+  // E3 — window.onerror + unhandledrejection into the same bounded, scrubbed
+  // crash ring the Rust panic hook writes to. Installed once, before anything
+  // else can throw; the function is idempotent because StrictMode double-runs
+  // effects in development.
+  useEffect(() => {
+    installErrorReporting();
+  }, []);
+
   const [tutorialDone, setTutorialDone] = useState(() => hasSeenTutorial());
   const [onboarded, setOnboarded] = useState(() => {
     try {
@@ -76,7 +86,13 @@ function App() {
 
   return (
     <>
-      <OperatorWorkspace library={activeLibrary} />
+      {/* A render error in the workspace used to leave a blank white screen
+          with nothing in any log. It now leaves a record in the crash ring and
+          a recovery card — while the projector, in its own process, is
+          untouched. */}
+      <ErrorBoundary component="OperatorWorkspace">
+        <OperatorWorkspace library={activeLibrary} />
+      </ErrorBoundary>
       <UpdateBanner />
       {!tutorialDone && (
         <TutorialOverlay

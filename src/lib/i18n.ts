@@ -704,6 +704,11 @@ const en: Catalog = {
 
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError: "Couldn't update the live output — try again.",
+  // ── Error boundary (E3 — the last thing between a bug and a blank screen) ──
+  errBoundaryTitle: "Something went wrong in SundayStage",
+  errBoundaryBody:
+    "The screen out front is unchanged — the live output runs in its own process and is holding its frame. Reload to get the operator view back.",
+  errBoundaryReload: "Reload",
 };
 
 const no: Catalog = {
@@ -1378,6 +1383,11 @@ const no: Catalog = {
 
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError: "Kunne ikke oppdatere live-utgangen — prøv igjen.",
+  // ── Feilgrense (E3) ────────────────────────────────────────────────────────
+  errBoundaryTitle: "Noe gikk galt i SundayStage",
+  errBoundaryBody:
+    "Skjermen ute er uendret — live-utgangen kjører i sin egen prosess og holder bildet. Last inn på nytt for å få tilbake operatørvisningen.",
+  errBoundaryReload: "Last inn på nytt",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -2004,6 +2014,11 @@ const sv: Catalog = {
 
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError: "Kunde inte uppdatera live-utgången — försök igen.",
+  // ── Felgräns (E3) ──────────────────────────────────────────────────────────
+  errBoundaryTitle: "Något gick fel i SundayStage",
+  errBoundaryBody:
+    "Skärmen där ute är oförändrad — live-utgången kör i sin egen process och håller bilden. Ladda om för att få tillbaka operatörsvyn.",
+  errBoundaryReload: "Ladda om",
 };
 const da: Catalog = {
   appTagline: "Live-præsentation",
@@ -2624,6 +2639,11 @@ const da: Catalog = {
 
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError: "Kunne ikke opdatere live-udgangen — prøv igen.",
+  // ── Fejlgrænse (E3) ────────────────────────────────────────────────────────
+  errBoundaryTitle: "Noget gik galt i SundayStage",
+  errBoundaryBody:
+    "Skærmen derude er uændret — live-udgangen kører i sin egen proces og holder billedet. Genindlæs for at få operatørvisningen tilbage.",
+  errBoundaryReload: "Genindlæs",
 };
 const de: Catalog = {
   appTagline: "Live-Präsentation",
@@ -3258,6 +3278,11 @@ const de: Catalog = {
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError:
     "Live-Ausgabe konnte nicht aktualisiert werden — erneut versuchen.",
+  // ── Fehlergrenze (E3) ──────────────────────────────────────────────────────
+  errBoundaryTitle: "In SundayStage ist etwas schiefgelaufen",
+  errBoundaryBody:
+    "Die Leinwand bleibt unverändert — die Live-Ausgabe läuft in einem eigenen Prozess und hält ihr Bild. Neu laden, um die Bedienansicht zurückzuholen.",
+  errBoundaryReload: "Neu laden",
 };
 const fr: Catalog = {
   appTagline: "Présentation en direct",
@@ -3892,6 +3917,11 @@ const fr: Catalog = {
 
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError: "Impossible de mettre à jour la sortie en direct — réessayez.",
+  // ── Limite d'erreur (E3) ───────────────────────────────────────────────────
+  errBoundaryTitle: "Un problème est survenu dans SundayStage",
+  errBoundaryBody:
+    "L'écran de la salle est inchangé — la sortie en direct tourne dans son propre processus et conserve son image. Rechargez pour retrouver la vue opérateur.",
+  errBoundaryReload: "Recharger",
 };
 const pl: Catalog = {
   appTagline: "Prezentacja na żywo",
@@ -4512,6 +4542,11 @@ const pl: Catalog = {
   // ── Live IPC errors (surfaced to the operator) ────────────────────────────
   dispatchError:
     "Nie udało się zaktualizować wyjścia na żywo — spróbuj ponownie.",
+  // ── Granica błędu (E3) ─────────────────────────────────────────────────────
+  errBoundaryTitle: "Coś poszło nie tak w SundayStage",
+  errBoundaryBody:
+    "Ekran na sali jest bez zmian — wyjście na żywo działa we własnym procesie i utrzymuje obraz. Odśwież, aby wrócić do widoku operatora.",
+  errBoundaryReload: "Odśwież",
 };
 
 /** The full per-language catalog. Exported for parity tests. */
