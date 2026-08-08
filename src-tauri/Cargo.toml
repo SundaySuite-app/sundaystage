@@ -76,6 +76,12 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 
 [dev-dependencies]
 tempfile = "3"
+# Update-direction pin (E2). `tauri-plugin-updater` compares releases with
+# `release.version > current_version` over `semver::Version`; the test in
+# `services::update_channel` runs that exact expression rather than
+# hand-rolling a comparator. Already in the tree transitively (tauri), so this
+# adds no new compiled crate.
+semver = "1"
 
 [features]
 default = []

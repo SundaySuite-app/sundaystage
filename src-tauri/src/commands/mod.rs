@@ -23,3 +23,4 @@ pub mod services;
 pub mod songs;
 pub mod sync;
 pub mod themes;
+pub mod updater;
