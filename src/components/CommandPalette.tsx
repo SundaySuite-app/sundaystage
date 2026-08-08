@@ -28,13 +28,7 @@ import { useT } from "@/lib/i18n";
 /** Navigation targets the palette can jump to. The operator workspace maps
  *  these onto its overlays (library browser tab, media drawer, settings). */
 export type Route =
-  | "library"
-  | "decks"
-  | "services"
-  | "bible"
-  | "media"
-  | "settings"
-  | "design";
+  "library" | "decks" | "services" | "bible" | "media" | "settings" | "design";
 
 /** Quick actions under the palette's "Actions" group. */
 export type PaletteAction = "new-song" | "new-service" | "go-live";

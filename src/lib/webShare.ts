@@ -317,11 +317,9 @@ export function useWebShare(opts: {
       try {
         const { createClient } = await import("@supabase/supabase-js");
         const url = import.meta.env.VITE_SUNDAY_SUPABASE_URL as
-          | string
-          | undefined;
+          string | undefined;
         const anon = import.meta.env.VITE_SUNDAY_SUPABASE_ANON_KEY as
-          | string
-          | undefined;
+          string | undefined;
         if (!url || !anon) return; // remote control needs the public Supabase creds
         const supabase = createClient(url, anon);
         let lastCmdSeq = 0;
