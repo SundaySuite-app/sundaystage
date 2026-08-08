@@ -240,7 +240,7 @@ uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
 | E1 Worker app-dimensjon + ringer  | ✅     | 2026-08-08 | lokal merge `27a485f` (repo uten remote) |
 | E2 Stage på ringene (v0.5.0)      | ✅     | 2026-08-08 | #42+#43; v0.5.0 Latest + promotert       |
 | E3 Lokalt observasjonsgrunnlag    | ✅     | 2026-08-08 | #46; 3 innholdslekkasjer tettet          |
-| E4 Worker stage-skjema v1         | ⬜     |            |                                          |
+| E4 Worker stage-skjema v1         | ✅     | 2026-08-09 | Worker `f3f4c51` deployet; drill grønn   |
 | E5 Klient: samtykke/utboks/sender | ⬜     |            |                                          |
 | E6 Samtykke-UX + v0.6.0-beta.1    | ⬜     |            |                                          |
 | E7 Beta-herding, feilrunde 1      | ⬜     |            |                                          |
