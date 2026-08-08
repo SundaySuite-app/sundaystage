@@ -164,12 +164,7 @@ export function nudgeBlocks(
 // ── Align ─────────────────────────────────────────────────────────────────────
 
 export type AlignEdge =
-  | "left"
-  | "hcenter"
-  | "right"
-  | "top"
-  | "vcenter"
-  | "bottom";
+  "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
 
 function selectionBounds(blocks: BlockRect[]): {
   minX: number;

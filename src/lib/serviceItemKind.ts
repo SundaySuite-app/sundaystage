@@ -48,12 +48,7 @@ export type PlanServiceItemKind =
 
 /** SundayStage's local kinds (service_item, sql/0001_initial). */
 export type StageServiceItemKind =
-  | "song"
-  | "scripture"
-  | "custom_deck"
-  | "video"
-  | "announcement"
-  | "gap";
+  "song" | "scripture" | "custom_deck" | "video" | "announcement" | "gap";
 
 const PLAN_TO_CANONICAL: Record<PlanServiceItemKind, ServiceItemKind> = {
   welcome: "welcome",

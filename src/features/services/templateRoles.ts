@@ -14,10 +14,7 @@
  */
 
 export type TemplateRole =
-  | "worship-leader"
-  | "musician"
-  | "operator"
-  | "congregation";
+  "worship-leader" | "musician" | "operator" | "congregation";
 
 export const TEMPLATE_ROLES: TemplateRole[] = [
   "worship-leader",
