@@ -21,6 +21,8 @@ use ts_rs::TS;
 
 use crate::error::{AppError, AppResult};
 use crate::services::update_channel::{self, UpdateChannel};
+use crate::telemetry::counters::CounterName;
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 /// What the operator is offered when a newer signed build exists on the ring.
@@ -116,5 +118,12 @@ pub async fn update_install(state: State<'_, AppState>) -> AppResult<()> {
         .download_and_install(|_, _| {}, || {})
         .await
         .map_err(updater_error)?;
+    // E3 — counted only on a SUCCESSFUL install, because the question this one
+    // answers is "did the ring actually land", and a failed download did not.
+    state.telemetry.note_counter(CounterName::UpdateInstalled);
+    // …and persisted IMMEDIATELY: the caller relaunches the app right after
+    // this returns, and an in-memory counter does not survive that. The live
+    // gate is inside `flush`, so this is safe even mid-service.
+    let _ = crate::commands::telemetry::flush(&state).await;
     Ok(())
 }

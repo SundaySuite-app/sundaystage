@@ -89,6 +89,18 @@ export type { UpdateChannel }     from "./UpdateChannel";
 export type { UpdateInfo }        from "./UpdateInfo";
 export type { VAlign }            from "./VAlign";
 
+// ── Local observation (E3) ───────────────────────────────────────────────────
+// Nothing in this group is sent anywhere; see src-tauri/src/telemetry.
+export type { CounterName }       from "./CounterName";
+export type { CounterTotal }      from "./CounterTotal";
+export type { CrashEntry }        from "./CrashEntry";
+export type { CrashKind }         from "./CrashKind";
+export type { QualityReason }     from "./QualityReason";
+export type { QualityRow }        from "./QualityRow";
+export type { QualityVerdict }    from "./QualityVerdict";
+export type { TelemetryFlush }    from "./TelemetryFlush";
+export type { TelemetryOs }       from "./TelemetryOs";
+
 /** Error shape returned by every Tauri command (see error.rs). */
 export interface AppError {
   code:

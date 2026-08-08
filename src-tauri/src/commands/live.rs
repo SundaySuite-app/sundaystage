@@ -21,6 +21,7 @@ use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
 use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
 use crate::services::sundayrec_bridge::manifest::{build_manifest, ItemMeta, ManifestSong};
 use crate::services::sundayrec_bridge::protocol::PROTOCOL_VERSION;
+use crate::telemetry::quality::{LiveSafe, SessionOutcome};
 use crate::AppState;
 
 /// Built-in stage-display presets (Phase 8).
@@ -179,6 +180,10 @@ pub async fn live_start(
     // Persist the seed seq so an immediate crash recovers the true stream
     // position — `begin` just truncated the WAL, so its length is 0 here.
     let _ = store(&state).record_seq(start_seq);
+    // E3 — one atomic store and one counter increment. This is the whole cost
+    // of observing a service, and it happens before the session is installed so
+    // nothing can be missed between `live.lock()` and the first cue.
+    state.telemetry.begin_session(view.started_at);
     *state.live.lock() = Some(session);
     push_to_outputs(&state, &view.frame);
     Ok(view)
@@ -294,6 +299,9 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
     // show (worst case: recovery loses the last action).
     let _ = store(&state).record(&action);
     session.dispatch(action, now_ms());
+    // Two relaxed `fetch_add`s, inside the live lock, on the hottest path in
+    // the app. Nothing else about this command changed.
+    state.telemetry.note_cue_dispatched();
     let view = session.view();
     // Phase 12.2 — best-effort companion broadcast of the new frame. The slide
     // carries its own `sensitive_slide` gate; a failed publish is logged and
@@ -305,8 +313,13 @@ pub fn live_dispatch(state: State<'_, AppState>, action: LiveAction) -> AppResul
             Some(broadcaster) => {
                 // `seq` advances even if the publish fails (so a retry never
                 // reuses it), so capture it regardless of the result.
-                if let Err(e) = broadcaster.on_cue_advance(&view.frame, false) {
-                    tracing::warn!("companion broadcast failed: {e}");
+                if broadcaster.on_cue_advance(&view.frame, false).is_err() {
+                    // The transport's error string is NOT logged: once the
+                    // cloud layer lands it is a network error carrying an
+                    // endpoint, and this line reaches the uploadable log tail
+                    // (law 2). The COUNT is the finding.
+                    state.telemetry.note_companion_failure();
+                    tracing::warn!(seam = "cue_advance", "companion broadcast failed");
                 }
                 Some(broadcaster.next_seq())
             }
@@ -328,20 +341,31 @@ pub fn live_state(state: State<'_, AppState>) -> AppResult<Option<LiveSessionVie
 
 /// End the session and clear the recovery log (marks a clean shutdown).
 #[tauri::command]
-pub fn live_end(state: State<'_, AppState>) -> AppResult<()> {
+pub async fn live_end(state: State<'_, AppState>) -> AppResult<()> {
     // Phase 12.2 — tell phones the service is over, then tear down the
     // broadcaster. Best-effort: a failed publish must not block ending.
     if let Some(broadcaster) = state.companion.lock().as_mut() {
-        if let Err(e) = broadcaster.on_service_end() {
-            tracing::warn!("companion service-end broadcast failed: {e}");
+        if broadcaster.on_service_end().is_err() {
+            state.telemetry.note_companion_failure();
+            tracing::warn!(seam = "service_end", "companion broadcast failed");
         }
     }
     *state.companion.lock() = None;
+    // E3 — build the session's quality row BEFORE the lock is cleared, so the
+    // numbers belong to the service that just ended. Still a pure atomic
+    // read-and-reset plus one bounded `try_send`.
+    state
+        .telemetry
+        .finish_session(now_ms(), SessionOutcome::Clean);
     *state.live.lock() = None;
     store(&state).clear();
     // The outputs stay open (the operator closes them separately) but the
     // service is over — show black, never a stale slide.
     push_to_outputs(&state, &LiveFrame::Black);
+    // …and NOW — with `live` provably `None` — is the moment the buffered rows
+    // and counters may touch a disk. The gate is inside `flush`, so this is
+    // safe even if a new service goes live between these two statements.
+    let _ = crate::commands::telemetry::flush(&state).await;
     Ok(())
 }
 
@@ -370,6 +394,10 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
         RealtimeTransport::local_only(),
         resume_seq,
     ));
+    // E3 — a resumed session is still a session: it gets its own quality row,
+    // flagged `recovered`, when it eventually ends.
+    state.telemetry.begin_session(view.started_at);
+    state.telemetry.note_session_recovered();
     *state.live.lock() = Some(session);
     push_to_outputs(&state, &view.frame);
     Ok(Some(view))

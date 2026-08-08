@@ -33,8 +33,10 @@ use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
 use crate::output::ipc::{endpoint_path, IpcListener};
-use crate::output::{OutputAck, OutputMessage};
+use crate::output::{OutputAck, OutputMessage, DEFAULT_TIMEOUT_MS};
 use crate::services::live_session::LiveFrame;
+use crate::telemetry::quality::{LiveSafe, QualityCollector};
+use crate::telemetry::scrub;
 
 /// How often the supervisor proves the main process is alive to each child.
 pub const HEARTBEAT_MS: u64 = 250;
@@ -79,6 +81,12 @@ struct ChildShared {
     connected: AtomicBool,
     restarts: AtomicU64,
     last_acked_seq: AtomicU64,
+    /// Unix ms this child last went from connected to not — the input to the
+    /// hold-last-frame detection in the heartbeat pump. 0 = never.
+    disconnected_at: AtomicU64,
+    /// Whether we have already counted this disconnection as a hold, so one
+    /// gap produces one quality signal rather than four per second.
+    counted_hold: AtomicBool,
 }
 
 struct Inner {
@@ -90,6 +98,10 @@ struct Inner {
     shutting_down: AtomicBool,
     children: Mutex<Vec<Arc<ChildShared>>>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
+    /// E3 — where restarts, connect timeouts, held frames and cue latencies go.
+    /// Every call on it is an atomic increment (see `telemetry::quality`), so
+    /// the render path stays exactly as cheap as it was.
+    telemetry: Arc<QualityCollector>,
 }
 
 /// Supervises the set of output processes for the current "outputs open"
@@ -133,13 +145,14 @@ fn pidfile_path(label: &str) -> PathBuf {
 
 /// Best-effort kill of a stale child left over from a crashed main process,
 /// recorded in the pidfile. Never touches anything when the file is absent.
-fn reap_stale_child(label: &str) {
+/// Returns whether a stale child was found — E3's `staleChildReaped` signal.
+fn reap_stale_child(label: &str) -> bool {
     let pidfile = pidfile_path(label);
     let Ok(s) = std::fs::read_to_string(&pidfile) else {
-        return;
+        return false;
     };
     if let Ok(pid) = s.trim().parse::<u32>() {
-        tracing::warn!("reaping stale output process {pid} for {label}");
+        tracing::warn!(label, pid, "reaping a stale output process");
         #[cfg(unix)]
         let _ = std::process::Command::new("kill")
             .args(["-9", &pid.to_string()])
@@ -150,12 +163,46 @@ fn reap_stale_child(label: &str) {
             .status();
     }
     let _ = std::fs::remove_file(&pidfile);
+    true
+}
+
+/// Whether any output pidfile is still on disk — i.e. a child from a previous
+/// process may still be holding its last frame on a projector.
+///
+/// Read at startup by [`crate::telemetry::quality::reconstruct_previous_session`]
+/// to decide the `staleChildReaped` flag on the reconstructed row.
+///
+/// **Unix only.** On Windows [`endpoint_path`] returns a named-pipe path, so
+/// `pidfile_path` produces `\\.\pipe\sundaystage-<label>.pid` — which is not a
+/// filesystem location, cannot be written, and therefore cannot be scanned.
+/// The pidfile mechanism is inert on Windows today (a pre-existing gap, noted
+/// in the E3 report rather than silently worked around here); this function
+/// reports `false` there instead of pretending otherwise.
+pub fn stale_pidfiles_present() -> bool {
+    #[cfg(unix)]
+    {
+        let Ok(rd) = std::fs::read_dir(std::env::temp_dir()) else {
+            return false;
+        };
+        rd.filter_map(Result::ok).any(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            name.starts_with("sundaystage-") && name.ends_with(".pid")
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        false
+    }
 }
 
 impl OutputSupervisor {
     /// Spawn + supervise one child per spec. Must be called on a tokio runtime
     /// (Tauri's async runtime or `#[tokio::test]`).
-    pub fn start(binary: PathBuf, specs: Vec<OutputSpec>) -> Self {
+    pub fn start(
+        binary: PathBuf,
+        specs: Vec<OutputSpec>,
+        telemetry: Arc<QualityCollector>,
+    ) -> Self {
         let (tx, _) = broadcast::channel::<OutputMessage>(64);
         let inner = Arc::new(Inner {
             tx,
@@ -164,6 +211,7 @@ impl OutputSupervisor {
             shutting_down: AtomicBool::new(false),
             children: Mutex::new(Vec::new()),
             tasks: Mutex::new(Vec::new()),
+            telemetry,
         });
 
         let mut tasks = Vec::new();
@@ -174,6 +222,8 @@ impl OutputSupervisor {
                 connected: AtomicBool::new(false),
                 restarts: AtomicU64::new(0),
                 last_acked_seq: AtomicU64::new(0),
+                disconnected_at: AtomicU64::new(0),
+                counted_hold: AtomicBool::new(false),
             });
             inner.children.lock().push(shared.clone());
             tasks.push(tokio::spawn(supervise_child(
@@ -183,7 +233,9 @@ impl OutputSupervisor {
                 shared,
             )));
         }
-        // The heartbeat pump: one timer feeds every child via the broadcast.
+        // The heartbeat pump: one timer feeds every child via the broadcast,
+        // and — E3 — notices when a child has been silent long enough that its
+        // own watchdog must now be holding the last frame.
         {
             let inner = inner.clone();
             tasks.push(tokio::spawn(async move {
@@ -193,9 +245,9 @@ impl OutputSupervisor {
                     if inner.shutting_down.load(Ordering::SeqCst) {
                         break;
                     }
-                    let _ = inner.tx.send(OutputMessage::Heartbeat {
-                        at: crate::db::now_ms(),
-                    });
+                    let now = crate::db::now_ms();
+                    let _ = inner.tx.send(OutputMessage::Heartbeat { at: now });
+                    note_held_frames(&inner, now);
                 }
             }));
         }
@@ -209,6 +261,8 @@ impl OutputSupervisor {
         let seq = self.inner.seq.fetch_add(1, Ordering::SeqCst) + 1;
         *self.inner.last_frame.lock() = Some(frame.clone());
         let _ = self.inner.tx.send(OutputMessage::Render { frame, seq });
+        // Two relaxed atomic stores — the dispatch→ACK stopwatch starts here.
+        self.inner.telemetry.note_render(seq);
         seq
     }
 
@@ -265,6 +319,38 @@ impl OutputSupervisor {
     }
 }
 
+/// Count the outputs whose link has been down long enough that the child's own
+/// watchdog has entered hold-last-frame — the congregation is looking at a
+/// frozen slide.
+///
+/// **This is an inference, and an honest one.** The watchdog itself
+/// ([`crate::output::Watchdog`]) runs in the CHILD, and by the time it fires
+/// there is by definition no link to report over: a hold and a link loss are
+/// the same event seen from the two ends. So the parent measures the only thing
+/// it can — how long an output has had nobody connected — and calls a gap
+/// longer than [`DEFAULT_TIMEOUT_MS`] a hold, because past that instant a
+/// living child IS holding. A child that died instead of holding is counted as
+/// a restart as well, and the pair reads correctly together.
+fn note_held_frames(inner: &Arc<Inner>, now: i64) {
+    for child in inner.children.lock().iter() {
+        if child.connected.load(Ordering::SeqCst) {
+            continue;
+        }
+        let since = child.disconnected_at.load(Ordering::SeqCst) as i64;
+        if since == 0 || now.saturating_sub(since) <= DEFAULT_TIMEOUT_MS {
+            continue;
+        }
+        // One gap, one signal.
+        if !child.counted_hold.swap(true, Ordering::SeqCst) {
+            inner.telemetry.note_watchdog_hold();
+            tracing::warn!(
+                label = %child.label,
+                "output link down past the watchdog timeout — the child is holding its last frame"
+            );
+        }
+    }
+}
+
 /// One child's supervision loop: bind → spawn → pump → (on death) respawn.
 async fn supervise_child(
     inner: Arc<Inner>,
@@ -275,7 +361,10 @@ async fn supervise_child(
     let socket = endpoint_path(&spec.label);
     // A previous *crashed* main app may have left a child holding the last
     // frame on this very display — reap it before we put a new one there.
-    reap_stale_child(&spec.label);
+    if reap_stale_child(&spec.label) {
+        inner.telemetry.note_stale_child_reaped();
+    }
+    mark_disconnected(&shared);
 
     loop {
         if inner.shutting_down.load(Ordering::SeqCst) {
@@ -288,9 +377,10 @@ async fn supervise_child(
                     return;
                 }
                 shared.restarts.fetch_add(1, Ordering::SeqCst);
+                inner.telemetry.note_output_restart();
                 tracing::warn!(
-                    "output process {} died — restarting (hold-last-frame covered the gap)",
-                    spec.label
+                    label = %spec.label,
+                    "output process died — restarting (hold-last-frame covered the gap)"
                 );
             }
             Err(e) => {
@@ -298,12 +388,40 @@ async fn supervise_child(
                     return;
                 }
                 shared.restarts.fetch_add(1, Ordering::SeqCst);
-                tracing::error!("output process {} failed: {e} — retrying", spec.label);
+                inner.telemetry.note_output_restart();
+                // The error is SCRUBBED: an `io::Error` from binding the local
+                // endpoint or spawning the binary can name a filesystem
+                // location, and this string reaches the uploadable log tail.
+                tracing::error!(
+                    label = %spec.label,
+                    reason = %scrub::for_log(&e.to_string()),
+                    "output process failed — retrying"
+                );
             }
         }
-        shared.connected.store(false, Ordering::SeqCst);
+        mark_disconnected(&shared);
         tokio::time::sleep(Duration::from_millis(RESTART_BACKOFF_MS)).await;
     }
+}
+
+/// Record that a child's link is down, starting the hold-detection clock. Only
+/// the FIRST call after a connection starts the clock, so a restart loop does
+/// not keep resetting it and hiding a long gap.
+fn mark_disconnected(shared: &ChildShared) {
+    let was_connected = shared.connected.swap(false, Ordering::SeqCst);
+    if was_connected || shared.disconnected_at.load(Ordering::SeqCst) == 0 {
+        shared
+            .disconnected_at
+            .store(crate::db::now_ms().max(0) as u64, Ordering::SeqCst);
+    }
+}
+
+/// Record that a child is connected again: the gap is over and the next one
+/// gets its own signal.
+fn mark_connected(shared: &ChildShared) {
+    shared.disconnected_at.store(0, Ordering::SeqCst);
+    shared.counted_hold.store(false, Ordering::SeqCst);
+    shared.connected.store(true, Ordering::SeqCst);
 }
 
 enum ChildExit {
@@ -351,16 +469,21 @@ async fn run_child_once(
     let stream = tokio::select! {
         accepted = listener.accept() => accepted?,
         status = child.wait() => {
-            tracing::warn!("output {} exited before connecting: {status:?}", spec.label);
+            tracing::warn!(
+                label = %spec.label,
+                exit = ?status.as_ref().ok().and_then(|s| s.code()),
+                "output exited before connecting"
+            );
             return Ok(ChildExit::Died);
         }
         _ = tokio::time::sleep(Duration::from_millis(CONNECT_TIMEOUT_MS)) => {
-            tracing::error!("output {} never connected — killing", spec.label);
+            inner.telemetry.note_connect_timeout();
+            tracing::error!(label = %spec.label, "output never connected — killing");
             let _ = child.kill().await;
             return Ok(ChildExit::Died);
         }
     };
-    shared.connected.store(true, Ordering::SeqCst);
+    mark_connected(shared);
     let (mut reader, mut writer) = stream.into_split();
 
     // First thing on (re)connect: put the current frame on screen.
@@ -397,11 +520,28 @@ async fn run_child_once(
             ack = reader.read::<OutputAck>() => match ack {
                 Ok(Some(OutputAck::Rendered { seq, .. })) => {
                     shared.last_acked_seq.store(seq, Ordering::SeqCst);
+                    // One compare-exchange: the dispatch→pixels stopwatch stops.
+                    inner.telemetry.note_ack(seq);
                 }
                 Ok(Some(OutputAck::Error { message })) => {
-                    // Never a dialog during a service — log; the operator UI
-                    // surfaces it as a toast via status polling.
-                    tracing::warn!("output {} reported: {message}", spec.label);
+                    // Never a dialog during a service — count it; the operator
+                    // UI surfaces it as a toast via status polling.
+                    //
+                    // The child's text is NOT logged. It is
+                    // `format!("bad message: {e}")` over a `serde_json` error
+                    // about a Render frame, and a serde error quotes the value
+                    // it choked on — which is a lyric. Law 2: the length is a
+                    // finding, the content is not ours to write down.
+                    inner.telemetry.note_dispatch_error();
+                    // The length is computed OUTSIDE the macro: the tracing
+                    // audit forbids the identifier `message` inside a call
+                    // site, and that rule is worth more than the convenience.
+                    let chars = message.chars().count();
+                    tracing::warn!(
+                        label = %spec.label,
+                        chars,
+                        "output child reported a render error"
+                    );
                 }
                 Ok(None) | Err(_) => return Ok(ChildExit::Died),
             },
@@ -414,6 +554,7 @@ async fn run_child_once(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::telemetry::quality::SessionOutcome;
 
     #[test]
     fn pidfile_path_derives_from_endpoint() {
@@ -423,9 +564,109 @@ mod tests {
     }
 
     #[test]
-    fn reaping_without_a_pidfile_is_a_noop() {
-        // Must never error or kill anything when no stale child exists.
-        reap_stale_child("output-test-never-spawned");
+    fn reaping_without_a_pidfile_is_a_noop_and_reports_nothing_found() {
+        // Must never error or kill anything when no stale child exists — and
+        // must not raise the `staleChildReaped` quality signal either.
+        assert!(!reap_stale_child("output-test-never-spawned"));
+    }
+
+    #[test]
+    fn a_disconnected_child_is_counted_as_holding_exactly_once() {
+        // The hold inference: past DEFAULT_TIMEOUT_MS with nobody connected,
+        // the child's own watchdog is holding the last frame. One gap must
+        // produce ONE quality signal, not one per 250 ms heartbeat.
+        let telemetry = Arc::new(QualityCollector::new());
+        let (tx, _) = broadcast::channel::<OutputMessage>(4);
+        let shared = Arc::new(ChildShared {
+            label: "output-main-0".into(),
+            pid: Mutex::new(None),
+            connected: AtomicBool::new(false),
+            restarts: AtomicU64::new(0),
+            last_acked_seq: AtomicU64::new(0),
+            disconnected_at: AtomicU64::new(0),
+            counted_hold: AtomicBool::new(false),
+        });
+        let inner = Arc::new(Inner {
+            tx,
+            last_frame: Mutex::new(None),
+            seq: AtomicU64::new(0),
+            shutting_down: AtomicBool::new(false),
+            children: Mutex::new(vec![shared.clone()]),
+            tasks: Mutex::new(Vec::new()),
+            telemetry: telemetry.clone(),
+        });
+
+        // Nothing has disconnected yet.
+        note_held_frames(&inner, 10_000);
+        // A fresh disconnection: inside the timeout is not a hold.
+        shared.disconnected_at.store(10_000, Ordering::SeqCst);
+        note_held_frames(&inner, 10_000 + DEFAULT_TIMEOUT_MS);
+        telemetry.finish_session(1, SessionOutcome::Clean);
+        assert_eq!(
+            drained_holds(&telemetry),
+            0,
+            "inside the timeout is a gap, not a hold"
+        );
+
+        // Past it, once — and staying past it does not count again.
+        shared.disconnected_at.store(10_000, Ordering::SeqCst);
+        shared.counted_hold.store(false, Ordering::SeqCst);
+        for now in [12_001, 12_500, 20_000] {
+            note_held_frames(&inner, now);
+        }
+        telemetry.finish_session(2, SessionOutcome::Clean);
+        assert_eq!(drained_holds(&telemetry), 1);
+
+        // A reconnection arms the next gap.
+        mark_connected(&shared);
+        assert!(shared.connected.load(Ordering::SeqCst));
+        assert_eq!(shared.disconnected_at.load(Ordering::SeqCst), 0);
+        assert!(!shared.counted_hold.load(Ordering::SeqCst));
+        mark_disconnected(&shared);
+        assert!(!shared.connected.load(Ordering::SeqCst));
+        assert!(shared.disconnected_at.load(Ordering::SeqCst) > 0);
+    }
+
+    /// The `watchdog_holds` on the most recently finished session.
+    fn drained_holds(telemetry: &QualityCollector) -> i64 {
+        telemetry
+            .take_buffered_rows()
+            .last()
+            .map_or(0, |r| r.watchdog_holds)
+    }
+
+    #[test]
+    fn a_render_starts_the_latency_stopwatch() {
+        // `render` is the live path: it must record the dispatch without
+        // allocating or locking anything the telemetry owns.
+        let telemetry = Arc::new(QualityCollector::new());
+        let (tx, _rx) = broadcast::channel::<OutputMessage>(4);
+        let inner = Arc::new(Inner {
+            tx,
+            last_frame: Mutex::new(None),
+            seq: AtomicU64::new(0),
+            shutting_down: AtomicBool::new(false),
+            children: Mutex::new(Vec::new()),
+            tasks: Mutex::new(Vec::new()),
+            telemetry: telemetry.clone(),
+        });
+        let supervisor = OutputSupervisor { inner };
+        let seq = supervisor.render(LiveFrame::Black);
+        assert_eq!(seq, 1, "the supervisor's seq starts at 1, never 0");
+        telemetry.note_ack(seq);
+        telemetry.finish_session(1_000, SessionOutcome::Clean);
+        let row = telemetry.take_buffered_rows().pop().expect("a row");
+        assert!(
+            row.cue_latency_p95_ms.is_some(),
+            "the dispatch→ACK round trip was measured"
+        );
+    }
+
+    #[test]
+    fn a_stale_pidfile_scan_never_panics() {
+        // Reads the system temp dir; on Windows the pidfile path is a named
+        // pipe and the answer is a flat `false`.
+        let _ = stale_pidfiles_present();
     }
 
     #[test]

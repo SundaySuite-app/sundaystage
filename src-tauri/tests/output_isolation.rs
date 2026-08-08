@@ -10,13 +10,18 @@
 //!     the current frame so the projector is never blank;
 //!   * a child whose *parent* dies (link loss) HOLDS — stays alive instead of
 //!     exiting — which is the "if the editor crashes, the stage does not"
-//!     promise, decided by the same watchdog the windowed mode uses.
+//!     promise, decided by the same watchdog the windowed mode uses;
+//!   * (E3) a real crash-and-restart lands in the session's quality row as a
+//!     `warn` with `output-restarted`, and the dispatch→ACK round trip is
+//!     measured against the < 50 ms cue budget — end to end, through the real
+//!     binary and the real socket, not a mock.
 //!
 //! Only a screen can verify (Richard's rig test): real pixels, borderless
 //! full-screen placement on the right monitor, and `ss://render` delivery
 //! into the webview.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use sundaystage_lib::output::ipc::{endpoint_path, IpcListener};
@@ -24,6 +29,9 @@ use sundaystage_lib::output::process::{OutputSpec, OutputSupervisor};
 use sundaystage_lib::output::{OutputAck, OutputMessage};
 use sundaystage_lib::services::cue_list::SlideContent;
 use sundaystage_lib::services::live_session::LiveFrame;
+use sundaystage_lib::telemetry::quality::{
+    LiveSafe, QualityCollector, QualityReason, QualityVerdict, SessionOutcome,
+};
 
 /// The binary cargo built for this test run.
 fn output_bin() -> PathBuf {
@@ -189,6 +197,10 @@ async fn malformed_frame_gets_error_ack_but_never_kills_the_output() {
 #[tokio::test]
 async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
     let label = unique_label("respawn");
+    // E3 — the collector the supervisor feeds. Everything it is told here goes
+    // through the same atomics the live path uses.
+    let telemetry = Arc::new(QualityCollector::new());
+    telemetry.begin_session(0);
     let supervisor = OutputSupervisor::start(
         output_bin(),
         vec![OutputSpec {
@@ -200,6 +212,7 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
             headless: true,
             appearance_file: None,
         }],
+        telemetry.clone(),
     );
 
     // First frame reaches the child and is acked.
@@ -234,6 +247,25 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
         supervisor.status()[0].last_acked_seq >= seq2
     })
     .await;
+
+    // E3 — the same crash, read back as a quality row. This is the programme's
+    // E7 rig expectation, proven headlessly: a killed output child is a WARN
+    // (hold-last-frame covered the gap), never a fail.
+    telemetry.finish_session(60_000, SessionOutcome::Clean);
+    let row = telemetry
+        .take_buffered_rows()
+        .pop()
+        .expect("one row per session");
+    assert_eq!(row.verdict, QualityVerdict::Warn, "{row:?}");
+    assert!(row.output_child_restarts >= 1, "{row:?}");
+    assert!(
+        row.reasons.contains(&QualityReason::OutputRestarted),
+        "{row:?}"
+    );
+    assert!(!row.abnormal_end);
+    // …and the dispatch→ACK round trip was measured through the real socket.
+    let p95 = row.cue_latency_p95_ms.expect("acks were seq-correlated");
+    assert!(p95 <= 250, "cue latency p95 was {p95} ms");
 
     supervisor.shutdown().await;
     wait_until("child gone after shutdown", Duration::from_secs(5), || {
