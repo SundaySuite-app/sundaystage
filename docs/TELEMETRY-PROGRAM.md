@@ -239,7 +239,7 @@ uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
 | Kartlegging + program vedtatt     | ✅     | 2026-08-08 | —                                        |
 | E1 Worker app-dimensjon + ringer  | ✅     | 2026-08-08 | lokal merge `27a485f` (repo uten remote) |
 | E2 Stage på ringene (v0.5.0)      | ✅     | 2026-08-08 | #42+#43; v0.5.0 Latest + promotert       |
-| E3 Lokalt observasjonsgrunnlag    | ⬜     |            |                                          |
+| E3 Lokalt observasjonsgrunnlag    | ✅     | 2026-08-08 | #46; 3 innholdslekkasjer tettet          |
 | E4 Worker stage-skjema v1         | ⬜     |            |                                          |
 | E5 Klient: samtykke/utboks/sender | ⬜     |            |                                          |
 | E6 Samtykke-UX + v0.6.0-beta.1    | ⬜     |            |                                          |
