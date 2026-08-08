@@ -100,13 +100,13 @@ impl FrameWriter {
 
 // ── OS endpoints ─────────────────────────────────────────────────────────────
 
-/// The endpoint path for an output process identified by `tag` (its window
-/// label). Unix: a socket file in the system temp dir. Windows: a named pipe.
-/// Deterministic per tag so a relaunched main app rebinds the same endpoint.
-pub fn endpoint_path(tag: &str) -> PathBuf {
-    // Keep only filesystem-safe characters; labels are `output-<role>-<idx>`.
-    let safe: String = tag
-        .chars()
+/// Keep only filesystem-safe characters; labels are `output-<role>-<idx>`.
+///
+/// Shared with [`crate::output::process`]: the endpoint and the pidfile are two
+/// different names for the same child, and they must be sanitised by the same
+/// rule or a label with an odd character would key them differently.
+pub(crate) fn safe_tag(tag: &str) -> String {
+    tag.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || c == '-' {
                 c
@@ -114,7 +114,19 @@ pub fn endpoint_path(tag: &str) -> PathBuf {
                 '_'
             }
         })
-        .collect();
+        .collect()
+}
+
+/// The endpoint path for an output process identified by `tag` (its window
+/// label). Unix: a socket file in the system temp dir. Windows: a named pipe.
+/// Deterministic per tag so a relaunched main app rebinds the same endpoint.
+///
+/// **Not** a place to hang other per-output files off: on Windows this is a
+/// named pipe, not a filesystem location. The pidfile used to be derived from
+/// it and was therefore unwritable there; it now lives under the app-data dir
+/// (see [`crate::output::process::pidfile_dir`]).
+pub fn endpoint_path(tag: &str) -> PathBuf {
+    let safe = safe_tag(tag);
     #[cfg(unix)]
     {
         // Unix socket paths are length-limited (~104 bytes on macOS); the

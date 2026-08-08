@@ -196,13 +196,22 @@ async fn malformed_frame_gets_error_ack_but_never_kills_the_output() {
 #[cfg(unix)]
 #[tokio::test]
 async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
+    // Imported here rather than at the top: this test is `cfg(unix)`, and a
+    // top-level import would be an unused-import warning on Windows.
+    use sundaystage_lib::output::process::pidfile_dir;
+
     let label = unique_label("respawn");
     // E3 — the collector the supervisor feeds. Everything it is told here goes
     // through the same atomics the live path uses.
     let telemetry = Arc::new(QualityCollector::new());
     telemetry.begin_session(0);
+    // Stands in for the app-local data dir; the supervisor puts its pidfiles in
+    // `pidfiles/` under it (a real directory on every platform — it used to be
+    // derived from the IPC endpoint, which on Windows is a named pipe).
+    let data_dir = tempfile::tempdir().expect("data dir");
     let supervisor = OutputSupervisor::start(
         output_bin(),
+        data_dir.path().to_path_buf(),
         vec![OutputSpec {
             label: label.clone(),
             x: 0,
@@ -224,6 +233,17 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
 
     // Crash the child (SIGKILL — a real crash, no cleanup).
     let pid = supervisor.status()[0].pid.expect("child pid");
+
+    // The running child is on disk as a pidfile in the data dir — the trace a
+    // crashed main process leaves behind, and the input to both the reaper and
+    // the startup "did we crash last time?" scan. Proven against the real
+    // binary, not a mock pid.
+    let pidfile = pidfile_dir(data_dir.path()).join(format!("sundaystage-{label}.pid"));
+    assert_eq!(
+        std::fs::read_to_string(&pidfile)
+            .unwrap_or_else(|e| panic!("pidfile at {}: {e}", pidfile.display())),
+        pid.to_string()
+    );
     assert!(std::process::Command::new("kill")
         .args(["-9", &pid.to_string()])
         .status()
@@ -240,6 +260,12 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
     .await;
     let new_pid = supervisor.status()[0].pid.expect("new pid");
     assert_ne!(new_pid, pid, "a fresh process was spawned");
+    // The pidfile follows the restart: it must name the child that is actually
+    // on the projector now, or the next launch would reap the wrong pid.
+    assert_eq!(
+        std::fs::read_to_string(&pidfile).expect("pidfile after restart"),
+        new_pid.to_string()
+    );
 
     // New frames flow to the replacement.
     let seq2 = supervisor.render(LiveFrame::Logo);

@@ -761,14 +761,16 @@ impl QualityCollector {
 ///   * `live_session.log` still exists — `live_end` deletes it, so its presence
 ///     means the process died mid-service;
 ///   * an output pidfile is still on disk — a child that outlived its parent,
-///     which by design is holding the last frame it was given.
+///     which by design is holding the last frame it was given. Scanned under
+///     `data_dir` (see [`crate::output::process::pidfile_dir`]), which is why
+///     this signal is real on Windows too since 0.6.
 ///
 /// The WAL is only READ here: `live_recover` still needs it to offer a resume.
 /// That means the same leftover is seen again on the next launch if the
 /// operator never resumes, which is what [`QualityRow::dedupe_key`] is for.
 pub fn reconstruct_previous_session(data_dir: &Path, at_ms: i64) -> Option<QualityRow> {
     let store = crate::services::session_store::SessionStore::in_dir(data_dir);
-    let stale_child_reaped = crate::output::process::stale_pidfiles_present();
+    let stale_child_reaped = crate::output::process::stale_pidfiles_present(data_dir);
     if !store.exists() {
         // A stale child with no WAL means outputs were open without a service
         // live — nothing to say about a session that never started.
