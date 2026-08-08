@@ -331,10 +331,16 @@ impl<'a> CueCompiler<'a> {
             {
                 Ok(()) => cues.append(&mut scratch),
                 Err(e) => {
+                    // The error's CODE, never its message. `AppError::Json`
+                    // formats the value serde choked on — which for a slide is
+                    // the lyric text — and `AppError::Validation` can carry a
+                    // song title. The id is a UUID and the kind is a closed
+                    // set, so those stay: they are what makes the line useful.
                     tracing::error!(
-                        "skipping corrupt service item {} (kind={}): {e}",
-                        item.id,
-                        item.kind
+                        item_id = %item.id,
+                        item_kind = %item.kind,
+                        code = e.code(),
+                        "skipping corrupt service item"
                     );
                     cues.push(Cue::Pause {
                         cue_id: format!("svc:{}:item:{}:skipped", service.id, item.id),
