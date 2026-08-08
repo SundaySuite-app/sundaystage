@@ -1,0 +1,259 @@
+# SundayStage Kvalitetsprogram — «Sett i drift, aldri i veien»
+
+> Fler-ukers program (~5 uker, 10 etapper + løpende runder): automatisk anonym
+> telemetri med samtykke, krasjrapportering, manuell «Rapporter et problem» og
+> beta-ring-oppdatering. Modellert på SundayRecs kvalitetsprogram (i drift) og
+> SundaySyncs v0.2-program (`sundaysync/docs/V02-PROGRAM.md`), og gjenbruker
+> deres infrastruktur og lærdommer. **Eier:** Richard. **Dirigent:** Fable per
+> etappe; **Opus utfører** (Sonnet kan ta mekanisk i18n/boilerplate). Én etappe
+> = én økt/natt; eier sier **«kjør etappe N»**. Vedtatt 2026-08-08; full
+> planfil: `~/.claude/plans/planlegg-gjennomf-re-en-adaptive-dolphin.md`.
+
+## Ufravikelige lover
+
+1. **Live-stien er hellig** (kjerneløfte #1). Telemetri på live-stien = kun
+   atomiske inkrement/bounded `try_send` (aldri disk/lås/async/Result som må
+   håndteres); collector drenerer kun når `AppState.live` er `None`
+   (try-lock-miss regnes som live); flush-pumpa hopper over hele beatet under
+   live. Bevises med panikkende-sender-test. Unntak: panic-hooken skriver
+   skrubbet krasjfil synkront — ved panikk finnes ingen live-sti å verne, og
+   output-barnet overlever som egen prosess (hold-last-frame).
+2. **Innhold forlater aldri maskinen**: sangtekster/-titler, tjenestenavn,
+   filstier, enhetsnavn. Skrubbing FØR disk + Workerens `ABSOLUTE_PATH_RE` som
+   siste skanse; en 400 logges lokalt med årsak — aldri stille tap
+   (ellipse-lærdommen fra Rec 2026-08-08).
+3. **Worker-først-utrulling** ved hver skjemautvidelse: Worker godtar nye felt
+   som VALGFRIE, deployes og live-verifiseres — deretter klient-release. Aldri
+   motsatt (klienten dropper 400 uten retry = stille permanent datatap). Hver
+   fritekstgrense får test som spenner BEGGE repoer.
+4. **Recs levende flåte må aldri merke noe**: `/v1/ingest`, `x-sundayrec-key`
+   og `/v1/update/{stable,beta}` er FROSNE aliaser for alltid.
+5. Hver etappe: fulle gates (fmt, clippy `-D warnings`, cargo test, tsc,
+   eslint, vitest, Playwright, `export_bindings`) → PR → CI grønn → merge →
+   etapperapport appendert HER → minne oppdatert.
+6. Eierbeslutninger løftes ved etappe-START (listet per etappe). Aldri stille.
+7. Maks 2–3 parallelle Opus-agenter; innholdstunge agenter skriver inkrementelt.
+
+## Låste eiervalg (2026-08-08)
+
+- **FULL anonym pakke**: krasj + kvalitet/problemer + bruk.
+- **Samtykke opt-in**: onboarding-steg for nye installasjoner; ikke-blokkerende
+  hjørnekort for eksisterende (ALDRI modal; aldri under live). Innstillinger:
+  av/på + «vis hva som sendes» (ekte builder) + «slett mine data» + kø-status.
+  Install-id mintes LAZY kun ved aktivt samtykke. `CONSENT_VERSION=1` fra dag
+  én (tre-tilstands maskin `Option<ConsentRecord>`, aldri boolean). Sletting er
+  IKKE samtykke-portet. 90 d rå-retensjon, EU (WEUR), aldri person/kirke-kobling.
+- **Manuell rapport uten stående samtykke: JA, med flyktig engangs-UUID** —
+  «Send» er samtykke for akkurat den rapporten; ingen varig id opprettes.
+- **Delt `sunday-telemetry`-Worker generaliseres** med app-registry
+  (`sundayrec|sundaystage|sundaysync`), per-app-ruter/nøkler/tabellfamilier —
+  bygget ÉN gang slik at Sync E8 bare registrerer seg.
+- **Beta-ring**: `updates.sundaysuite.app/v1/update/sundaystage/{stable,beta}`;
+  ring-cutover skjer FØR telemetrislipp slik at utrullingen selv er
+  kill-switch-styrt.
+
+## Nøkkeldesign
+
+**Worker-generalisering (E1):** `src/apps.ts`-registry; nye ruter
+`POST /v1/apps/:app/ingest`, `DELETE /v1/apps/:app/install/:id`,
+`GET /v1/update/:app/:channel`; generisk `x-write-key` med per-app-secret
+(`WRITE_KEY_SUNDAYSTAGE` ny). Per-app TABELLFAMILIER (ikke bred delt tabell):
+`ss_events` + barn + `ss_agg_*`; `tables.ts` → familie-registry; purge/delete
+itererer familier; coverage-testen skalerer. Ny
+`app_update_channels (app, channel, …)` seedet med `INSERT…SELECT` →
+byte-identiske svar fra fødselen. Valideringskjernen (`Check`,
+`ABSOLUTE_PATH_RE`, ellipse-+1) ut i `src/validate.ts`; `schema.ts`
+re-eksporterer så Recs ~116 tester kjører uendret.
+
+**Stage-payload v1 (E4):** konvolutt som Rec (schema=1, consentVersion,
+installId, builtAt, appVersion, os, arch, language).
+`settings` = 10 lukkede enum/bool/bucket-felt: outputCount, displayCountBucket,
+stageDisplayEnabled, companionEnabled, fallbackInProcess, librarySongsBucket,
+themeCountBucket, aiConfigured, syncEnabled, updateRing.
+`counters` = ~19 navn i lukket allow-list: live.session.{started,ended,recovered},
+live.cue.dispatched, output.{opened,fallback.in_process},
+editor.{service.created,song.created}, ai.{format.run,search.run},
+library.{publish.run,import.run}, bible.verse.projected, deck.presented,
+theme.created, companion.connected, template.applied, update.installed,
+report.manual.sent.
+`quality` = én rad per live-økt: at, durationSec, cueCount, outputChildRestarts,
+connectTimeouts, watchdogHolds, dispatchErrors, companionFailures, fallbackUsed,
+staleChildReaped, abnormalEnd, recovered, cueLatencyP95Ms, verdict
+(pass|warn|fail) + lukket reasons[] (output-restarted | hold-last-frame |
+abnormal-end | dispatch-errors | slow-cues | companion-failures | fallback-used
+| clean). Alle signalene beregnes allerede i dag og kastes.
+`crashes` = Recs form (kind, at, appVersion, os, message ≤200, location ≤120,
+task ≤64, backtracePresent) med stage-kinds: panic, task_panic, webview_error,
+unhandled_rejection, other. Frontend-feil gjennom SAMME skrubbede ring.
+Output-barnedød er IKKE krasj (→ quality).
+`reports` (cap 3) = at, context (live|editor|settings|other), message ≤200,
+logTail ≤4000 (skrubbet klient-side ved skriving OG lesing, screenet
+server-side; dialogen forhåndsviser EKSAKTE utgående bytes).
+Caps: body 64 kB, crashes 20, quality 20. `STAGE_OPTIONAL_PAYLOAD_KEYS = []`
+fra dag én med avledet subset-test.
+
+## Etappene
+
+### E1 — Worker: app-dimensjon + app-skopede ringer _(sunday-telemetry)_
+
+👤 Ved start: mint `WRITE_KEY_SUNDAYSTAGE` (`wrangler secret put`), bekreft
+app-id-strengene og GitHub-repo-mappingen.
+Registry, nye ruter + frosne aliaser, `x-write-key`, migr
+`0006_app_update_channels` (copy-seed; gammel tabell står én uke), `update.ts`
+→ (app, channel) — handleren ser fortsatt aldri `Request`; `promote.ts`/
+`channel.ts` får `app` (default sundayrec → eksisterende admin-skript virker).
+Tester: app×kanal-matrise, alias-byte-ekvivalens, promoterings-isolasjon.
+**Gate: live kill-switch-drill mot Recs EKTE flåte-URL-er** (byte-identisk
+begge URL-former, pause→204 ≤60 s, resume, kryss-app-isolasjon) — sjekkliste i
+etapperapporten.
+
+### E2 — Stage over på ringene + beta-ring _(sundaystage; slipp v0.5.0)_
+
+👤 Ved start: publiser + godkjenn promotering; verifiser self-update på egen
+maskin.
+`tauri.conf.json` endpoints → `…/v1/update/sundaystage/stable` (pubkey
+uendret); beta-toggle i SettingsPage (System) → Rust bygger updater med
+`/beta`-endepunkt runtime; release.yml: **`uploadUpdaterJson`** (ekte
+input-navn — `includeUpdaterJson` ignoreres stille) + **NSIS-only på
+`-beta.`-tagger** (MSI kan ikke uttrykke prerelease); pinnet test på semver
+beta→stable-retningen. Behold latest.json på GitHub-releasen t.o.m. v0.5.0
+(0.4.0-flåtens siste GitHub-hopp; ringen tar over fra 0.5.0). i18n ×7.
+Kill-switch-drill for stage-ringene.
+
+### E3 — Lokalt observasjonsgrunnlag _(sundaystage; ingen tag, ingenting sender)_
+
+ERSTATT `services/crash.rs` med `src-tauri/src/telemetry/`-familie à la Rec:
+`scrub.rs` (sti-skrubber; fixture-hjelperens eksakte strenger blir E4s
+kryss-repo-probe), `crash_ring.rs` (ring 20, skrubb-før-disk, catch_unwind,
+OnceLock-dir). Fillogging: `tracing-appender` m/ størrelsestak + `log_tail(n)`
+som skrubber ved LESING også; audit av ALLE tracing-kallsteder for
+innholdslekkasje + pinnede tester. Frontend-fangst: `src/lib/errorReporting.ts`
+(onerror, unhandledrejection, ErrorBoundary på OperatorWorkspace-roten) → IPC →
+ring. Tellere (SQLite via repo-konvensjon) m/ inkrement-sømmer listet i
+rapporten. Kvalitets-collector per lov 1, matet fra `output/process.rs`
+(ChildStatus.restarts, connect-timeouts, watchdog), dispatch-/companion-
+sømmene, oppstartsrekonstruksjon (stale child reaped / WAL funnet →
+abnormalEnd-rad for forrige økt). Cue-latens: seq-korrelert dispatch→OutputAck
+inn i fast atomisk histogram (≤10/25/50/100/250/>250 ms), p95 ved øktslutt —
+fallback dispatch→broadcast m/ ærlig forbehold hvis ack ikke kan korreleres
+billig. Live-vern-testene: panikkende sender, buffer-under-live-integrasjon,
+ingen blokkerende metode i collector-API-et.
+
+### E4 — Worker: sundaystage-skjema v1 _(sunday-telemetry; MÅ deployes før E5/E6)_
+
+`src/validate.ts`-kjerne ut (Recs tester, inkl. truncation, kjører uendret),
+`src/schema/sundaystage.ts`, migr `0007_sundaystage_events` +
+`0008_sundaystage_aggregates` (kolonner-ikke-JSON, NOT NULL), familie-registry,
+purge/delete/coverage utvidet, summary + queries.sql stage-seksjoner.
+**Kryss-repo-suiter:** `test/seam-probe-stage.test.ts` matet av E3-skrubberens
+EKSAKTE output; trunkeringstester for message/logTail/appVersion/location
+(ellipse-+1); logTail-cap + sti-screen; verstefall-body-fixture.
+Gate: deploy + live-curler (stage-fixture→202, ukjent felt→400,
+rec-regresjon→202) i rapporten.
+
+### E5 — Klient: samtykkemaskin, utboks, sender _(sundaystage; ingen tag)_
+
+Porter fra Rec (tilpass, ikke del crate — lagring ulik; avvik dokumenteres):
+samtykkemaskin (`Option<ConsentRecord>`, CONSENT_VERSION=1, absent-means-no,
+stale-grant-not-a-grant; SQLite via ny telemetry-repository), lazy install-id
+KUN ved aktivt samtykke, regenerate + pendingDeletions-park (sletting drenerer
+uten samtykke), payload-builder + preview (ÉN builder for wire/preview/
+rapport), vannmerke-drenering (idempotent), utboks (50 drop-eldst,
+MAX_ATTEMPTS 6, stige 1 m→24 t, classify: 2xx drop / 429+408 transient / andre
+4xx PERMANENT drop m/ lokal årsakslogg / 5xx transient), http_sender
+(`option_env!("SUNDAYSTAGE_TELEMETRY_URL")` + `…_WRITE_KEY`; None → ingen
+sender, dev-builds inerte), supervised pumpe m/ live-gate-beat. IPC
+`telemetry.*` + ts-rs. Gammel `crash_reporting.json` pensjoneres og
+auto-innvilger IKKE samtykke (lokal fangst-opt-in ≠ nettverkssamtykke).
+Tester: overgangene, drain-idempotens, classify-tabell, live-gate,
+preview==wire-bytes, no-consent-no-id, deletion-without-consent.
+
+### E6 — Samtykke-UX + første telemetrislipp _(sundaystage; v0.6.0-beta.1, KUN beta)_
+
+👤 Ved start: (1) samtykketekst v1 + behandlingsansvarlig-linje (dekker
+aggregater OG flyktig-id-rapporter); (2) `gh secret set` URL+WRITE_KEY;
+(3) personvern-copy godkjent (min. en+no).
+Onboarding: WelcomeScreen får steg-maskineri (TutorialOverlay STEPS-mønsteret)
+— steg 2 = samtykkespørsmålet, likeverdige knapper, lenke til full tekst.
+Eksisterende installasjoner: hjørne-toast (aldri modal, aldri når live er
+Some). SettingsPage: «Personvern»-kort erstatter Advanced-krasjkortet (toggle,
+live preview m/ ekte builder, kø-status, slett-mine-data, install-id +
+regenerer). «Rapporter et problem»: dialog (fritekst m/ 200-tegns teller,
+skrubbet logghale-preview = eksakte utgående bytes, context-enum, flyktig
+engangs-UUID uten stående samtykke), nås fra Settings + kommandopalett.
+i18n ×7 + paritet; Playwright: onboarding-steget, toggle-flyt, rapportdialog.
+PRIVACY.md + `docs/TELEMETRY.md` (ærlig offentlig beskrivelse).
+Slipp: v0.6.0-beta.1 (NSIS-only win) → promote KUN beta (eier eneste medlem).
+Gate: første ekte payload fra eierens maskin synlig i `/v1/admin/summary`.
+
+### E7 — Beta-herding, feilrunde 1 _(begge repoer)_
+
+Sjekkliste i rapport: øvings-live-økt → korrekt quality-rad (drep
+output-barnet midt i → restart telt, verdict warn); indusert panikk → ring →
+sendt etter samtykke; sletting ende-til-ende (UI → Worker DELETE → summary
+bekrefter); manuell rapport lesbar server-side; ekte logghale manuelt audert
+for innhold; rate-limit-oppførsel; samtykke AV midt i kø stopper sending.
+Fikser → v0.6.0-beta.2 via ringen; Worker-fikser følger valgfritt-først.
+
+### E8 — Stabil utrulling + re-prompt i felt _(promote v0.6.0 → stable)_
+
+👤 Ved start: eksplisitt godkjenning av stable-promotering.
+Overvåkingsuke: daglige summary-lesinger; verifiser at toasten dukker opp
+etter oppdatering og ALDRI under live; ops-dokumentasjon ferdigstilles
+(sunday-telemetry/README + queries.sql stage-kapittel).
+
+### E9 — Feilrunde 2, datadrevet _(patch-slipp v0.6.x via ringene)_
+
+Triage av første ekte data: topp krasjsignaturer, verdict-fordeling,
+felt-cue-p95 mot 50 ms-budsjettet (første EKTE måling av kjerneløftet),
+rapporttekster → topp 3–5 fikser → beta → stable. Skjemajusteringer:
+Worker-først, `STAGE_OPTIONAL_PAYLOAD_KEYS`, subset-tester.
+
+### E10 — Kontinuerlig drift
+
+Stage inn i suitens felles månedsrytme (Rec E11 / Sync E12): telemetri/
+krasj-triage → backlog, ring-helse, retensjonsverifisering, avhengighets-/
+advisory-review, kvartalsvis kill-switch-drill, nøkkelhygiene. Leveranse:
+runbook-seksjon her.
+
+**Ukeplan:** uke 1: E1+E2 · uke 2: E3+E4 · uke 3: E5+E6 · uke 4: E7+E8 ·
+uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
+
+## Risikoer (med mottiltak)
+
+- **Ring-cutover mot levende Rec-flåte** → copy-seed + frosne aliaser +
+  byte-identitets-drill før E1 lukkes; gammel tabell står én release.
+- **logTail = farligste fritekstlinje** → trippelt vern: ingen-innhold-i-
+  logger-regelen (E3-audit m/ tester), klient-skrubb ved skriving OG lesing,
+  Workerens ABSOLUTE_PATH_RE + eksakte-bytes-preview i dialogen.
+- **0.4.0-flåtens GitHub-hopp** → latest.json beholdes på GitHub t.o.m. v0.5.0.
+- **Samtykke-støy en søndag** → toast sjekker live-state; aldri modal;
+  e2e-pinnet.
+- **Skjemadrift/stille tap** → hver fritekstgrense kryss-repo-testet;
+  valgfritt-først står som lov øverst i dette dokumentet.
+
+## Etappestatus
+
+| Etappe                            | Status | Dato       | PR  |
+| --------------------------------- | ------ | ---------- | --- |
+| Kartlegging + program vedtatt     | ✅     | 2026-08-08 | —   |
+| E1 Worker app-dimensjon + ringer  | ⬜     |            |     |
+| E2 Stage på ringene (v0.5.0)      | ⬜     |            |     |
+| E3 Lokalt observasjonsgrunnlag    | ⬜     |            |     |
+| E4 Worker stage-skjema v1         | ⬜     |            |     |
+| E5 Klient: samtykke/utboks/sender | ⬜     |            |     |
+| E6 Samtykke-UX + v0.6.0-beta.1    | ⬜     |            |     |
+| E7 Beta-herding, feilrunde 1      | ⬜     |            |     |
+| E8 Stabil utrulling               | ⬜     |            |     |
+| E9 Feilrunde 2, datadrevet        | ⬜     |            |     |
+| E10 Kontinuerlig drift            | ⬜     |            |     |
+
+## Stående eierposter (løftes ved merket etappe, aldri stille)
+
+- E1: mint `WRITE_KEY_SUNDAYSTAGE`; bekreft app-id-er.
+- E2: publiser v0.5.0 + godkjenn promotering; self-update-verifisering.
+- E6: samtykketekst + behandlingsansvarlig-linje; `gh secret set` URL+nøkkel;
+  personvern-copy.
+- E8: eksplisitt stable-godkjenning.
+- Uavhengig av programmet: Apple-avtale-reaksept (notarisering) — gjelder hele
+  suiten.
