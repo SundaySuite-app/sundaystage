@@ -375,3 +375,36 @@ dobbelt-skjerm-dubletter), fast 6-bøtte-histogram, ærlig 250 ms-metning.
 (pre-eksisterende: pidfile på named-pipe-sti → stale-deteksjon inert på win)
 → egen chip. Drain-trigger er håndplassert (live_end/output_close/
 update_install/oppstart); supervised pumpe m/ live-gate-beat er E5-leveranse.
+
+---
+
+## Etapperapport E4 — 2026-08-08/09 (natt) ✅
+
+**Levert** (`sunday-telemetry` main `f3f4c51`, deployet `879641b4`, migr
+0008+0009 applisert): valideringskjernen ut i `src/validate.ts` (Recs tester
+uendret), `src/schema/sundaystage.ts` bygget mot E3s FAKTISKE klientformer
+(8 dok-vs-kode-avvik løst — koden vant; bl.a. `schema` per krasjpost godtatt
+som valgfri m/ default 1, verdict NOT NULL, cueLatency ikke pinnet til
+250-metningen), `ss_events`-familien + `ss_agg_*` (kolonner, NOT NULL, ingen
+triggere — vakten skjerpet til å kreve at den SER alle filer), parameterisert
+ingest, familie-registry i tables/purge/delete/coverage, summary+queries.
+331 tester (E4s 296 + Syncs 35), kryss-repo-fixturer verifisert mot
+stage-checkouten via sjekksum-pinnet kopi + `check:fixtures`-skript.
+
+**Midt i etappen merget Sync-økta sin E8 til main** — agenten flettet etter
+plan: E8s mer generelle `TableFamily` (eventFk+grandchildTables) vant structen,
+E4s registry+fold-map består, schema-sync repekt til validate.ts. INGEN
+fremmede tester endret (byte-verifisert). 0007=sync, 0008/0009=stage.
+purge_runs fikk per-app-kolonner (summen kan ikke si HVILKEN app).
+
+**Live-drill:** stage-fixture → 202 · ukjent felt → 400 m/ presis issue ·
+delete-by-id → per-tabell-kvittering over hele ss_-familien · rec-fixture
+gjennom LEGACY-aliaset → 202 + legacy-delete OK (ekte regresjonsbevis) ·
+alle ringer friske etter deploy. Testdata slettet via delete-endepunktet.
+
+**⚠️ Krav til E5 (fra funn):** verstefall-payload = 53 505 B = 82 % av
+64 kB-taket MED 2-byte-tekst — 4-byte-skalarer sprenger det. Senderen MÅ
+byte-måle serialisert body FØR enqueue (413 droppes like stille som 400).
+Og: QualityRows lokale felt (id, dedupe_key) er `unknown_field` på wire —
+loud-testet. **Repo-nytt:** `sunday-telemetry` er nå PRIVAT på GitHub
+(`SundaySuite-app/sunday-telemetry`, alle grener pushet etter secretskann).
