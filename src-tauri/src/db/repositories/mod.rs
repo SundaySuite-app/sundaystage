@@ -14,6 +14,7 @@ pub mod media;
 pub mod service_templates;
 pub mod services;
 pub mod songs;
+pub mod telemetry;
 pub mod themes;
 pub mod translate;
 
@@ -25,5 +26,6 @@ pub use media::MediaRepo;
 pub use service_templates::ServiceTemplateRepo;
 pub use services::ServiceRepo;
 pub use songs::SongRepo;
+pub use telemetry::TelemetryRepo;
 pub use themes::ThemeRepo;
 pub use translate::TranslateRepo;
