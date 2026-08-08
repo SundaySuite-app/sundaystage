@@ -73,13 +73,17 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # Notarization: tauri-action reads APPLE_PASSWORD as the app-specific
-          # password. The old APPLE_PASSWORD secret was stale (notarytool 401);
-          # the fresh app-specific password lives in APP_SPECIFIC_PASSWORD
-          # (added 2026-06-09), so feed that one in.
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Notarization DISABLED 2026-08-08: notarytool returns 403 — the
+          # Apple Developer agreement needs re-acceptance (owner task; same
+          # blocker as SundayRec). The app still ships CODE-SIGNED via the
+          # certificate env above; Gatekeeper shows a first-launch warning.
+          # Re-enable by restoring these three lines once the agreement is
+          # signed (tauri-action reads APPLE_PASSWORD as the app-specific
+          # password — use the APP_SPECIFIC_PASSWORD secret, added 2026-06-09;
+          # the old APPLE_PASSWORD secret was stale, notarytool 401):
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "SundayStage ${{ github.ref_name }}"
