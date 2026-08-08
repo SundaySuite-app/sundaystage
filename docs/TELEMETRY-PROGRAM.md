@@ -309,3 +309,33 @@ unntaksliste +6 linjer (dens egen feilmelding krever det) · `promoted_at`
 INTEGER unix-ms (0003s faktiske type) · ukjent app = 404 på sti-ruter, 400 i
 admin-body (speiler unknown_channel) · `/v1/admin/channels` beholder Recs
 toppnivåfelt og legger `apps[]` ved siden av (eksisterende jq-uttrykk virker).
+
+---
+
+## Etapperapport E2 — 2026-08-08 ✅
+
+**Levert:** ring-updater (PR #42, main `798294c`) + v0.5.0 UTE (PR #43, tag
+bygget, publisert som Latest, promotert til `sundaystage/stable`).
+Oppdateringssjekken flyttet til Rust — `UpdaterBuilder::endpoints` er eneste
+runtime-søm (JS-pluginens CheckOptions kan ikke overstyre endepunkter);
+signaturverifisering/nedlasting/installasjon urørt plugin-kode, pubkey uendret.
+Kanalvalg (stable/beta) persistert etter flaggfil-mønsteret, toggle i
+Innstillinger → Avansert, i18n ×7 (49 oppføringer). 204 = «oppdatert» pinnet.
+Semver-retning pinnet ved å kjøre pluginens EGEN komparator over dens EGEN
+deserialiserer (0.6.0-beta.1→0.6.0 JA, omvendt NEI) — Recs
+prerelease-stripping-feil ikke importert. release.yml: `uploadUpdaterJson`
+(ekte input — `includeUpdaterJson` var stille ignorert), NSIS-only +
+`prerelease: true` på `-beta.`-tagger (beta kan aldri bli GitHub-Latest for
+0.4.0-flåten). Gates: vitest 382 (+14), cargo 487 (+8), clippy/fmt/tsc/
+eslint/prettier/Playwright grønt.
+
+**Live-drill (alle grønne):** GitHub-feed serverer 0.5.0 (0.4.0-flåtens siste
+hopp) · promote → ringen serverer manifest JSON-identisk med GitHubs
+latest.json · beta-ring urørt 204 · kill-switch: pause → 204 på 5 s,
+rec-ringene upåvirket under pausen, resume → byte-identisk på 5 s.
+
+👤 **Gjenstår (eier):** self-update-verifisering på egen maskin — 0.4.0 →
+0.5.0 via GitHub, deretter test ringen: promoter en fremtidig beta, flipp
+kanalvelgeren, relansér. Følgesak (chore): `@tauri-apps/plugin-updater`
+npm-pakken + `updater:default`-capability er ubrukt etter Rust-flyttingen —
+fjernes i en senere deps-runde.
