@@ -7,8 +7,18 @@
 #
 # The tag push triggers this workflow, which produces a DRAFT GitHub Release
 # with the signed installers + the updater `latest.json`. Review the draft,
-# then publish it — installed apps pick up the update from the `latest`
-# release endpoint configured in tauri.conf.json.
+# then publish it.
+#
+# Since E2 (v0.5.0) installed apps update from the app-scoped rings on the
+# shared Sunday update Worker — `updates.sundaysuite.app/v1/update/sundaystage/
+# {stable,beta}`. Publishing the GitHub release is therefore only step one: the
+# build must then be PROMOTED to a ring before anyone receives it. The GitHub
+# `latest.json` is still uploaded because the 0.4.0 fleet polls
+# `releases/latest/download/latest.json`; v0.5.0 is that fleet's last GitHub
+# hop.
+#
+# Beta tags (`v0.6.0-beta.1`) are marked as GitHub prereleases so they can
+# never become "Latest" for that fleet, and build NSIS only on Windows.
 #
 # Required repository secrets are documented in docs/DISTRIBUTION.md.
 
@@ -62,6 +72,23 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # Windows + a `-beta.` tag must build NSIS ONLY. An MSI's ProductVersion
+      # is a numeric triple (`x.y.z`) with nowhere to put a prerelease
+      # identifier, so the WiX bundler hard-fails on `v0.6.0-beta.1` and takes
+      # the whole release with it (SundayRec hit exactly this). Stable tags and
+      # macOS keep the bundle set configured in tauri.conf.json.
+      - name: Resolve bundle args for this tag
+        id: build_args
+        shell: bash
+        run: |
+          args='${{ matrix.args }}'
+          if [ "${{ matrix.platform }}" = "windows-latest" ] && \
+             [ "${{ contains(github.ref_name, '-beta.') }}" = "true" ]; then
+            args="$args --bundles nsis"
+            echo "prerelease tag on Windows → NSIS only"
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+
       - name: Build, sign, and publish
         uses: tauri-apps/tauri-action@v1
         env:
@@ -89,6 +116,16 @@ jobs:
           releaseName: "SundayStage ${{ github.ref_name }}"
           releaseBody: "See the assets below to download and install. Auto-update is enabled for existing installs."
           releaseDraft: true
-          prerelease: false
-          includeUpdaterJson: true
-          args: ${{ matrix.args }}
+          # A `-beta.` tag must NEVER become the GitHub "Latest" release: the
+          # 0.4.0 fleet still polls `releases/latest/download/latest.json`, so a
+          # beta published as a normal release would be pushed to every church
+          # that has not yet hopped onto the ring.
+          prerelease: ${{ contains(github.ref_name, '-beta.') }}
+          # The real input name. `includeUpdaterJson` (used here until E2) does
+          # NOT exist in tauri-action and was silently ignored — latest.json was
+          # only ever uploaded because `uploadUpdaterJson` defaults to true.
+          # Stating it makes the 0.4.0 fleet's GitHub manifest deliberate:
+          # v0.5.0 is that fleet's last GitHub hop, and the ring takes over from
+          # there.
+          uploadUpdaterJson: true
+          args: ${{ steps.build_args.outputs.args }}
