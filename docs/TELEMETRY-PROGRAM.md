@@ -339,3 +339,39 @@ rec-ringene upåvirket under pausen, resume → byte-identisk på 5 s.
 kanalvelgeren, relansér. Følgesak (chore): `@tauri-apps/plugin-updater`
 npm-pakken + `updater:default`-capability er ubrukt etter Rust-flyttingen —
 fjernes i en senere deps-runde.
+
+---
+
+## Etapperapport E3 — 2026-08-08 ✅
+
+**Levert (PR #46, main `7d208cd`):** alt som senere skal på ledningen finnes nå
+lokalt — skrubbet, ring-avgrenset og bevist ute av stand til å røre live-stien.
+Ingenting sender noe. `src-tauri/src/telemetry/` erstatter `services/crash.rs`:
+`scrub.rs` (helhets-token-skrubbing — Recs halvvasket-sti-feil ikke importert;
+**kryss-repo-fixturer committet i `src-tauri/telemetry-scrub-fixtures.json`**,
+14+1 deterministiske caser → E4s seam-probe), `crash_ring.rs` (ring 20,
+skrubb-før-disk, catch_unwind, ellipse-+1), `logfile.rs` (egen 5×2 MB
+størrelsesrotasjon — tracing-appender bevisst DROPPET: roterer kun på tid,
+NonBlocking er lossy-eller-blokkerende; Recs E2-valg), 19-navns lukket
+teller-enum (serde-navnet ER wire-strengen), live-gated kvalitets-collector.
+Frontend: ErrorBoundary + onerror/unhandledrejection → samme ring. Migr
+`sql/0007_telemetry.sql`. Cargo 568 (+81), vitest 394 (+12).
+
+**Tracing-audit: 3 EKTE innholdslekkasjer funnet og tettet** (alle kunne sende
+sangtekst til logg): AppErrors Json-variant formatterer verdien serde feilet på
+(= sangteksten) · output-barnets dispatch-feil siterte innholdet · io::Error
+kan navngi socketen. Hvert kallsted nå pinnet av makro-parsende test m/
+begrunnet unntaksliste.
+
+**Live-vernet bevist fem veier:** panikkende-sink-injeksjon (live=Some → null
+skriv), try-lock-miss = live, idempotent vannmerke, feilet-skriv-rekø, og
+strukturell test som leser quality.rs og feiler på enhver blokkerende form i
+LiveSafe-flaten. Cue-latens: seq-korrelert dispatch→ACK (CAS mot
+dobbelt-skjerm-dubletter), fast 6-bøtte-histogram, ærlig 250 ms-metning.
+
+**Gjenstår fra etappen (mekaniske følgesaker, listet i PR):** ~8 teller-sømmer
+(editor/ai/bible/theme/template m.fl.), `deck.presented` = designbeslutning,
+`companion.connected` venter på Phase 9-søm. ⚠️ Windows-pidfile-gap
+(pre-eksisterende: pidfile på named-pipe-sti → stale-deteksjon inert på win)
+→ egen chip. Drain-trigger er håndplassert (live_end/output_close/
+update_install/oppstart); supervised pumpe m/ live-gate-beat er E5-leveranse.
