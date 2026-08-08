@@ -85,6 +85,8 @@ export type { ThemeTokens }       from "./ThemeTokens";
 export type { TonoEntry }         from "./TonoEntry";
 export type { TranslationResult } from "./TranslationResult";
 export type { UniversalHit }      from "./UniversalHit";
+export type { UpdateChannel }     from "./UpdateChannel";
+export type { UpdateInfo }        from "./UpdateInfo";
 export type { VAlign }            from "./VAlign";
 
 /** Error shape returned by every Tauri command (see error.rs). */

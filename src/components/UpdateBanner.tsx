@@ -1,19 +1,24 @@
 /**
  * Phase 13.2 — auto-update banner.
  *
- * On launch, checks the GitHub Releases manifest for a newer signed build. If
- * one exists, offers a one-click download + relaunch. No-ops silently outside
- * Tauri / offline / before the first release, so it never gets in the way.
+ * On launch, checks this install's update ring (stable or beta — see Settings →
+ * Advanced) for a newer signed build. If one exists, offers a one-click
+ * download + relaunch. No-ops silently outside Tauri / offline / when the ring
+ * has nothing promoted, so it never gets in the way.
  */
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 
-import { checkForUpdate, installAndRelaunch, type Update } from "@/lib/updater";
+import {
+  checkForUpdate,
+  installAndRelaunch,
+  type UpdateInfo,
+} from "@/lib/updater";
 import { useT } from "@/lib/i18n";
 
 export function UpdateBanner() {
   const t = useT();
-  const [update, setUpdate] = useState<Update | null>(null);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -52,7 +57,7 @@ export function UpdateBanner() {
           disabled={busy}
           onClick={() => {
             setBusy(true);
-            installAndRelaunch(update).catch(() => setBusy(false));
+            installAndRelaunch().catch(() => setBusy(false));
           }}
           className="flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-bold text-[var(--color-accent-fg)] hover:brightness-110 disabled:opacity-60"
         >

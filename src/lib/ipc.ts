@@ -63,6 +63,8 @@ import type {
   ThemeTokens,
   TranslationResult,
   UniversalHit,
+  UpdateChannel,
+  UpdateInfo,
 } from "./bindings";
 
 const DEV = import.meta.env.DEV;
@@ -478,6 +480,23 @@ export const crash = {
   clear: () => call<void>("crash_reports_clear"),
 };
 
+// ── Auto-update over the app-scoped rings (E2) ──────────────────────────────────
+//
+// The check runs in Rust: `UpdaterBuilder::endpoints(..)` is the only seam that
+// can pick the ring at runtime — the JS `check()` from
+// `@tauri-apps/plugin-updater` has no `endpoints` option. `check` resolves to
+// `null` when we are up to date, which includes the ring answering 204 (nothing
+// promoted / ring paused). Relaunching after `install` stays a JS concern
+// (`@tauri-apps/plugin-process`), see `lib/updater.ts`.
+
+export const update = {
+  channel: () => call<UpdateChannel>("update_channel_get"),
+  setChannel: (channel: UpdateChannel) =>
+    call<UpdateChannel>("update_channel_set", { channel }),
+  check: () => call<UpdateInfo | null>("update_check"),
+  install: () => call<void>("update_install"),
+};
+
 /** Bundled namespace for ergonomic imports. */
 export const ipc = {
   library,
@@ -496,5 +515,6 @@ export const ipc = {
   bible,
   search,
   serviceTemplate,
+  update,
   parseCueSpecs,
 };
