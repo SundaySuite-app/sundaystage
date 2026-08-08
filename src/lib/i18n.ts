@@ -543,6 +543,15 @@ const en: Catalog = {
   setNotGiven: "Not given",
   setRevoke: "Withdraw",
   setGiveConsent: "Give consent",
+  setUpdateChannel: "Update channel",
+  setUpdateChannelDesc:
+    "Which ring this machine gets its updates from. Both rings are signed with the same key.",
+  setUpdateChannelCurrent: "Currently:",
+  setChannelStable: "Stable",
+  setChannelBeta: "Beta",
+  setBetaUpdates: "Get beta updates",
+  setBetaUpdatesDesc:
+    "Beta builds arrive earlier and may have rough edges — not recommended on the machine that runs the service. You can switch back to stable at any time.",
   setCrashReporting: "Crash reporting",
   setCrashDesc:
     "Store crash reports locally on the machine — nothing is sent automatically. Off by default.",
@@ -1207,6 +1216,15 @@ const no: Catalog = {
   setNotGiven: "Ikke gitt",
   setRevoke: "Trekk tilbake",
   setGiveConsent: "Gi samtykke",
+  setUpdateChannel: "Oppdateringskanal",
+  setUpdateChannelDesc:
+    "Hvilken ring denne maskinen henter oppdateringer fra. Begge ringene er signert med samme nøkkel.",
+  setUpdateChannelCurrent: "Nå:",
+  setChannelStable: "Stabil",
+  setChannelBeta: "Beta",
+  setBetaUpdates: "Få beta-oppdateringer",
+  setBetaUpdatesDesc:
+    "Beta-versjoner kommer tidligere og kan ha skarpe kanter — ikke anbefalt på maskinen som kjører gudstjenesten. Du kan bytte tilbake til stabil når som helst.",
   setCrashReporting: "Feilrapportering",
   setCrashDesc:
     "Lagre krasj-rapporter lokalt på maskinen — ingenting sendes automatisk. Av som standard.",
@@ -1803,6 +1821,15 @@ const sv: Catalog = {
   setNotGiven: "Inte givet",
   setRevoke: "Återkalla",
   setGiveConsent: "Ge samtycke",
+  setUpdateChannel: "Uppdateringskanal",
+  setUpdateChannelDesc:
+    "Vilken ring den här maskinen hämtar uppdateringar från. Båda ringarna är signerade med samma nyckel.",
+  setUpdateChannelCurrent: "Nu:",
+  setChannelStable: "Stabil",
+  setChannelBeta: "Beta",
+  setBetaUpdates: "Få beta-uppdateringar",
+  setBetaUpdatesDesc:
+    "Betaversioner kommer tidigare och kan ha skarpa kanter — rekommenderas inte på maskinen som kör gudstjänsten. Du kan byta tillbaka till stabil när som helst.",
   setCrashReporting: "Kraschrapportering",
   setCrashDesc:
     "Lagra kraschrapporter lokalt på maskinen — ingenting skickas automatiskt. Av som standard.",
@@ -2414,6 +2441,15 @@ const da: Catalog = {
   setNotGiven: "Ikke givet",
   setRevoke: "Træk tilbage",
   setGiveConsent: "Giv samtykke",
+  setUpdateChannel: "Opdateringskanal",
+  setUpdateChannelDesc:
+    "Hvilken ring denne maskine henter opdateringer fra. Begge ringe er signeret med den samme nøgle.",
+  setUpdateChannelCurrent: "Nu:",
+  setChannelStable: "Stabil",
+  setChannelBeta: "Beta",
+  setBetaUpdates: "Få beta-opdateringer",
+  setBetaUpdatesDesc:
+    "Betaversioner kommer tidligere og kan have skarpe kanter — anbefales ikke på maskinen, der kører gudstjenesten. Du kan skifte tilbage til stabil når som helst.",
   setCrashReporting: "Fejlrapportering",
   setCrashDesc:
     "Gem nedbrudsrapporter lokalt på maskinen — intet sendes automatisk. Slået fra som standard.",
@@ -3033,6 +3069,15 @@ const de: Catalog = {
   setNotGiven: "Nicht erteilt",
   setRevoke: "Widerrufen",
   setGiveConsent: "Einwilligung erteilen",
+  setUpdateChannel: "Update-Kanal",
+  setUpdateChannelDesc:
+    "Aus welchem Ring dieses Gerät seine Updates bezieht. Beide Ringe sind mit demselben Schlüssel signiert.",
+  setUpdateChannelCurrent: "Aktuell:",
+  setChannelStable: "Stabil",
+  setChannelBeta: "Beta",
+  setBetaUpdates: "Beta-Updates erhalten",
+  setBetaUpdatesDesc:
+    "Beta-Versionen kommen früher und können Ecken und Kanten haben — nicht empfohlen auf dem Gerät, das den Gottesdienst fährt. Du kannst jederzeit zu Stabil zurückwechseln.",
   setCrashReporting: "Absturzberichte",
   setCrashDesc:
     "Absturzberichte lokal auf dem Gerät speichern — nichts wird automatisch gesendet. Standardmäßig aus.",
@@ -3661,6 +3706,15 @@ const fr: Catalog = {
   setNotGiven: "Non donné",
   setRevoke: "Retirer",
   setGiveConsent: "Donner mon consentement",
+  setUpdateChannel: "Canal de mise à jour",
+  setUpdateChannelDesc:
+    "Le canal depuis lequel cette machine reçoit ses mises à jour. Les deux canaux sont signés avec la même clé.",
+  setUpdateChannelCurrent: "Actuellement :",
+  setChannelStable: "Stable",
+  setChannelBeta: "Bêta",
+  setBetaUpdates: "Recevoir les mises à jour bêta",
+  setBetaUpdatesDesc:
+    "Les versions bêta arrivent plus tôt et peuvent comporter des aspérités — déconseillé sur la machine qui anime le culte. Vous pouvez revenir au canal stable à tout moment.",
   setCrashReporting: "Rapports d'incident",
   setCrashDesc:
     "Stocker les rapports d'incident localement sur la machine — rien n'est envoyé automatiquement. Désactivé par défaut.",
@@ -4274,6 +4328,15 @@ const pl: Catalog = {
   setNotGiven: "Nieudzielona",
   setRevoke: "Wycofaj",
   setGiveConsent: "Udziel zgody",
+  setUpdateChannel: "Kanał aktualizacji",
+  setUpdateChannelDesc:
+    "Kanał, z którego ten komputer pobiera aktualizacje. Oba kanały są podpisane tym samym kluczem.",
+  setUpdateChannelCurrent: "Obecnie:",
+  setChannelStable: "Stabilny",
+  setChannelBeta: "Beta",
+  setBetaUpdates: "Odbieraj aktualizacje beta",
+  setBetaUpdatesDesc:
+    "Wersje beta pojawiają się wcześniej i mogą mieć niedociągnięcia — niezalecane na komputerze prowadzącym nabożeństwo. W każdej chwili możesz wrócić do kanału stabilnego.",
   setCrashReporting: "Raportowanie awarii",
   setCrashDesc:
     "Przechowuj raporty awarii lokalnie na komputerze — nic nie jest wysyłane automatycznie. Domyślnie wyłączone.",

@@ -15,10 +15,47 @@ are set** — mirrors SundayRec's and SundayEdit's approach.
 3. `.github/workflows/release.yml` builds on macOS + Windows, signs +
    notarizes, and creates a **draft** GitHub Release containing the installers
    and the updater manifest `latest.json`.
-4. Review the draft, then **publish** it. Installed apps check the
-   `releases/latest/.../latest.json` endpoint (configured in
-   `tauri.conf.json` → `plugins.updater`) and offer the update via
-   `UpdateBanner`.
+4. Review the draft, then **publish** it.
+5. **Promote** the build to a ring on the shared update Worker (below).
+   Publishing alone reaches nobody from v0.5.0 onward.
+
+## Update rings (since v0.5.0 / E2)
+
+Installed apps poll the app-scoped rings on the shared Sunday update Worker:
+
+| Ring   | Endpoint                                                       |
+| ------ | -------------------------------------------------------------- |
+| stable | `https://updates.sundaysuite.app/v1/update/sundaystage/stable` |
+| beta   | `https://updates.sundaysuite.app/v1/update/sundaystage/beta`   |
+
+- A ring answers **200** with the ordinary Tauri manifest (byte-identical in
+  shape to `latest.json`, signed with the **same** key — the pubkey in
+  `tauri.conf.json` did not change), **204** when nothing is promoted or the
+  ring is paused, **404** for an unknown ring. 204 means "up to date", never an
+  error — it is also the kill switch.
+- Which ring an install follows is a per-machine setting: **Settings →
+  Advanced → Update channel**. Default stable; beta is a two-way door. It
+  applies from the next check (the endpoint is resolved per check).
+- The check itself runs in Rust (`commands::updater`), because
+  `UpdaterBuilder::endpoints(..)` is the only seam that can choose an endpoint
+  at runtime — the JS `check()` cannot. `tauri.conf.json` keeps the stable ring
+  as the configured fallback, pinned equal by a unit test.
+- **The 0.4.0 fleet is still on GitHub.** Those installs poll
+  `releases/latest/download/latest.json`, so the workflow keeps uploading it
+  (`uploadUpdaterJson: true`) and beta tags are marked as GitHub prereleases so
+  they can never become "Latest" for that fleet. **v0.5.0 is the 0.4.0 fleet's
+  last GitHub hop**; from 0.5.0 onward everything goes through the rings.
+
+### Beta releases
+
+Tag `vX.Y.Z-beta.N`. The workflow then:
+
+- marks the GitHub release as a **prerelease** (never "Latest"), and
+- builds **NSIS only** on Windows — an MSI `ProductVersion` is a numeric triple
+  with nowhere to put `-beta.1`, and the bundler hard-fails on it.
+
+Promote the tag to the **beta** ring only; promote to **stable** as a separate,
+deliberate step.
 
 ## Updater signing key
 
@@ -67,7 +104,6 @@ warning on first run).
 
 - Windows code-signing certificate + wiring (above).
 - Universal / Intel-mac builds (currently arm64 macOS only).
-- Beta update channel (stable only for now).
 - End-to-end update test: install an old build, publish a new one, confirm the
   banner downloads + relaunches on both platforms. **This is the one piece
   that can only be verified natively — do it before the first public release.**

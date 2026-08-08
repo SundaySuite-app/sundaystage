@@ -130,6 +130,48 @@ describe("settings save-error i18n parity", () => {
   }
 });
 
+// The update-channel card (E2) decides whether a machine gets beta builds. An
+// English fall-back here would leave an operator guessing about what they are
+// opting into, so full parity is required — and the two ring labels must stay
+// distinguishable in every locale.
+const UPDATE_CHANNEL_KEYS = [
+  "setUpdateChannel",
+  "setUpdateChannelDesc",
+  "setUpdateChannelCurrent",
+  "setChannelStable",
+  "setChannelBeta",
+  "setBetaUpdates",
+  "setBetaUpdatesDesc",
+] as const;
+
+describe("update-channel i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries every update-channel key`, () => {
+      const cat = CATALOG[lang];
+      for (const key of UPDATE_CHANNEL_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        expect(cat[key].trim().length, `${lang}.${key}`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it("stable and beta never render as the same label", () => {
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].setChannelStable, lang).not.toBe(
+        CATALOG[lang].setChannelBeta,
+      );
+    }
+  });
+
+  it("the beta description is honest about the trade-off", () => {
+    // Not a wording test — a length floor, so the toggle can never ship with a
+    // one-word description that hides the "may have rough edges" part.
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].setBetaUpdatesDesc.length, lang).toBeGreaterThan(40);
+    }
+  });
+});
+
 // ── Whole-catalog parity ──────────────────────────────────────────────────────
 //
 // The targeted suites above guard individual feature areas. This suite enforces

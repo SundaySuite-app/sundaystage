@@ -44,6 +44,10 @@ pub struct AppState {
     /// `output_close` / app exit. `None` while outputs are closed or running
     /// as in-process windows.
     pub outputs: Mutex<Option<crate::output::process::OutputSupervisor>>,
+    /// E2 — the signed update most recently offered by `update_check`, held so
+    /// `update_install` installs exactly what the operator was shown. `None`
+    /// until the first check finds something on the ring.
+    pub pending_update: Mutex<Option<tauri_plugin_updater::Update>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -101,6 +105,7 @@ pub fn run() {
                 live: Mutex::new(None),
                 companion: Mutex::new(None),
                 outputs: Mutex::new(None),
+                pending_update: Mutex::new(None),
             });
             tracing::info!("SundayStage backend ready");
             Ok(())
@@ -164,6 +169,11 @@ pub fn run() {
             commands::crash::crash_reporting_set,
             commands::crash::crash_reports_count,
             commands::crash::crash_reports_clear,
+            // Auto-update over the app-scoped rings (E2)
+            commands::updater::update_channel_get,
+            commands::updater::update_channel_set,
+            commands::updater::update_check,
+            commands::updater::update_install,
             // Universal search (Phase 2.3)
             commands::search::search_all,
             // Bible (Phase 7.1)

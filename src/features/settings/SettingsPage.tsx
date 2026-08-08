@@ -2,7 +2,8 @@
  * Settings — tabbed.
  *
  * Generelt (theme), Output (congregation-output appearance with live preview),
- * AI (Anthropic key/model/consent), Avansert (local crash reporting).
+ * AI (Anthropic key/model/consent), Avansert (update ring + local crash
+ * reporting).
  */
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +20,12 @@ import {
 import { emit } from "@tauri-apps/api/event";
 
 import { ipc } from "@/lib/ipc";
-import type { AiTestResult, LiveFrame, OutputAppearance } from "@/lib/bindings";
+import type {
+  AiTestResult,
+  LiveFrame,
+  OutputAppearance,
+  UpdateChannel,
+} from "@/lib/bindings";
 import {
   hasAiConsent,
   grantAiConsent,
@@ -562,6 +568,61 @@ function AiSettings() {
 }
 
 function AdvancedSettings() {
+  return (
+    <div className="space-y-6">
+      <UpdateChannelCard />
+      <CrashReportingCard />
+    </div>
+  );
+}
+
+/**
+ * E2 — which update ring this install follows.
+ *
+ * The app polls `updates.sundaysuite.app/v1/update/sundaystage/{ring}`; the
+ * choice is persisted per install and applies from the next check onward. Beta
+ * is a two-way door — switching back to stable is always allowed.
+ */
+function UpdateChannelCard() {
+  const t = useT();
+  const qc = useQueryClient();
+  const channel = useQuery({
+    queryKey: ["updateChannel"],
+    queryFn: () => ipc.update.channel(),
+  });
+  const setChannel = useMutation({
+    mutationFn: (next: UpdateChannel) => ipc.update.setChannel(next),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["updateChannel"] }),
+  });
+  const isBeta = channel.data === "beta";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("setUpdateChannel")}</CardTitle>
+        <CardDescription>{t("setUpdateChannelDesc")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-[var(--color-fg-muted)]">
+            {t("setUpdateChannelCurrent")}
+          </span>
+          <Badge variant={isBeta ? "warning" : "neutral"}>
+            {isBeta ? t("setChannelBeta") : t("setChannelStable")}
+          </Badge>
+        </div>
+        <ToggleRow
+          label={t("setBetaUpdates")}
+          description={t("setBetaUpdatesDesc")}
+          checked={isBeta}
+          onChange={(v) => setChannel.mutate(v ? "beta" : "stable")}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function CrashReportingCard() {
   const t = useT();
   const qc = useQueryClient();
   const crashStatus = useQuery({

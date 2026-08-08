@@ -26,3 +26,4 @@ pub mod sync;
 pub mod text_fit;
 pub mod theme;
 pub mod tono;
+pub mod update_channel;
