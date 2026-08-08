@@ -234,19 +234,19 @@ uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
 
 ## Etappestatus
 
-| Etappe                            | Status | Dato       | PR  |
-| --------------------------------- | ------ | ---------- | --- |
-| Kartlegging + program vedtatt     | ✅     | 2026-08-08 | —   |
-| E1 Worker app-dimensjon + ringer  | ⬜     |            |     |
-| E2 Stage på ringene (v0.5.0)      | ⬜     |            |     |
-| E3 Lokalt observasjonsgrunnlag    | ⬜     |            |     |
-| E4 Worker stage-skjema v1         | ⬜     |            |     |
-| E5 Klient: samtykke/utboks/sender | ⬜     |            |     |
-| E6 Samtykke-UX + v0.6.0-beta.1    | ⬜     |            |     |
-| E7 Beta-herding, feilrunde 1      | ⬜     |            |     |
-| E8 Stabil utrulling               | ⬜     |            |     |
-| E9 Feilrunde 2, datadrevet        | ⬜     |            |     |
-| E10 Kontinuerlig drift            | ⬜     |            |     |
+| Etappe                            | Status | Dato       | PR                                       |
+| --------------------------------- | ------ | ---------- | ---------------------------------------- |
+| Kartlegging + program vedtatt     | ✅     | 2026-08-08 | —                                        |
+| E1 Worker app-dimensjon + ringer  | ✅     | 2026-08-08 | lokal merge `27a485f` (repo uten remote) |
+| E2 Stage på ringene (v0.5.0)      | ⬜     |            |                                          |
+| E3 Lokalt observasjonsgrunnlag    | ⬜     |            |                                          |
+| E4 Worker stage-skjema v1         | ⬜     |            |                                          |
+| E5 Klient: samtykke/utboks/sender | ⬜     |            |                                          |
+| E6 Samtykke-UX + v0.6.0-beta.1    | ⬜     |            |                                          |
+| E7 Beta-herding, feilrunde 1      | ⬜     |            |                                          |
+| E8 Stabil utrulling               | ⬜     |            |                                          |
+| E9 Feilrunde 2, datadrevet        | ⬜     |            |                                          |
+| E10 Kontinuerlig drift            | ⬜     |            |                                          |
 
 ## Stående eierposter (løftes ved merket etappe, aldri stille)
 
@@ -257,3 +257,55 @@ uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
 - E8: eksplisitt stable-godkjenning.
 - Uavhengig av programmet: Apple-avtale-reaksept (notarisering) — gjelder hele
   suiten.
+
+---
+
+## Etapperapport E1 — 2026-08-08 ✅
+
+**Levert:** app-dimensjonen i `sunday-telemetry` (lokal main `27a485f`, 5 commits):
+lukket register (`src/apps.ts`), ruter `/v1/apps/:app/ingest`,
+`/v1/apps/:app/install/:id`, `/v1/update/:app/:channel` m/ generisk
+`x-write-key` (per-app-secrets; `WRITE_KEY_SUNDAYSTAGE` mintet → keychain
+«SundayStage telemetry write key»), frosne Rec-aliaser gjennom SAMME kodesti,
+migr `0006_app_update_channels` m/ copy-seed (NOT EXISTS-gardert), gammel
+tabell står én uke som FROSSET øyeblikksbilde. 200 tester (139 gamle uendret i
+substans + nye suiter: alias-byte-ekvivalens, app×kanal-matrise, nøkkelmatrise,
+promoterings-isolasjon, migrasjonsform). Deployet (versjon `e7b871f3`),
+migrasjon applisert atomisk.
+
+**Live-drill (alle grønne):** byte-identitet legacy vs ny form for rec
+stable+beta mot pre-migrasjons-baseline · stage/sync-ringer 204, ukjent
+app/ring 404 · kill-switch: pause rec-beta (legacy default-app-form) → 204 på
+5 s; under pause: rec stable identisk, stage-ringer isolert; resume (eksplisitt
+app-form) → 200 byte-identisk på 5 s · nøkler: stage-nøkkel → 404
+`ingest_not_configured` (auth passert, presis nekt til E4), feil nøkkel 401,
+umintet sync-nøkkel 401 (deny-on-unset).
+
+**Funn under etappen:**
+
+1. ⚠️ **Ingen triggere i D1-migrasjonsfiler, noensinne** — wranglers
+   REMOTE-splitter deler statements på HVERT `;`, også inne i triggerens
+   BEGIN…END; selv én trigger sist i fila feiler med `incomplete input`
+   (bevist mot prod; miniflare svelger det → lokalt grønt lyver).
+   Første forsøk rullet atomisk tilbake (ingen delvis skade). Regelen er nå
+   vakt-testet repo-bredt (`test/migration-0006.test.ts`). Konsekvens:
+   `update_channels` er frossen, IKKE speilet — break-glass går KUN mot
+   `app_update_channels` (queries.sql omskrevet); rollback i overgangsuka
+   krever re-promotering av ALLE ringer promotert etter cutover.
+2. ⚠️ **Parallell-økt-kollisjon:** Sync-økta hadde bygget en konkurrerende
+   app-dimensjon (`e8/sundaysync-app-dimension`, app som payload-felt, egen
+   0006). Eier avgjorde: E1-registeret vinner. 👤 **Sync-økta må rebase sin
+   E8 på ny main**: renummerer migrasjonen til 0007+, registrerer
+   `ingest`-oppføringen for sundaysync i `apps.ts`, bruker `x-write-key` +
+   `WRITE_KEY_SUNDAYSYNC` (mintes da). Delt arbeidstre (`audit/wire-seams` m/
+   foreldede ucommittede kopier) står urørt etter eiervalg.
+3. ⚠️ Worker-repoet har INGEN remote (kun lokal git) — samme risiko som
+   nettsiden hadde før 07-16. Anbefalt eierpost: sikre på GitHub (privat).
+4. Deploy-propagering: de nye rutene trenger ~60 s (edge-cache) før
+   byte-sammenlikning er meningsfull — første drill-sveip ga falske avvik.
+
+**Avvik fra brief (alle begrunnet i commits):** coverage-testens
+unntaksliste +6 linjer (dens egen feilmelding krever det) · `promoted_at`
+INTEGER unix-ms (0003s faktiske type) · ukjent app = 404 på sti-ruter, 400 i
+admin-body (speiler unknown_channel) · `/v1/admin/channels` beholder Recs
+toppnivåfelt og legger `apps[]` ved siden av (eksisterende jq-uttrykk virker).
