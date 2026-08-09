@@ -318,11 +318,26 @@ pub struct TelemetryQueueStatus {
     pub oldest_at: Option<i64>,
     /// The most recent failure message, if any.
     pub last_error: Option<String>,
+    /// Manual problem reports the operator wrote that have NOT been included in
+    /// a payload yet (E6).
+    ///
+    /// Deliberately a separate number from [`Self::pending`], because it answers
+    /// a question the queue length cannot: a report the byte cap deferred is
+    /// still owed even when every queued payload went out cleanly. "Your report
+    /// is waiting" has to be visible, not merely true — the byte trim must never
+    /// be the place an operator's words quietly disappear.
+    #[ts(type = "number")]
+    pub pending_reports: u32,
 }
 
 /// Summarise the queue for the UI.
-pub fn queue_status(entries: &[TelemetryEntry]) -> TelemetryQueueStatus {
+///
+/// `pending_reports` is passed IN rather than derived: it lives in its own
+/// table, and a queue summary that had to reach into the database would stop
+/// being the pure function the tests drive directly.
+pub fn queue_status(entries: &[TelemetryEntry], pending_reports: u32) -> TelemetryQueueStatus {
     TelemetryQueueStatus {
+        pending_reports,
         pending: entries
             .iter()
             .filter(|e| e.status != TelemetryStatus::Failed)
@@ -654,7 +669,7 @@ mod tests {
         let mut c = entry("c", 300);
         c.status = TelemetryStatus::Failed;
 
-        let s = queue_status(&[a, b, c]);
+        let s = queue_status(&[a, b, c], 0);
         assert_eq!(s.pending, 2);
         assert_eq!(s.failed, 1);
         assert_eq!(s.oldest_at, Some(100));
@@ -667,11 +682,23 @@ mod tests {
 
     #[test]
     fn an_empty_queue_has_an_honest_status() {
-        let s = queue_status(&[]);
+        let s = queue_status(&[], 0);
         assert_eq!(s, TelemetryQueueStatus::default());
         assert_eq!(s.pending, 0);
         assert_eq!(s.oldest_at, None);
         assert_eq!(s.last_error, None);
+        assert_eq!(s.pending_reports, 0);
+    }
+
+    #[test]
+    fn a_waiting_report_shows_even_when_the_queue_is_empty() {
+        // The whole reason the two numbers are separate: the payload a report
+        // was trimmed out of has been delivered and removed, and the report is
+        // still owed. A UI reading only `pending` would say "nothing waiting".
+        let s = queue_status(&[], 1);
+        assert_eq!(s.pending, 0);
+        assert_eq!(s.pending_reports, 1);
+        assert_ne!(s, TelemetryQueueStatus::default());
     }
 
     #[test]

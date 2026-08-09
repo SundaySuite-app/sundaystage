@@ -20,4 +20,15 @@ oldestAt: number | null,
 /**
  * The most recent failure message, if any.
  */
-lastError: string | null, };
+lastError: string | null, 
+/**
+ * Manual problem reports the operator wrote that have NOT been included in
+ * a payload yet (E6).
+ *
+ * Deliberately a separate number from [`Self::pending`], because it answers
+ * a question the queue length cannot: a report the byte cap deferred is
+ * still owed even when every queued payload went out cleanly. "Your report
+ * is waiting" has to be visible, not merely true — the byte trim must never
+ * be the place an operator's words quietly disappear.
+ */
+pendingReports: number, };

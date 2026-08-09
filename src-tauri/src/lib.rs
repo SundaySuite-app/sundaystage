@@ -254,6 +254,9 @@ pub fn run() {
             commands::telemetry::telemetry_queue_status,
             commands::telemetry::telemetry_preview_payload,
             commands::telemetry::telemetry_set_language,
+            commands::telemetry::telemetry_install_id,
+            commands::telemetry::telemetry_report_preview,
+            commands::telemetry::telemetry_report_submit,
             // Auto-update over the app-scoped rings (E2)
             commands::updater::update_channel_get,
             commands::updater::update_channel_set,

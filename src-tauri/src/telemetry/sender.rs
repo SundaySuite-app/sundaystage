@@ -255,6 +255,151 @@ pub async fn drain_deletions(pool: &SqlitePool, sender: &dyn TelemetrySender) ->
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//   E6 — the one-shot report path
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Serialises the ephemeral drain against itself.
+///
+/// Two callers reach it: the submit command (so a report the operator just wrote
+/// goes NOW rather than up to a minute later) and the beat (so one written while
+/// a service was live, or while the network was down, still goes). Without this
+/// they can pick up the same row and deliver it twice — and the mark is only
+/// written after a success, deliberately, so there is no optimistic flag to
+/// prevent it.
+static REPORT_SEND_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+
+fn report_lock() -> &'static tokio::sync::Mutex<()> {
+    REPORT_SEND_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
+/// Deliver ONE owed ephemeral problem report, under a one-shot identity.
+///
+/// Returns how many were delivered (0 or 1) — one per call, like
+/// [`drain_deletions`], so a backlog drains over successive beats.
+///
+/// ## Why this is not behind the consent gate
+///
+/// The same shape of argument as deletion, from the other direction. An
+/// ephemeral report exists only because the operator wrote one and pressed send
+/// while standing consent was off: **that press is the consent**, given
+/// explicitly, for that one report, with the exact outgoing bytes on screen
+/// while they pressed. Refusing to deliver it because standing consent is off
+/// would mean the app asked for permission, was given it, and then discarded it.
+///
+/// What it carries is one report and an envelope thin enough to act on it (app
+/// version, OS, arch, UI language) — no counters, no crashes, no quality rows,
+/// no settings block. And the id it travels under is generated HERE, on the spot,
+/// from the same UUID source as everything else, and written nowhere: not to
+/// `telemetry_state`, not to the report row, not to the outbox. Two reports sent
+/// this way cannot be tied to each other, or to this machine's install id if one
+/// ever exists.
+///
+/// The mark is written only after the endpoint has ACCEPTED the bytes. A
+/// transient failure leaves the row owed; a permanent refusal deletes it, loudly,
+/// because six identical rejections are not patience.
+pub async fn drain_ephemeral_reports(
+    pool: &SqlitePool,
+    sender: &dyn TelemetrySender,
+    app_version: &str,
+) -> usize {
+    let _guard = report_lock().lock().await;
+    let repo = crate::db::repositories::TelemetryRepo::new(pool);
+    let owed = match repo.unsent_reports(true, 1).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("telemetry: could not read pending reports: {}", e.code());
+            return 0;
+        }
+    };
+    let Some(stored) = owed.into_iter().next() else {
+        return 0;
+    };
+
+    // The one-shot identity. Generated per SEND, not per report: a retry after a
+    // failed attempt uses a different one, which is what "cannot be tied
+    // together" has to mean.
+    let install_id = crate::db::new_id();
+    let language = super::client::language(pool).await.unwrap_or_default();
+    let payload = super::payload::build_ephemeral_report_payload(
+        &install_id,
+        super::consent::CONSENT_VERSION,
+        app_version,
+        language.as_deref(),
+        super::now_ms(),
+        stored.report.clone(),
+    );
+    let json = match serde_json::to_string(&payload) {
+        Ok(j) => j,
+        Err(e) => {
+            // The CATEGORY, never the value: a serde error quotes the input it
+            // choked on, and the input here is the operator's own text. E3's
+            // tracing audit exists for exactly this line.
+            let category = format!("{:?}", e.classify());
+            tracing::warn!(
+                category,
+                "telemetry: a problem report could not be serialised"
+            );
+            return 0;
+        }
+    };
+    // A report is bounded at 200 + 4 000 characters, so this is unreachable
+    // arithmetic rather than a real risk — but an oversized body is discarded by
+    // the endpoint as permanently as a malformed one, and a report that can
+    // never be delivered must not be retried forever in silence.
+    if json.len() > super::payload::BODY_MAX_BYTES {
+        tracing::warn!(
+            bytes = json.len(),
+            "telemetry: a problem report exceeded the body cap and cannot be delivered; it has \
+             been dropped rather than retried forever"
+        );
+        let _ = repo.delete_report(&stored.id).await;
+        return 0;
+    }
+
+    match sender.send(&json).await {
+        Ok(()) => {
+            if let Err(e) = repo.mark_reports_sent(&[stored.id], super::now_ms()).await {
+                // The row stays unsent, so it is sent again with a NEW one-shot
+                // id. A duplicate report is a nuisance; a lost one is the failure
+                // this whole path exists to prevent.
+                tracing::warn!(
+                    "telemetry: a problem report was delivered but could not be marked sent \
+                     ({}); it may be delivered a second time",
+                    e.code()
+                );
+            }
+            tracing::info!("telemetry: a problem report was delivered under a one-shot id");
+            1
+        }
+        Err(SendFailure::Permanent(msg)) => {
+            let reason = super::scrub::for_log(&msg);
+            tracing::warn!(
+                "telemetry: the endpoint permanently rejected a problem report ({reason}); it has \
+                 been discarded rather than retried. The operator's words did not reach us — see \
+                 the endpoint's rejection log for the offending field."
+            );
+            let _ = repo.delete_report(&stored.id).await;
+            0
+        }
+        Err(SendFailure::Transient { message, .. }) => {
+            let reason = super::scrub::for_log(&message);
+            tracing::debug!("telemetry: a problem report will be retried ({reason})");
+            0
+        }
+    }
+}
+
+/// Build the sender this build would use, if it has one.
+///
+/// Exposed so the submit command can deliver a report immediately instead of
+/// waiting up to a whole [`PUMP_INTERVAL`] — the operator is looking at the
+/// dialog. `None` in every build without the two build-time variables, which is
+/// every development build and every build in this stage.
+pub fn build_sender() -> Option<HttpTelemetrySender> {
+    HttpTelemetrySender::new(TelemetryEndpoint::resolve()?)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //   The beat
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -279,6 +424,8 @@ pub struct BeatOutcome {
     pub pump: PumpOutcome,
     /// Deletion requests carried out.
     pub deletions: usize,
+    /// One-shot problem reports delivered (E6).
+    pub reports: usize,
 }
 
 impl Default for BeatOutcome {
@@ -289,6 +436,7 @@ impl Default for BeatOutcome {
             queued: false,
             pump: PumpOutcome::Blocked,
             deletions: 0,
+            reports: 0,
         }
     }
 }
@@ -341,6 +489,11 @@ pub async fn beat(
     // The remote half of "delete my data", on the same beat and with its own
     // consent story — see `drain_deletions`.
     out.deletions = drain_deletions(&state.db.pool, sender).await;
+    // …and the operator's own words, with the third consent story: one press,
+    // one report, one throwaway id. Behind the live gate at the top of this
+    // function, which is what makes "reports are never sent while a service is
+    // running" true rather than merely promised.
+    out.reports = drain_ephemeral_reports(&state.db.pool, sender, app_version).await;
     out
 }
 
@@ -370,8 +523,8 @@ fn pump_slot() -> &'static Mutex<Option<JoinHandle<()>>> {
 /// Whether the pump has any work at all — the gate [`maybe_spawn`] consults
 /// before it builds anything.
 ///
-/// TWO reasons, and the second is the whole point of this being a function
-/// rather than an inlined `consent_active`:
+/// THREE reasons, and the two after the first are the whole point of this being
+/// a function rather than an inlined `consent_active`:
 ///
 ///   1. **consent is active** — there may be reports to deliver. [`pump_once`]
 ///      re-checks on every beat, so a revoke mid-session stops the sending
@@ -379,15 +532,28 @@ fn pump_slot() -> &'static Mutex<Option<JoinHandle<()>>> {
 ///   2. **a deletion is owed** — the operator pressed "delete my data" and the
 ///      remote DELETE has not been carried out. Gating the LOOP on consent made
 ///      exactly this case unreachable in SundayRec.
+///   3. **a one-shot problem report is owed** (E6) — the operator wrote one and
+///      pressed send with standing consent off. The press was consent for that
+///      report; a loop that would not start for it would accept the permission
+///      and then throw the report away.
 ///
-/// An install that has never consented has never minted an install id, so it can
-/// never have a parked deletion either: "no telemetry machinery at all on a
-/// machine that never opted in" is unchanged.
+/// Everything here is the operator's own explicit request. An install that has
+/// never consented and never written a report has nothing to spawn a pump for:
+/// "no telemetry machinery at all on a machine that never opted in" is
+/// unchanged.
 pub async fn should_run(pool: &SqlitePool) -> bool {
     if super::client::consent_active(pool).await {
         return true;
     }
-    !super::client::pending_deletions(pool)
+    if !super::client::pending_deletions(pool)
+        .await
+        .unwrap_or_default()
+        .is_empty()
+    {
+        return true;
+    }
+    !crate::db::repositories::TelemetryRepo::new(pool)
+        .unsent_reports(true, 1)
         .await
         .unwrap_or_default()
         .is_empty()
@@ -547,6 +713,9 @@ mod tests {
     struct CountingSender {
         sends: Arc<AtomicUsize>,
         deletes: Arc<AtomicUsize>,
+        /// Every payload handed to `send`, so a test can assert about the BYTES
+        /// rather than about the code that produced them.
+        bodies: Arc<Mutex<Vec<String>>>,
         mode: Mode,
     }
 
@@ -567,8 +736,9 @@ mod tests {
     }
 
     impl TelemetrySender for CountingSender {
-        fn send<'a>(&'a self, _payload: &'a str) -> SendFuture<'a> {
+        fn send<'a>(&'a self, payload: &'a str) -> SendFuture<'a> {
             self.sends.fetch_add(1, Ordering::SeqCst);
+            self.bodies.lock().push(payload.to_string());
             let answer = self.answer();
             Box::pin(async move { answer })
         }
@@ -929,6 +1099,224 @@ mod tests {
             .await
             .expect("parked")
             .is_empty());
+    }
+
+    // ── E6: the one-shot report path ─────────────────────────────────────────
+
+    /// Store one ephemeral report, the way the submit command does.
+    async fn owe_a_report(pool: &SqlitePool, message: &str) {
+        let stored = client::submit_report(
+            pool,
+            crate::telemetry::payload::ReportContext::Live,
+            message,
+            "log line",
+        )
+        .await
+        .expect("submit");
+        assert!(stored.ephemeral, "the fixture assumes consent is off");
+    }
+
+    #[tokio::test]
+    async fn a_one_shot_report_goes_out_with_consent_off_and_carries_nothing_else() {
+        // The owner's rule, end to end. Pressing send was consent for THIS
+        // report: it is delivered, and what travels with it is an envelope and
+        // nothing more.
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        let repo = TelemetryRepo::new(pool);
+        // Local history that has never been consented to, so a payload that
+        // swept it up would be visible here.
+        repo.add_counters(&[(CounterName::LiveCueDispatched, 12)])
+            .await
+            .expect("counters");
+        owe_a_report(pool, "projektoren ble svart").await;
+        let sender = CountingSender::default();
+
+        assert_eq!(
+            drain_ephemeral_reports(pool, &sender, "0.5.0").await,
+            1,
+            "the report the operator explicitly sent must go"
+        );
+
+        let body = sender.bodies.lock()[0].clone();
+        let v: serde_json::Value = serde_json::from_str(&body).expect("json");
+        assert_eq!(v["reports"].as_array().expect("reports").len(), 1);
+        assert_eq!(v["reports"][0]["message"], "projektoren ble svart");
+        assert!(
+            v["counters"].as_array().expect("counters").is_empty(),
+            "consent is off — nothing but the report may ride along: {body}"
+        );
+        assert!(v["crashes"].as_array().expect("crashes").is_empty());
+        assert!(v["quality"].as_array().expect("quality").is_empty());
+        // The envelope keeps only what makes a bug report actionable.
+        assert_eq!(v["appVersion"], "0.5.0");
+        assert!(v["os"].is_string());
+
+        assert_eq!(
+            repo.unsent_report_count().await.expect("owed"),
+            0,
+            "delivered means marked — and only then"
+        );
+        assert_eq!(
+            drain_ephemeral_reports(pool, &sender, "0.5.0").await,
+            0,
+            "…so it is not delivered twice"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_one_shot_id_is_random_per_send_and_stored_nowhere() {
+        // What "ephemeral" has to mean: no durable identity is created, the id
+        // is not written to any row, and two reports cannot be tied together.
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        let sender = CountingSender::default();
+        owe_a_report(pool, "første").await;
+        drain_ephemeral_reports(pool, &sender, "0.5.0").await;
+        owe_a_report(pool, "andre").await;
+        drain_ephemeral_reports(pool, &sender, "0.5.0").await;
+
+        let bodies = sender.bodies.lock().clone();
+        assert_eq!(bodies.len(), 2);
+        let id_of = |b: &str| -> String {
+            serde_json::from_str::<serde_json::Value>(b).expect("json")["installId"]
+                .as_str()
+                .expect("id")
+                .to_string()
+        };
+        let first = id_of(&bodies[0]);
+        let second = id_of(&bodies[1]);
+        assert_ne!(first, second, "two one-shot sends must not share an id");
+        assert_ne!(
+            first,
+            crate::telemetry::payload::NIL_INSTALL_ID,
+            "…and must not all be the same placeholder either"
+        );
+
+        assert_eq!(
+            client::install_id_if_any(pool).await.expect("read"),
+            None,
+            "no durable identity was created for someone who has not opted in"
+        );
+        // Nor is it anywhere in the state bag or the report table.
+        for id in [first, second] {
+            let (n,): (i64,) = sqlx::query_as(
+                "SELECT (SELECT COUNT(*) FROM telemetry_state WHERE value LIKE ?1)
+                       + (SELECT COUNT(*) FROM telemetry_outbox WHERE payload_json LIKE ?1)",
+            )
+            .bind(format!("%{id}%"))
+            .fetch_one(pool)
+            .await
+            .expect("scan");
+            assert_eq!(n, 0, "the one-shot id {id} was persisted somewhere");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_report_is_never_sent_while_a_service_is_live() {
+        // The promise the privacy text makes in as many words, and law 1 besides.
+        let (state, _d) = app_state().await;
+        owe_a_report(&state.db.pool, "midt i gudstjenesten").await;
+        go_live(&state);
+
+        let out = beat(&state, Some(&PanickingSender), "0.5.0", 1_800_000_000_000).await;
+
+        assert!(out.skipped_live);
+        assert_eq!(out.reports, 0);
+        assert_eq!(
+            TelemetryRepo::new(&state.db.pool)
+                .unsent_report_count()
+                .await
+                .expect("owed"),
+            1,
+            "kept, not lost"
+        );
+
+        // …and once the service ends, the same beat delivers it.
+        *state.live.lock() = None;
+        let sender = CountingSender::default();
+        let out = beat(&state, Some(&sender), "0.5.0", 1_800_000_000_000).await;
+        assert_eq!(out.reports, 1);
+    }
+
+    #[tokio::test]
+    async fn a_transient_failure_leaves_the_report_owed_and_a_refusal_drops_it() {
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        let repo = TelemetryRepo::new(pool);
+        owe_a_report(pool, "nettverket er nede").await;
+
+        let down = CountingSender {
+            mode: Mode::Transient,
+            ..Default::default()
+        };
+        assert_eq!(drain_ephemeral_reports(pool, &down, "0.5.0").await, 0);
+        assert_eq!(
+            repo.unsent_report_count().await.expect("owed"),
+            1,
+            "an operator's words are never dropped because the wifi was down"
+        );
+
+        // A permanent refusal is different: the endpoint will never accept these
+        // bytes, so the row goes — and the log says so (the ellipsis lesson).
+        let refusing = CountingSender {
+            mode: Mode::Permanent,
+            ..Default::default()
+        };
+        assert_eq!(drain_ephemeral_reports(pool, &refusing, "0.5.0").await, 0);
+        assert_eq!(repo.unsent_report_count().await.expect("owed"), 0);
+    }
+
+    #[tokio::test]
+    async fn the_pump_starts_for_an_owed_report_alone() {
+        // Third reason in `should_run`. Without it, a report written with
+        // consent off would sit in a table nothing ever reads — the app would
+        // have asked for permission, been given it, and thrown the report away.
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        assert!(!should_run(pool).await);
+
+        owe_a_report(pool, "hjelp").await;
+        assert!(
+            should_run(pool).await,
+            "an owed one-shot report is work, even with consent off"
+        );
+
+        let sender = CountingSender::default();
+        drain_ephemeral_reports(pool, &sender, "0.5.0").await;
+        assert!(
+            !should_run(pool).await,
+            "…and with it delivered there is nothing left to run for"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_written_under_consent_is_not_touched_by_the_one_shot_path() {
+        // The two streams must not cross: a durable report belongs in the
+        // ordinary payload, under the install id, not in a one-shot send.
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        client::consent_set(pool, true).await.expect("grant");
+        client::submit_report(
+            pool,
+            crate::telemetry::payload::ReportContext::Editor,
+            "varig",
+            "log",
+        )
+        .await
+        .expect("submit");
+
+        let sender = CountingSender::default();
+        assert_eq!(drain_ephemeral_reports(pool, &sender, "0.5.0").await, 0);
+        assert_eq!(sender.sends.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            TelemetryRepo::new(pool)
+                .unsent_report_count()
+                .await
+                .expect("owed"),
+            1,
+            "still owed — by the drain, not by this path"
+        );
     }
 
     // ── Failure handling ─────────────────────────────────────────────────────

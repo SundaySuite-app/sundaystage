@@ -20,7 +20,7 @@ use crate::db::{new_id, now_ms};
 use crate::error::AppResult;
 use crate::telemetry::counters::{CounterName, CounterTotal, ALL_COUNTERS};
 use crate::telemetry::outbox::{TelemetryEntry, TelemetryStatus};
-use crate::telemetry::payload::DrainMarks;
+use crate::telemetry::payload::{DrainMarks, ProblemReport, ReportContext, StoredReport};
 use crate::telemetry::quality::{QualityReason, QualityRow, QualityStore, QualityVerdict};
 
 /// The CLOSED key vocabulary of `telemetry_state`.
@@ -198,6 +198,12 @@ impl<'a> TelemetryRepo<'a> {
         sqlx::query("DELETE FROM telemetry_counter")
             .execute(self.pool)
             .await?;
+        // Including the operator's own words: "delete my data" that left a
+        // hand-written problem report on the machine would be a lie by omission
+        // in the one place the data is unmistakably theirs.
+        sqlx::query("DELETE FROM telemetry_report")
+            .execute(self.pool)
+            .await?;
         Ok(())
     }
 
@@ -305,6 +311,16 @@ impl<'a> TelemetryRepo<'a> {
                 .execute(&mut *tx)
                 .await?;
         }
+        // Reports the payload ACTUALLY carries after both caps — the list the
+        // builder trimmed in lockstep with the payload itself. A report the byte
+        // cap deferred is not in here, so it stays owed and goes in the next one.
+        for id in &marks.report_ids {
+            sqlx::query("UPDATE telemetry_report SET sent_at = ?2 WHERE id = ?1")
+                .bind(id)
+                .bind(now)
+                .execute(&mut *tx)
+                .await?;
+        }
         sqlx::query(
             "INSERT INTO telemetry_state (key, value, updated_at) VALUES (?1, ?2, ?3)
              ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
@@ -346,6 +362,107 @@ impl<'a> TelemetryRepo<'a> {
             .execute(self.pool)
             .await?;
         Ok(())
+    }
+
+    // ── E6: manual problem reports ──────────────────────────────────────────
+
+    /// Store one report the operator wrote. Already scrubbed and capped by
+    /// [`ProblemReport::new`] — this is a write of wire-shaped bytes.
+    pub async fn insert_report(&self, stored: &StoredReport) -> AppResult<()> {
+        sqlx::query(
+            "INSERT INTO telemetry_report
+                 (id, at, context, message, log_tail, ephemeral, created_at, sent_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL)",
+        )
+        .bind(&stored.id)
+        .bind(stored.report.at)
+        .bind(stored.report.context.as_str())
+        .bind(&stored.report.message)
+        .bind(&stored.report.log_tail)
+        .bind(i64::from(stored.ephemeral))
+        .bind(now_ms())
+        .execute(self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Reports still owed a send, oldest first.
+    ///
+    /// `ephemeral` selects which HALF: the durable ones ride the ordinary drain
+    /// under the install id, the ephemeral ones are delivered on their own under
+    /// a one-shot id. The two paths must never pick up each other's rows — an
+    /// ephemeral report swept into a normal payload would attach an operator who
+    /// declined standing consent to this machine's permanent identity.
+    pub async fn unsent_reports(
+        &self,
+        ephemeral: bool,
+        limit: i64,
+    ) -> AppResult<Vec<StoredReport>> {
+        let rows: Vec<ReportRecord> = sqlx::query_as(
+            "SELECT id, at, context, message, log_tail, ephemeral
+             FROM telemetry_report
+             WHERE sent_at IS NULL AND ephemeral = ?1
+             ORDER BY at ASC LIMIT ?2",
+        )
+        .bind(i64::from(ephemeral))
+        .bind(limit.clamp(1, 200))
+        .fetch_all(self.pool)
+        .await?;
+        Ok(rows.into_iter().map(ReportRecord::into_stored).collect())
+    }
+
+    /// How many reports are still owed a send — the number behind the settings
+    /// panel's "your report is waiting" line.
+    pub async fn unsent_report_count(&self) -> AppResult<i64> {
+        let (n,): (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM telemetry_report WHERE sent_at IS NULL")
+                .fetch_one(self.pool)
+                .await?;
+        Ok(n)
+    }
+
+    /// Mark reports as sent. The ONLY caller outside [`Self::commit_marks`] is
+    /// the one-shot ephemeral sender, which calls it after the endpoint has
+    /// accepted the bytes — never before.
+    pub async fn mark_reports_sent(&self, ids: &[String], at: i64) -> AppResult<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let mut tx = self.pool.begin().await?;
+        for id in ids {
+            sqlx::query("UPDATE telemetry_report SET sent_at = ?2 WHERE id = ?1")
+                .bind(id)
+                .bind(at)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Delete an ephemeral report the endpoint refused permanently.
+    ///
+    /// It cannot be marked "sent" — it never was — and it must not be retried
+    /// forever, so the row goes and the caller says so out loud.
+    pub async fn delete_report(&self, id: &str) -> AppResult<()> {
+        sqlx::query("DELETE FROM telemetry_report WHERE id = ?1")
+            .bind(id)
+            .execute(self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Drop the reports that would have ridden STANDING consent, on a revoke.
+    ///
+    /// Returns how many. The ephemeral ones are deliberately left alone: each of
+    /// those carries its own one-shot consent, given for that report and not
+    /// derived from the standing answer being withdrawn here — the same argument
+    /// that keeps a parked deletion alive after a revoke.
+    pub async fn purge_unsent_standing_reports(&self) -> AppResult<u64> {
+        let r = sqlx::query("DELETE FROM telemetry_report WHERE sent_at IS NULL AND ephemeral = 0")
+            .execute(self.pool)
+            .await?;
+        Ok(r.rows_affected())
     }
 
     // ── E5: settings reads for the payload's settings block ─────────────────
@@ -495,6 +612,35 @@ impl OutboxRecord {
             next_attempt: self.next_attempt,
             last_error: self.last_error,
             status: TelemetryStatus::from_wire(&self.status),
+        }
+    }
+}
+
+/// A stored report as SQLite hands it back. Kept private: the rest of the app
+/// only sees [`StoredReport`].
+#[derive(sqlx::FromRow)]
+struct ReportRecord {
+    id: String,
+    at: i64,
+    context: String,
+    message: String,
+    log_tail: String,
+    ephemeral: i64,
+}
+
+impl ReportRecord {
+    fn into_stored(self) -> StoredReport {
+        StoredReport {
+            id: self.id,
+            ephemeral: self.ephemeral != 0,
+            report: ProblemReport {
+                at: self.at,
+                // A hand-edited context reads as `other` rather than panicking —
+                // and `other` is the value that claims the least.
+                context: ReportContext::from_wire(&self.context).unwrap_or(ReportContext::Other),
+                message: self.message,
+                log_tail: self.log_tail,
+            },
         }
     }
 }
@@ -831,6 +977,7 @@ mod tests {
         repo.commit_marks(&DrainMarks {
             crash_at: 9_000,
             quality_ids: vec![q.id.clone()],
+            report_ids: vec![],
             counters: vec![(CounterName::LiveCueDispatched, 7)],
         })
         .await
@@ -868,6 +1015,7 @@ mod tests {
         repo.commit_marks(&DrainMarks {
             crash_at: 0,
             quality_ids: vec![],
+            report_ids: vec![],
             counters: vec![(CounterName::LiveCueDispatched, 7)],
         })
         .await

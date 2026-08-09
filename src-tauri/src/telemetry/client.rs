@@ -28,7 +28,9 @@ use crate::error::AppResult;
 
 use super::consent::{evaluate, parse_record, ConsentRecord, TelemetryConsent, CONSENT_VERSION};
 use super::outbox::{TelemetryEntry, TelemetryQueueStatus, TelemetryStatus};
-use super::payload::{self, GatherContext, StagePayload};
+use super::payload::{
+    self, GatherContext, ProblemReport, ReportContext, StagePayload, StoredReport,
+};
 
 /// How many retired install ids are remembered for deletion.
 ///
@@ -96,8 +98,18 @@ async fn on_consent_revoked(pool: &SqlitePool) -> AppResult<()> {
     let repo = TelemetryRepo::new(pool);
     let dropped = repo.outbox_purge().await?;
     repo.clear_counters().await?;
-    if dropped > 0 {
-        tracing::info!("telemetry: purged {dropped} queued report(s)");
+    // Manual reports written UNDER the standing consent go with it: they were
+    // addressed to the install id, and "off" must mean there is nothing left
+    // that could be sent. The one-shot ephemeral reports are left alone —
+    // pressing send on one of those was its own consent, given for that report,
+    // and withdrawing the standing answer does not withdraw it (the same
+    // argument that keeps a parked deletion alive; see
+    // `super::sender::drain_deletions`).
+    let reports = repo.purge_unsent_standing_reports().await?;
+    if dropped > 0 || reports > 0 {
+        tracing::info!(
+            "telemetry: purged {dropped} queued payload(s) and {reports} unsent manual report(s)"
+        );
     }
     Ok(())
 }
@@ -446,10 +458,86 @@ pub async fn preview_payload(
 }
 
 /// What is waiting in the outbox, for a settings panel that has to be honest.
+///
+/// Two numbers, not one: queued PAYLOADS and unsent manual REPORTS. They are
+/// different facts — a report the byte cap deferred is owed even though the
+/// payload it was trimmed out of went out successfully — and the report count is
+/// the line that keeps "the byte trim never silently eats an operator's words"
+/// visible rather than merely true.
 pub async fn queue_status(pool: &SqlitePool) -> AppResult<TelemetryQueueStatus> {
+    let repo = TelemetryRepo::new(pool);
     Ok(super::outbox::queue_status(
-        &TelemetryRepo::new(pool).outbox_load().await?,
+        &repo.outbox_load().await?,
+        repo.unsent_report_count().await?.max(0) as u32,
     ))
+}
+
+// ── Manual problem reports ──────────────────────────────────────────────────
+
+/// How many log lines a manual report carries. Enough to show what happened
+/// around the moment the operator noticed; the 4 000-character cap in
+/// [`payload::LOG_TAIL_MAX_CHARS`] is the real bound.
+pub const REPORT_LOG_TAIL_LINES: usize = 120;
+
+/// The EXACT report that pressing send would produce, without producing it.
+///
+/// Scrubbed and capped by the same [`ProblemReport::new`] the submit path uses,
+/// so the dialog previews outgoing bytes rather than a rendering of them. Reads
+/// the log tail itself — the renderer never names a file.
+pub fn preview_report(context: ReportContext, message: &str) -> ProblemReport {
+    let tail = super::logfile::tail(REPORT_LOG_TAIL_LINES).unwrap_or_default();
+    ProblemReport::new(
+        super::now_ms(),
+        context,
+        message,
+        &tail,
+        super::scrub::home_dir().as_deref(),
+    )
+}
+
+/// Store a report the operator submitted, and say which consent it travels on.
+///
+/// `log_tail` is the text the DIALOG SHOWED (from [`preview_report`]), handed
+/// back rather than re-read. That closes the one seam between "the preview shows
+/// the exact bytes" and "the exact bytes are sent": a log line written in the
+/// seconds between preview and send would otherwise ride along unseen. It is
+/// re-scrubbed and re-capped on the way in regardless of what the renderer
+/// passes — both passes are idempotent, so the previewed bytes survive
+/// unchanged, and nothing unscrubbed can reach the disk by this route.
+///
+/// The `ephemeral` decision is made HERE, once, from the standing consent state:
+///
+///   * consent active → the report rides the ordinary drain under the durable
+///     install id, in the same payload as everything else;
+///   * consent off (never asked, denied, or a stale scope) → the report is
+///     marked ephemeral and will be delivered ALONE under a one-shot random id
+///     that is generated at send time and stored nowhere. Pressing send is
+///     consent for this one report; no durable identity is created for someone
+///     who has not asked for one.
+pub async fn submit_report(
+    pool: &SqlitePool,
+    context: ReportContext,
+    message: &str,
+    log_tail: &str,
+) -> AppResult<StoredReport> {
+    let ephemeral = !consent_active(pool).await;
+    let stored = StoredReport {
+        id: crate::db::new_id(),
+        ephemeral,
+        report: ProblemReport::new(
+            super::now_ms(),
+            context,
+            message,
+            log_tail,
+            super::scrub::home_dir().as_deref(),
+        ),
+    };
+    TelemetryRepo::new(pool).insert_report(&stored).await?;
+    tracing::info!(
+        ephemeral,
+        "telemetry: an operator submitted a problem report"
+    );
+    Ok(stored)
 }
 
 #[cfg(test)]
@@ -890,6 +978,216 @@ mod tests {
             .expect("read")
             .expect("minted");
         assert!(queued.contains(&id));
+    }
+
+    // ── Manual reports (E6) ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn a_report_written_under_consent_rides_the_ordinary_drain() {
+        let (pool, dir) = pool().await;
+        let repo = TelemetryRepo::new(&pool);
+        consent_set(&pool, true).await.expect("grant");
+
+        let stored = submit_report(&pool, ReportContext::Live, "skjermen frøs", "log line")
+            .await
+            .expect("submit");
+        assert!(
+            !stored.ephemeral,
+            "with standing consent the report travels under the install id"
+        );
+        assert_eq!(repo.unsent_report_count().await.expect("count"), 1);
+
+        assert!(drain(&pool, dir.path(), "0.5.0").await.expect("drain"));
+        let queued = &repo.outbox_load().await.expect("load")[0].payload_json;
+        assert!(queued.contains("skjermen frøs"), "{queued}");
+        let id = install_id_if_any(&pool)
+            .await
+            .expect("read")
+            .expect("minted");
+        assert!(queued.contains(&id), "…under the durable id");
+        assert_eq!(
+            repo.unsent_report_count().await.expect("count"),
+            0,
+            "a report a payload actually carried is marked sent"
+        );
+        // …and it is not sent a second time.
+        assert!(!drain(&pool, dir.path(), "0.5.0").await.expect("again"));
+    }
+
+    #[tokio::test]
+    async fn a_report_written_without_consent_is_ephemeral_and_mints_no_id() {
+        // The owner's rule: pressing send is consent for THAT report. It must
+        // not become consent for anything else, and above all it must not create
+        // the durable identity the operator has not agreed to.
+        let (pool, dir) = pool().await;
+        let repo = TelemetryRepo::new(&pool);
+
+        let stored = submit_report(&pool, ReportContext::Other, "noe rart", "log")
+            .await
+            .expect("submit");
+        assert!(stored.ephemeral);
+        assert_eq!(
+            install_id_if_any(&pool).await.expect("read"),
+            None,
+            "writing a report must not mint an install id"
+        );
+        // The ordinary drain does not see it: no consent, and the durable half
+        // of the report table is empty.
+        assert!(!drain(&pool, dir.path(), "0.5.0").await.expect("drain"));
+        assert!(repo.outbox_load().await.expect("load").is_empty());
+        assert_eq!(repo.unsent_reports(true, 10).await.expect("owed").len(), 1);
+        assert!(repo
+            .unsent_reports(false, 10)
+            .await
+            .expect("owed")
+            .is_empty());
+
+        // …and an explicit denial behaves the same way as never having asked.
+        consent_set(&pool, false).await.expect("deny");
+        let second = submit_report(&pool, ReportContext::Editor, "og en til", "log")
+            .await
+            .expect("submit");
+        assert!(second.ephemeral);
+        assert_eq!(install_id_if_any(&pool).await.expect("read"), None);
+    }
+
+    #[tokio::test]
+    async fn the_previewed_bytes_are_the_stored_bytes() {
+        // The promise the dialog makes. The preview is built by the same
+        // function, and the text it showed is handed back rather than re-read —
+        // so a log line written in between cannot ride along unseen.
+        let (pool, _d) = pool().await;
+        let preview = preview_report(ReportContext::Settings, "  vinduet ble svart  ");
+        let stored = submit_report(
+            &pool,
+            ReportContext::Settings,
+            "  vinduet ble svart  ",
+            &preview.log_tail,
+        )
+        .await
+        .expect("submit");
+
+        assert_eq!(stored.report.message, preview.message);
+        assert_eq!(stored.report.log_tail, preview.log_tail);
+        assert_eq!(stored.report.context, preview.context);
+        // Re-scrubbing and re-capping on the way in is idempotent, which is what
+        // makes handing the previewed text back safe.
+        let round_tripped = TelemetryRepo::new(&pool)
+            .unsent_reports(true, 10)
+            .await
+            .expect("owed");
+        assert_eq!(round_tripped[0].report.message, preview.message);
+        assert_eq!(round_tripped[0].report.log_tail, preview.log_tail);
+    }
+
+    #[tokio::test]
+    async fn a_report_is_scrubbed_and_capped_before_it_reaches_the_disk() {
+        let (pool, _d) = pool().await;
+        let long = "å".repeat(super::super::MESSAGE_MAX_CHARS + 50);
+        let stored = submit_report(
+            &pool,
+            ReportContext::Live,
+            &long,
+            "opened /Users/kari/Musikk/salme.wav",
+        )
+        .await
+        .expect("submit");
+
+        assert_eq!(
+            stored.report.message.chars().count(),
+            super::super::MESSAGE_MAX_CHARS + 1,
+            "the ellipsis convention the Worker's validator agrees with"
+        );
+        assert!(
+            !stored.report.log_tail.contains("/Users/"),
+            "{}",
+            stored.report.log_tail
+        );
+        assert!(
+            !stored.report.log_tail.contains("salme"),
+            "the filename goes with the path: {}",
+            stored.report.log_tail
+        );
+    }
+
+    #[tokio::test]
+    async fn revoking_purges_standing_reports_and_leaves_the_one_shot_ones() {
+        let (pool, _d) = pool().await;
+        let repo = TelemetryRepo::new(&pool);
+        // One written before anyone was asked: its own consent, given once.
+        submit_report(&pool, ReportContext::Other, "flyktig", "log")
+            .await
+            .expect("submit");
+        consent_set(&pool, true).await.expect("grant");
+        // …and one written under the standing answer that is about to be undone.
+        submit_report(&pool, ReportContext::Live, "varig", "log")
+            .await
+            .expect("submit");
+        assert_eq!(repo.unsent_report_count().await.expect("count"), 2);
+
+        consent_set(&pool, false).await.expect("revoke");
+
+        let owed = repo.unsent_reports(true, 10).await.expect("owed");
+        assert_eq!(owed.len(), 1, "the one-shot report survives the revoke");
+        assert_eq!(owed[0].report.message, "flyktig");
+        assert!(
+            repo.unsent_reports(false, 10)
+                .await
+                .expect("owed")
+                .is_empty(),
+            "'off' means there is nothing left that could be sent under the id"
+        );
+    }
+
+    #[tokio::test]
+    async fn granting_consent_does_not_swallow_an_owed_one_shot_report() {
+        // `mark_everything_reported` declares the local ARCHIVE already
+        // reported. A manual report is not archive — it is an outstanding
+        // request the operator made, and marking it sent would drop it without
+        // it ever having been delivered.
+        let (pool, _d) = pool().await;
+        let repo = TelemetryRepo::new(&pool);
+        submit_report(&pool, ReportContext::Other, "før samtykke", "log")
+            .await
+            .expect("submit");
+
+        consent_set(&pool, true).await.expect("grant");
+
+        let owed = repo.unsent_reports(true, 10).await.expect("owed");
+        assert_eq!(owed.len(), 1);
+        assert_eq!(owed[0].report.message, "før samtykke");
+        assert!(
+            owed[0].ephemeral,
+            "a later grant does not retroactively attach it to the install id"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_queue_status_counts_a_waiting_report_separately() {
+        let (pool, _d) = pool().await;
+        submit_report(&pool, ReportContext::Other, "venter", "log")
+            .await
+            .expect("submit");
+        let s = queue_status(&pool).await.expect("status");
+        assert_eq!(s.pending, 0, "nothing is queued: consent is off");
+        assert_eq!(
+            s.pending_reports, 1,
+            "…but the operator's words are still owed, and the panel says so"
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_my_data_removes_the_operators_own_words_too() {
+        let (pool, _d) = pool().await;
+        let repo = TelemetryRepo::new(&pool);
+        consent_set(&pool, true).await.expect("grant");
+        submit_report(&pool, ReportContext::Live, "min tekst", "log")
+            .await
+            .expect("submit");
+
+        delete_my_data(&pool).await.expect("delete");
+
+        assert_eq!(repo.unsent_report_count().await.expect("count"), 0);
     }
 
     #[tokio::test]
