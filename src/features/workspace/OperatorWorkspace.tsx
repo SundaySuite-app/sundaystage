@@ -44,6 +44,8 @@ import {
   type Route,
 } from "@/components/CommandPalette";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { ProblemReportDialog } from "@/features/settings/ProblemReportDialog";
+import { TelemetryConsentCard } from "@/components/TelemetryConsentCard";
 import { ServicesPage } from "@/features/services/ServicesPage";
 import { StageDisplay } from "@/features/live/StageDisplay";
 import { ExportModal } from "@/features/live/ExportModal";
@@ -93,6 +95,10 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   const [mediaOpen, setMediaOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // E6 — "report a problem", opened from the command palette. The settings
+  // card owns its own instance; this one exists so the palette can reach it
+  // from anywhere, including mid-service.
+  const [reportOpen, setReportOpen] = useState(false);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -505,6 +511,9 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         case "go-live":
           if (!isLive && cues.length > 0) void startSession();
           break;
+        case "report-problem":
+          setReportOpen(true);
+          break;
       }
     },
     [isLive, cues.length, startSession],
@@ -793,6 +802,21 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onAction={onPaletteAction}
         libraryId={library.id}
       />
+
+      {/* E6 — the manual report. `isLive` picks the default context, because an
+          operator who opens this mid-service is almost never reporting about
+          the editor. Sending is still gated in Rust: nothing leaves the machine
+          while a service is running. */}
+      <ProblemReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        defaultContext={isLive ? "live" : "other"}
+      />
+
+      {/* E6 — the consent question for installs that finished onboarding long
+          before this feature existed. Never a modal, and never while a service
+          is live: `isLive` is the same session state the LIVE badge reads. */}
+      <TelemetryConsentCard isLive={isLive} />
 
       <ErrorToast message={ipcError} onDismiss={dismissError} />
     </div>
