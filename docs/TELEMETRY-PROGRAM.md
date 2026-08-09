@@ -242,7 +242,7 @@ uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
 | E3 Lokalt observasjonsgrunnlag    | ✅     | 2026-08-08 | #46; 3 innholdslekkasjer tettet          |
 | E4 Worker stage-skjema v1         | ✅     | 2026-08-09 | Worker `f3f4c51` deployet; drill grønn   |
 | E5 Klient: samtykke/utboks/sender | ✅     | 2026-08-09 | #51; kontrakt bevist mot deployet Worker |
-| E6 Samtykke-UX + v0.6.0-beta.1    | ⬜     |            |                                          |
+| E6 Samtykke-UX + v0.6.0-beta.1    | 🟡     | 2026-08-09 | #55 bygget+merget; SLIPP venter eier     |
 | E7 Beta-herding, feilrunde 1      | ⬜     |            |                                          |
 | E8 Stabil utrulling               | ⬜     |            |                                          |
 | E9 Feilrunde 2, datadrevet        | ⬜     |            |                                          |
@@ -450,3 +450,38 @@ Manuell rapport må merkes sendt KUN når den faktisk ble med i payloaden
 (byte-trimmen må aldri bli stedet operatørens ord forsvinner). telemetry.*-
 IPC + TelemetryPreview klare; Avansert-fanens krasjkort forenklet til
 alltid-på lokal fangst (E6 erstatter det).
+
+---
+
+## Etapperapport E6 — 2026-08-09 ✅ (bygg; SLIPP venter eier)
+
+**Levert (PR #55, main `cd1efe6`):** samtykkespørsmålet og alle flatene rundt.
+Merget kode endrer INGENTING i felt: ingen build bærer telemetri-vars, og
+v0.6.0-beta.1 venter på eiers tekstgodkjenning. Onboarding 3-steg (delt
+`TelemetryConsentQuestion`: likeverdige knapper, «Hva sendes?»-utfelling,
+alltid-synlig «aldri»-linje) · hjørnekort for eksisterende (aldri modal, aldri
+under live, aldri stablet på turen; × skriver ingenting) · Personvern-kort
+(toggle uten bekreftelse begge veier, ekte-builder-preview, kø-status i to
+linjer [payloads vs håndskrevne rapporter — ulike fakta], slett-mine-data,
+install-id+regenerer) · «Rapporter et problem» fra Innstillinger + ⌘K.
+
+**Flyktig-id-sømmen:** per-send `new_id()` som ALDRI persisteres (ikke state,
+ikke rad, ikke utboks; retry = ny id); rapport-payload bærer kun tynn
+konvolutt; `drain_ephemeral_reports` bak live-porten men IKKE samtykkeporten;
+`should_run` starter pumpa for en skyldig rapport alene. Rapport merkes sendt
+KUN når endepunktet godtok — byte-trim kan aldri spise operatørens ord
+(«rapporten venter» vises i stedet). Revoke beholder flyktige rapporter
+(samtykket var per rapport); `report.manual.sent` teller KUN stående-samtykke-
+rapporter (å telle flyktige under varig id er akkurat koblingen engangs-id-en
+finnes for å bryte). E3s tracing-vakt fanget en `{e}` agenten selv skrev.
+
+Migr `sql/0009_telemetry_reports.sql`. i18n 62 nøkler ×7 (`telConsent*`-
+navnerom). Gates: cargo 736 (+23), vitest 413 (+17), Playwright 9 (+8, ny
+stateful harness). PRIVACY.md (no+en) + docs/TELEMETRY.md merket UTKAST.
+
+**👤 Morgenliste (eier):** (1) godkjenn tekstene (PRIVACY.md + i18n-strengene;
+3 steder trengte tekst utkastene ikke dekket — merket) · (2) behandlings-
+ansvarlig-linja (juridisk enhet + e-post; står «SundaySuite» m/ 👤-kommentar) ·
+(3) personvernlenke peker på GitHub-PRIVACY.md — ompek til sundaysuite.app om
+ønsket · (4) `gh secret set SUNDAYSTAGE_TELEMETRY_URL` + `_WRITE_KEY` (kan
+kjøres av dirigent fra keychain på ordre) · (5) si «slipp beta» → v0.6.0-beta.1.
