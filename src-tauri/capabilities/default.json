@@ -1,12 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the operator window and the Phase 5.2 output windows (output-*).",
+  "description": "Capability for the operator window and the Phase 5.2 output windows (output-*). No `updater:*` here on purpose: the update check moved into Rust (`commands::updater` via `UpdaterBuilder::endpoints`), so no updater IPC is ever called from JS — the Rust plugin registration in lib.rs is what supplies the pubkey and stays. `process:allow-restart` rather than `process:default` because `relaunch()` is used after an install and `exit()` never is. `opener:default` is live: the consent question opens PRIVACY.md with `openUrl`.",
   "windows": ["main", "output-*"],
-  "permissions": [
-    "core:default",
-    "opener:default",
-    "updater:default",
-    "process:default"
-  ]
+  "permissions": ["core:default", "opener:default", "process:allow-restart"]
 }

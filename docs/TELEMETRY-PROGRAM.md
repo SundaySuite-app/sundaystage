@@ -336,9 +336,10 @@ rec-ringene upåvirket under pausen, resume → byte-identisk på 5 s.
 
 👤 **Gjenstår (eier):** self-update-verifisering på egen maskin — 0.4.0 →
 0.5.0 via GitHub, deretter test ringen: promoter en fremtidig beta, flipp
-kanalvelgeren, relansér. Følgesak (chore): `@tauri-apps/plugin-updater`
+kanalvelgeren, relansér. ~~Følgesak (chore): `@tauri-apps/plugin-updater`
 npm-pakken + `updater:default`-capability er ubrukt etter Rust-flyttingen —
-fjernes i en senere deps-runde.
+fjernes i en senere deps-runde.~~ ✅ gjort i opprydningsrunden (npm-pakken og
+`updater:default` fjernet; Rust-plugin-en blir stående — den gir pubkey-en).
 
 ---
 

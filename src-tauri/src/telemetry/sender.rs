@@ -389,6 +389,73 @@ pub async fn drain_ephemeral_reports(
     }
 }
 
+/// Put entries left in `Sending` by a dead process back into `Pending`,
+/// returning how many were recovered.
+///
+/// Runs ONCE, as the first thing the pump task does, before any drain or beat.
+/// `Sending` is only ever set by [`pump_once`] in the moment between "about to
+/// hand these bytes to the sender" and the sender answering, so a row still in
+/// that status when a pump starts belongs to a process that is gone — a
+/// force-quit mid-send, a crash, a power cut.
+///
+/// Without this the row is stranded for the life of the install:
+/// `outbox::select_next` only ever considers `Pending`, so nothing would look at
+/// it again. Losing one report is not a disaster, but it is exactly the kind of
+/// silent loss law 3 exists to prevent — and the entry that dies mid-send is
+/// disproportionately likely to be the interesting one, since something on this
+/// machine did just go wrong.
+///
+/// The recovered entry keeps its `attempts` and its `next_attempt` (which
+/// [`outbox::mark_sending`] does not move), so it is due immediately and the
+/// backoff ladder still ends at [`outbox::MAX_ATTEMPTS`] — a machine that
+/// crashes on every send retires the row instead of retrying it forever.
+pub async fn recover_stale_sending(pool: &SqlitePool) -> usize {
+    let repo = crate::db::repositories::TelemetryRepo::new(pool);
+    let mut entries = match repo.outbox_load().await {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::warn!(
+                "telemetry: the outbox could not be read at pump start ({}); nothing was \
+                 recovered",
+                e.code()
+            );
+            return 0;
+        }
+    };
+    let stale: Vec<String> = entries
+        .iter()
+        .filter(|e| e.status == super::outbox::TelemetryStatus::Sending)
+        .map(|e| e.id.clone())
+        .collect();
+    if outbox::reset_stale_sending(&mut entries) == 0 {
+        return 0;
+    }
+
+    let mut recovered = 0;
+    for id in &stale {
+        let Some(entry) = entries.iter().find(|e| &e.id == id) else {
+            continue;
+        };
+        match repo.outbox_upsert(entry).await {
+            Ok(()) => recovered += 1,
+            // The row stays `Sending` on disk and is retried at the next start.
+            // Worth saying out loud rather than counting it as recovered.
+            Err(e) => tracing::warn!(
+                "telemetry: a stranded outbox entry could not be reset ({}); it will be \
+                 retried at the next start",
+                e.code()
+            ),
+        }
+    }
+    if recovered > 0 {
+        tracing::info!(
+            recovered,
+            "telemetry: report(s) left mid-send by a previous run were put back in the queue"
+        );
+    }
+    recovered
+}
+
 /// Build the sender this build would use, if it has one.
 ///
 /// Exposed so the submit command can deliver a report immediately instead of
@@ -619,6 +686,11 @@ pub async fn maybe_spawn(app: &AppHandle, pool: &SqlitePool) -> bool {
     // `shutdown` join with a grace period and then abort the straggler.
     let handle = tokio::spawn(async move {
         let version = app.package_info().version.to_string();
+        // Before the first beat, not on every one: anything still `Sending`
+        // belongs to a process that is gone. See `recover_stale_sending`.
+        if let Some(state) = app.try_state::<AppState>() {
+            recover_stale_sending(&state.db.pool).await;
+        }
         loop {
             tokio::time::sleep(PUMP_INTERVAL).await;
             let Some(state) = app.try_state::<AppState>() else {
@@ -1433,6 +1505,88 @@ mod tests {
             pump_once(pool, &ok, 1_800_000_000_000).await.expect("pump"),
             PumpOutcome::Idle
         );
+    }
+
+    // ── Crash recovery: the stranded `Sending` row ───────────────────────────
+
+    #[tokio::test]
+    async fn a_report_stranded_mid_send_by_a_crash_is_retryable_once_the_pump_starts() {
+        // The gap this closes. `Sending` is written just before the bytes go
+        // out; if the process dies in that window the row is left in a status
+        // `select_next` never looks at, so it would sit there for the life of
+        // the install — a report lost in silence, from the very run in which
+        // something went wrong.
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        let repo = TelemetryRepo::new(pool);
+        client::consent_set(pool, true).await.expect("grant");
+
+        // A previous process that force-quit mid-send: one attempt counted, the
+        // row left in `Sending`.
+        let stranded = TelemetryEntry {
+            attempts: 1,
+            status: TelemetryStatus::Sending,
+            ..entry("stranded", 0)
+        };
+        repo.outbox_insert_capped(&stranded).await.expect("queue");
+
+        // Negative control: without the recovery the pump cannot see it at all.
+        let now = 1_800_000_000_000i64;
+        assert_eq!(
+            pump_once(pool, &PanickingSender, now).await.expect("pump"),
+            PumpOutcome::Idle,
+            "a stranded row is invisible to the pump — which is the whole problem"
+        );
+
+        assert_eq!(
+            recover_stale_sending(pool).await,
+            1,
+            "pump start puts it back in the queue"
+        );
+
+        // It survived the reset intact — same payload, same attempt count, so
+        // the backoff ladder still ends at MAX_ATTEMPTS rather than restarting.
+        let back = repo.outbox_load().await.expect("load");
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].status, TelemetryStatus::Pending);
+        assert_eq!(back[0].attempts, 1, "the crashed attempt still counts");
+
+        // …and now the pump delivers it.
+        let sender = CountingSender::default();
+        assert_eq!(
+            pump_once(pool, &sender, now).await.expect("pump"),
+            PumpOutcome::Sent
+        );
+        assert_eq!(sender.sends.load(Ordering::SeqCst), 1);
+        assert!(repo.outbox_load().await.expect("load").is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_recovery_touches_nothing_that_is_not_stranded() {
+        // It runs on every start, so it has to be a no-op on the ordinary one —
+        // a pending entry's backoff must not be reset by the app being opened.
+        let (state, _d) = app_state().await;
+        let pool = &state.db.pool;
+        let repo = TelemetryRepo::new(pool);
+        let waiting = TelemetryEntry {
+            attempts: 2,
+            next_attempt: 9_000_000_000_000,
+            last_error: Some("no route to host".into()),
+            ..entry("waiting", 0)
+        };
+        repo.outbox_insert_capped(&waiting).await.expect("queue");
+
+        assert_eq!(recover_stale_sending(pool).await, 0);
+
+        let back = repo.outbox_load().await.expect("load");
+        assert_eq!(back[0].status, TelemetryStatus::Pending);
+        assert_eq!(back[0].attempts, 2);
+        assert_eq!(back[0].next_attempt, 9_000_000_000_000, "backoff intact");
+        assert_eq!(back[0].last_error.as_deref(), Some("no route to host"));
+
+        // And an empty outbox is not an error either.
+        repo.outbox_purge().await.expect("purge");
+        assert_eq!(recover_stale_sending(pool).await, 0);
     }
 
     #[test]

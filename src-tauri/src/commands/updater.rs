@@ -4,8 +4,9 @@
 //! can be chosen at runtime: `UpdaterBuilder::endpoints(..)`. Neither the JS
 //! `check()` options nor the Rust plugin `Builder` can override the endpoints
 //! configured in `tauri.conf.json` (see `services::update_channel` for the
-//! full note). The frontend therefore drives these commands instead of
-//! `@tauri-apps/plugin-updater`'s JS API; everything else — signature
+//! full note). The frontend therefore drives these commands instead of the
+//! updater plugin's JS API — which is why only the plugin's Rust half is a
+//! dependency and its npm package is not installed; everything else — signature
 //! verification against the embedded pubkey, download, install, the Windows
 //! installer args — is the plugin's own code, unchanged.
 //!

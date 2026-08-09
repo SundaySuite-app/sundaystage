@@ -820,8 +820,17 @@ export function OperatorWorkspace({ library }: { library: Library }) {
 
       {/* E6 — the consent question for installs that finished onboarding long
           before this feature existed. Never a modal, and never while a service
-          is live: `isLive` is the same session state the LIVE badge reads. */}
-      <TelemetryConsentCard isLive={isLive} />
+          is live: `isLive` is the same session state the LIVE badge reads.
+
+          `recoverable` is a second live gate, not a tidiness rule. After an
+          ErrorBoundary reload mid-service the frontend has no session yet —
+          `isLive` is false until the operator answers the recovery offer — so
+          `isLive` alone would let a privacy question slide into the corner of a
+          running service, next to the banner asking to resume it. A pending
+          offer means "a service may still be on that projector", and the card
+          waits for the answer either way: resume makes it live, discard clears
+          the offer. */}
+      {recoverable === null && <TelemetryConsentCard isLive={isLive} />}
 
       <ErrorToast message={ipcError} onDismiss={dismissError} />
     </div>
