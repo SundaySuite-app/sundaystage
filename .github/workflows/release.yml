@@ -96,6 +96,10 @@ jobs:
           # ── Updater signing (required) ──────────────────────────────────
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # ── Telemetry sender config (baked at build time via option_env!;
+          #    absent → no sender is constructed, dev/CI builds stay inert) ──
+          SUNDAYSTAGE_TELEMETRY_URL: ${{ secrets.SUNDAYSTAGE_TELEMETRY_URL }}
+          SUNDAYSTAGE_TELEMETRY_WRITE_KEY: ${{ secrets.SUNDAYSTAGE_TELEMETRY_WRITE_KEY }}
           # ── macOS code signing + notarization ───────────────────────────
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
