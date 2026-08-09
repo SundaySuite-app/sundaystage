@@ -710,6 +710,88 @@ const en: Catalog = {
   errBoundaryBody:
     "The screen out front is unchanged — the live output runs in its own process and is holding its frame. Reload to get the operator view back.",
   errBoundaryReload: "Reload",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Help us make SundayStage better?",
+  telConsentBody:
+    "SundayStage can send anonymous error and quality reports when something goes wrong, plus simple usage counts — so we find and fix problems before they hit a service. Completely anonymous: a random install ID, never a name, email address, church or content.",
+  telConsentWhatIsSent: "What is sent?",
+  telConsentCatCrashes:
+    "Crashes and errors — the error message and where in the app it happened",
+  telConsentCatQuality:
+    "Quality — whether the display stayed stable during a service (restarts, delays and the like), as numbers — never content",
+  telConsentCatUsage: "Usage — which features are used, as counters",
+  telConsentNever:
+    "Lyrics, song titles, service names, file names, file paths, device names, personal names and email addresses are never sent. Reports are never sent while a service is running.",
+  telConsentYes: "Yes, share anonymously",
+  telConsentNo: "No thanks",
+  telConsentPrivacyLink: "Read more in the privacy statement",
+  telConsentDismissLabel: "Close — we'll ask again next time you open the app",
+  telConsentAnswered: "Thank you — your choice has been saved.",
+  setPrivacyTitle: "Privacy",
+  setPrivacyDesc:
+    "You decide whether SundayStage may send anonymous reports. It can be switched on and off at any time, and you can always see exactly what would be sent.",
+  setPrivacyShareLabel: "Share anonymous reports",
+  setPrivacyShareDesc:
+    "Crashes, quality numbers from services and simple usage counters. Never content.",
+  setPrivacyStateOn: "On",
+  setPrivacyStateOff: "Off",
+  setPrivacyStateNotAsked: "Not answered",
+  setPrivacyShowPayload: "Show what is sent",
+  setPrivacyHidePayload: "Hide",
+  setPrivacyPayloadNext: "This is exactly the next report, byte for byte.",
+  setPrivacyPayloadWouldSend:
+    "Sharing is off, so nothing is sent. This is everything the machine would have to send — byte for byte.",
+  setPrivacyPayloadEmpty: "Nothing to send right now.",
+  setPrivacyQueueEmpty: "Nothing is waiting in the queue.",
+  setPrivacyQueue: "{n} report(s) waiting · oldest from {date}",
+  setPrivacyQueueFailed: "{n} report(s) gave up after repeated attempts.",
+  setPrivacyReportsWaiting: "{n} problem report(s) still waiting to be sent.",
+  setPrivacyLastError: "Last error: {error}",
+  setPrivacyDelete: "Delete my data",
+  setPrivacyDeleteDesc:
+    "Deletes everything tied to your install ID from the server, and the local copy too. Works even when sharing is off.",
+  setPrivacyDeleteTitle: "Delete your data?",
+  setPrivacyDeleteBody:
+    "We ask the server to delete everything tied to your install ID, and remove the local copy. This cannot be undone.",
+  setPrivacyDeleteDone:
+    "Deletion requested. It is carried out as soon as the machine is online.",
+  setPrivacyInstallId: "Install ID",
+  setPrivacyInstallIdNone: "None — no ID exists until you say yes",
+  setPrivacyRegenerate: "Regenerate",
+  setPrivacyRegenerateDesc:
+    "Gives you a new, unrelated ID. The old one is queued for deletion.",
+  setPrivacyLocalCrashes: "Local error records",
+  setPrivacyLocalCrashesDesc:
+    "Always written, and never leave this machine on their own.",
+  setPrivacyReportProblem: "Report a problem",
+  reportTitle: "Report a problem",
+  reportDesc:
+    "Send a description of the problem with the last (scrubbed) log lines. The preview shows exactly what is sent.",
+  reportMessageLabel: "What happened?",
+  reportMessagePlaceholder: "Briefly describe what went wrong …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Where were you?",
+  reportContextLive: "During the service",
+  reportContextEditor: "In the editor",
+  reportContextSettings: "In settings",
+  reportContextOther: "Somewhere else",
+  reportLogLabel: "Log lines included (scrubbed)",
+  reportLogEmpty: "No log file on this machine yet.",
+  reportSend: "Send report",
+  reportSending: "Sending …",
+  reportEphemeralNote:
+    "Anonymous sharing is off. You can still do this — the report is then sent with a one-time ID that is not stored, and cannot be linked to anything else.",
+  reportOutcomeQueued:
+    "Thank you. The report is queued and will be sent at the next opportunity.",
+  reportOutcomeSent: "Thank you. The report has been sent.",
+  reportOutcomeDeferredLive:
+    "Thank you. The report is saved and will be sent once the service is over — we never send anything while a service is running.",
+  reportOutcomeDeferredOffline:
+    "Thank you. The report is saved and will be sent as soon as the machine is back online.",
+  reportOutcomeNoEndpoint:
+    "The report is saved on this machine. This build has no recipient compiled in, so nothing is sent from here.",
+  reportFailed: "Could not save the report. Please try again.",
 };
 
 const no: Catalog = {
@@ -1390,6 +1472,90 @@ const no: Catalog = {
   errBoundaryBody:
     "Skjermen ute er uendret — live-utgangen kjører i sin egen prosess og holder bildet. Last inn på nytt for å få tilbake operatørvisningen.",
   errBoundaryReload: "Last inn på nytt",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Hjelp oss å gjøre SundayStage bedre?",
+  telConsentBody:
+    "SundayStage kan sende anonyme feil- og kvalitetsrapporter når noe går galt, og enkle brukstall — slik at vi finner og fikser problemer før de rammer en gudstjeneste. Helt anonymt: en tilfeldig installasjons-ID, aldri navn, e-post, menighet eller innhold.",
+  telConsentWhatIsSent: "Hva sendes?",
+  telConsentCatCrashes:
+    "Krasj og feil — feilmelding og hvor i programmet det skjedde",
+  telConsentCatQuality:
+    "Kvalitet — om visningen holdt seg stabil under en gudstjeneste (f.eks. omstarter, forsinkelser), som tall — aldri innhold",
+  telConsentCatUsage: "Bruk — hvilke funksjoner som brukes, som tellere",
+  telConsentNever:
+    "Sangtekster, sangtitler, tjenestenavn, filnavn, filstier, enhetsnavn, personnavn eller e-postadresser sendes aldri. Rapporter sendes aldri mens en gudstjeneste pågår.",
+  telConsentYes: "Ja, del anonymt",
+  telConsentNo: "Nei takk",
+  telConsentPrivacyLink: "Les mer i personvernerklæringen",
+  telConsentDismissLabel:
+    "Lukk — du blir spurt igjen neste gang du åpner appen",
+  telConsentAnswered: "Takk — valget er lagret.",
+  setPrivacyTitle: "Personvern",
+  setPrivacyDesc:
+    "Du bestemmer om SundayStage får sende anonyme rapporter. Alt kan slås av og på når som helst, og du kan alltid se nøyaktig hva som sendes.",
+  setPrivacyShareLabel: "Del anonyme rapporter",
+  setPrivacyShareDesc:
+    "Krasj, kvalitetstall fra gudstjenester og enkle brukstellere. Aldri innhold.",
+  setPrivacyStateOn: "På",
+  setPrivacyStateOff: "Av",
+  setPrivacyStateNotAsked: "Ikke besvart",
+  setPrivacyShowPayload: "Vis hva som sendes",
+  setPrivacyHidePayload: "Skjul",
+  setPrivacyPayloadNext: "Dette er nøyaktig neste rapport, byte for byte.",
+  setPrivacyPayloadWouldSend:
+    "Deling er av, så ingenting sendes. Dette er alt maskinen ville hatt å sende — byte for byte.",
+  setPrivacyPayloadEmpty: "Ingenting å sende akkurat nå.",
+  setPrivacyQueueEmpty: "Ingenting venter i køen.",
+  setPrivacyQueue: "{n} rapport(er) venter · eldste fra {date}",
+  setPrivacyQueueFailed: "{n} rapport(er) ga opp etter gjentatte forsøk.",
+  setPrivacyReportsWaiting:
+    "{n} problemrapport(er) venter fortsatt på å bli sendt.",
+  setPrivacyLastError: "Siste feil: {error}",
+  setPrivacyDelete: "Slett dataene mine",
+  setPrivacyDeleteDesc:
+    "Sletter alt som er knyttet til installasjons-ID-en din fra serveren, og den lokale kopien. Virker selv om deling er slått av.",
+  setPrivacyDeleteTitle: "Slette dataene dine?",
+  setPrivacyDeleteBody:
+    "Vi ber serveren slette alt som er knyttet til installasjons-ID-en din, og fjerner den lokale kopien. Dette kan ikke angres.",
+  setPrivacyDeleteDone:
+    "Sletting er bestilt. Den utføres så snart maskinen er på nett.",
+  setPrivacyInstallId: "Installasjons-ID",
+  setPrivacyInstallIdNone: "Ingen — det finnes ingen ID før du sier ja",
+  setPrivacyRegenerate: "Regenerer",
+  setPrivacyRegenerateDesc:
+    "Gir deg en ny, urelatert ID. Den gamle blir bedt slettet.",
+  setPrivacyLocalCrashes: "Lokale feilspor",
+  setPrivacyLocalCrashesDesc:
+    "Skrives alltid, forlater aldri maskinen på egen hånd.",
+  setPrivacyReportProblem: "Rapporter et problem",
+  reportTitle: "Rapporter et problem",
+  reportDesc:
+    "Send en problembeskrivelse med de siste (vaskede) logglinjene. Forhåndsvisningen viser nøyaktig det som sendes.",
+  reportMessageLabel: "Hva skjedde?",
+  reportMessagePlaceholder: "Beskriv kort hva som gikk galt …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Hvor var du?",
+  reportContextLive: "Under gudstjenesten",
+  reportContextEditor: "I redigering",
+  reportContextSettings: "I innstillinger",
+  reportContextOther: "Annet",
+  reportLogLabel: "Logglinjer som følger med (vasket)",
+  reportLogEmpty: "Ingen loggfil på denne maskinen ennå.",
+  reportSend: "Send rapport",
+  reportSending: "Sender …",
+  reportEphemeralNote:
+    "Anonym deling er av. Dette kan du gjøre likevel — rapporten sendes da med en engangs-ID som ikke lagres, og kan ikke knyttes til noe annet.",
+  reportOutcomeQueued:
+    "Takk. Rapporten er lagt i køen og sendes ved neste anledning.",
+  reportOutcomeSent: "Takk. Rapporten er sendt.",
+  reportOutcomeDeferredLive:
+    "Takk. Rapporten er lagret og sendes når gudstjenesten er ferdig — vi sender aldri noe mens en gudstjeneste pågår.",
+  reportOutcomeDeferredOffline:
+    "Takk. Rapporten er lagret og sendes så snart maskinen er på nett igjen.",
+  reportOutcomeNoEndpoint:
+    "Rapporten er lagret på maskinen. Denne utgaven har ingen mottaker bygget inn, så ingenting sendes herfra.",
+  reportFailed: "Kunne ikke lagre rapporten. Prøv igjen.",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -2022,6 +2188,89 @@ const sv: Catalog = {
   errBoundaryBody:
     "Skärmen där ute är oförändrad — live-utgången kör i sin egen process och håller bilden. Ladda om för att få tillbaka operatörsvyn.",
   errBoundaryReload: "Ladda om",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Hjälp oss att göra SundayStage bättre?",
+  telConsentBody:
+    "SundayStage kan skicka anonyma fel- och kvalitetsrapporter när något går fel, plus enkel användningsstatistik — så att vi hittar och åtgärdar problem innan de drabbar en gudstjänst. Helt anonymt: ett slumpmässigt installations-ID, aldrig namn, e-post, församling eller innehåll.",
+  telConsentWhatIsSent: "Vad skickas?",
+  telConsentCatCrashes:
+    "Krascher och fel — felmeddelandet och var i programmet det hände",
+  telConsentCatQuality:
+    "Kvalitet — om visningen förblev stabil under en gudstjänst (omstarter, fördröjningar och liknande), som siffror — aldrig innehåll",
+  telConsentCatUsage: "Användning — vilka funktioner som används, som räknare",
+  telConsentNever:
+    "Sångtexter, sångtitlar, gudstjänstnamn, filnamn, filsökvägar, enhetsnamn, personnamn eller e-postadresser skickas aldrig. Rapporter skickas aldrig medan en gudstjänst pågår.",
+  telConsentYes: "Ja, dela anonymt",
+  telConsentNo: "Nej tack",
+  telConsentPrivacyLink: "Läs mer i integritetspolicyn",
+  telConsentDismissLabel: "Stäng — vi frågar igen nästa gång du öppnar appen",
+  telConsentAnswered: "Tack — ditt val har sparats.",
+  setPrivacyTitle: "Integritet",
+  setPrivacyDesc:
+    "Du bestämmer om SundayStage får skicka anonyma rapporter. Det kan slås på och av när som helst, och du kan alltid se exakt vad som skickas.",
+  setPrivacyShareLabel: "Dela anonyma rapporter",
+  setPrivacyShareDesc:
+    "Krascher, kvalitetssiffror från gudstjänster och enkla användningsräknare. Aldrig innehåll.",
+  setPrivacyStateOn: "På",
+  setPrivacyStateOff: "Av",
+  setPrivacyStateNotAsked: "Obesvarat",
+  setPrivacyShowPayload: "Visa vad som skickas",
+  setPrivacyHidePayload: "Dölj",
+  setPrivacyPayloadNext: "Detta är exakt nästa rapport, byte för byte.",
+  setPrivacyPayloadWouldSend:
+    "Delning är av, så inget skickas. Detta är allt maskinen skulle ha haft att skicka — byte för byte.",
+  setPrivacyPayloadEmpty: "Inget att skicka just nu.",
+  setPrivacyQueueEmpty: "Inget väntar i kön.",
+  setPrivacyQueue: "{n} rapport(er) väntar · äldst från {date}",
+  setPrivacyQueueFailed: "{n} rapport(er) gav upp efter upprepade försök.",
+  setPrivacyReportsWaiting:
+    "{n} problemrapport(er) väntar fortfarande på att skickas.",
+  setPrivacyLastError: "Senaste fel: {error}",
+  setPrivacyDelete: "Radera mina data",
+  setPrivacyDeleteDesc:
+    "Raderar allt som är knutet till ditt installations-ID från servern, och den lokala kopian. Fungerar även när delning är avstängd.",
+  setPrivacyDeleteTitle: "Radera dina data?",
+  setPrivacyDeleteBody:
+    "Vi ber servern radera allt som är knutet till ditt installations-ID och tar bort den lokala kopian. Detta kan inte ångras.",
+  setPrivacyDeleteDone:
+    "Radering beställd. Den utförs så snart maskinen är uppkopplad.",
+  setPrivacyInstallId: "Installations-ID",
+  setPrivacyInstallIdNone: "Inget — det finns inget ID förrän du säger ja",
+  setPrivacyRegenerate: "Skapa nytt",
+  setPrivacyRegenerateDesc:
+    "Ger dig ett nytt, orelaterat ID. Det gamla begärs raderat.",
+  setPrivacyLocalCrashes: "Lokala felspår",
+  setPrivacyLocalCrashesDesc:
+    "Skrivs alltid och lämnar aldrig maskinen på egen hand.",
+  setPrivacyReportProblem: "Rapportera ett problem",
+  reportTitle: "Rapportera ett problem",
+  reportDesc:
+    "Skicka en problembeskrivning med de senaste (rensade) loggraderna. Förhandsvisningen visar exakt det som skickas.",
+  reportMessageLabel: "Vad hände?",
+  reportMessagePlaceholder: "Beskriv kort vad som gick fel …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Var befann du dig?",
+  reportContextLive: "Under gudstjänsten",
+  reportContextEditor: "I redigeringen",
+  reportContextSettings: "I inställningarna",
+  reportContextOther: "Någon annanstans",
+  reportLogLabel: "Loggrader som följer med (rensade)",
+  reportLogEmpty: "Ingen loggfil på den här maskinen ännu.",
+  reportSend: "Skicka rapport",
+  reportSending: "Skickar …",
+  reportEphemeralNote:
+    "Anonym delning är av. Du kan göra detta ändå — rapporten skickas då med ett engångs-ID som inte sparas och inte kan kopplas till något annat.",
+  reportOutcomeQueued:
+    "Tack. Rapporten ligger i kön och skickas vid nästa tillfälle.",
+  reportOutcomeSent: "Tack. Rapporten har skickats.",
+  reportOutcomeDeferredLive:
+    "Tack. Rapporten är sparad och skickas när gudstjänsten är slut — vi skickar aldrig något medan en gudstjänst pågår.",
+  reportOutcomeDeferredOffline:
+    "Tack. Rapporten är sparad och skickas så snart maskinen är uppkopplad igen.",
+  reportOutcomeNoEndpoint:
+    "Rapporten är sparad på maskinen. Den här versionen har ingen mottagare inbyggd, så inget skickas härifrån.",
+  reportFailed: "Kunde inte spara rapporten. Försök igen.",
 };
 const da: Catalog = {
   appTagline: "Live-præsentation",
@@ -2648,6 +2897,89 @@ const da: Catalog = {
   errBoundaryBody:
     "Skærmen derude er uændret — live-udgangen kører i sin egen proces og holder billedet. Genindlæs for at få operatørvisningen tilbage.",
   errBoundaryReload: "Genindlæs",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Hjælp os med at gøre SundayStage bedre?",
+  telConsentBody:
+    "SundayStage kan sende anonyme fejl- og kvalitetsrapporter, når noget går galt, samt enkle brugstal — så vi finder og retter problemer, før de rammer en gudstjeneste. Helt anonymt: et tilfældigt installations-id, aldrig navn, e-mail, menighed eller indhold.",
+  telConsentWhatIsSent: "Hvad sendes?",
+  telConsentCatCrashes:
+    "Nedbrud og fejl — fejlbeskeden og hvor i programmet det skete",
+  telConsentCatQuality:
+    "Kvalitet — om visningen forblev stabil under en gudstjeneste (genstarter, forsinkelser og lignende), som tal — aldrig indhold",
+  telConsentCatUsage: "Brug — hvilke funktioner der bruges, som tællere",
+  telConsentNever:
+    "Sangtekster, sangtitler, gudstjenestenavne, filnavne, filstier, enhedsnavne, personnavne eller e-mailadresser sendes aldrig. Rapporter sendes aldrig, mens en gudstjeneste er i gang.",
+  telConsentYes: "Ja, del anonymt",
+  telConsentNo: "Nej tak",
+  telConsentPrivacyLink: "Læs mere i privatlivspolitikken",
+  telConsentDismissLabel: "Luk — vi spørger igen, næste gang du åbner appen",
+  telConsentAnswered: "Tak — dit valg er gemt.",
+  setPrivacyTitle: "Privatliv",
+  setPrivacyDesc:
+    "Du bestemmer, om SundayStage må sende anonyme rapporter. Det kan slås til og fra når som helst, og du kan altid se præcis, hvad der sendes.",
+  setPrivacyShareLabel: "Del anonyme rapporter",
+  setPrivacyShareDesc:
+    "Nedbrud, kvalitetstal fra gudstjenester og enkle brugstællere. Aldrig indhold.",
+  setPrivacyStateOn: "Til",
+  setPrivacyStateOff: "Fra",
+  setPrivacyStateNotAsked: "Ikke besvaret",
+  setPrivacyShowPayload: "Vis hvad der sendes",
+  setPrivacyHidePayload: "Skjul",
+  setPrivacyPayloadNext: "Dette er præcis den næste rapport, byte for byte.",
+  setPrivacyPayloadWouldSend:
+    "Deling er slået fra, så intet sendes. Dette er alt, maskinen ville have at sende — byte for byte.",
+  setPrivacyPayloadEmpty: "Intet at sende lige nu.",
+  setPrivacyQueueEmpty: "Intet venter i køen.",
+  setPrivacyQueue: "{n} rapport(er) venter · ældste fra {date}",
+  setPrivacyQueueFailed: "{n} rapport(er) gav op efter gentagne forsøg.",
+  setPrivacyReportsWaiting:
+    "{n} problemrapport(er) venter stadig på at blive sendt.",
+  setPrivacyLastError: "Seneste fejl: {error}",
+  setPrivacyDelete: "Slet mine data",
+  setPrivacyDeleteDesc:
+    "Sletter alt, der er knyttet til dit installations-id, fra serveren samt den lokale kopi. Virker også, når deling er slået fra.",
+  setPrivacyDeleteTitle: "Slette dine data?",
+  setPrivacyDeleteBody:
+    "Vi beder serveren slette alt, der er knyttet til dit installations-id, og fjerner den lokale kopi. Dette kan ikke fortrydes.",
+  setPrivacyDeleteDone:
+    "Sletning er bestilt. Den udføres, så snart maskinen er online.",
+  setPrivacyInstallId: "Installations-id",
+  setPrivacyInstallIdNone: "Intet — der findes intet id, før du siger ja",
+  setPrivacyRegenerate: "Dan nyt",
+  setPrivacyRegenerateDesc:
+    "Giver dig et nyt, urelateret id. Det gamle bliver bedt slettet.",
+  setPrivacyLocalCrashes: "Lokale fejlspor",
+  setPrivacyLocalCrashesDesc:
+    "Skrives altid og forlader aldrig maskinen af sig selv.",
+  setPrivacyReportProblem: "Rapportér et problem",
+  reportTitle: "Rapportér et problem",
+  reportDesc:
+    "Send en problembeskrivelse med de seneste (rensede) loglinjer. Forhåndsvisningen viser præcis det, der sendes.",
+  reportMessageLabel: "Hvad skete der?",
+  reportMessagePlaceholder: "Beskriv kort, hvad der gik galt …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Hvor var du?",
+  reportContextLive: "Under gudstjenesten",
+  reportContextEditor: "I redigeringen",
+  reportContextSettings: "I indstillingerne",
+  reportContextOther: "Et andet sted",
+  reportLogLabel: "Loglinjer der følger med (rensede)",
+  reportLogEmpty: "Ingen logfil på denne maskine endnu.",
+  reportSend: "Send rapport",
+  reportSending: "Sender …",
+  reportEphemeralNote:
+    "Anonym deling er slået fra. Du kan gøre det alligevel — rapporten sendes så med et engangs-id, der ikke gemmes, og som ikke kan knyttes til noget andet.",
+  reportOutcomeQueued:
+    "Tak. Rapporten er lagt i kø og sendes ved næste lejlighed.",
+  reportOutcomeSent: "Tak. Rapporten er sendt.",
+  reportOutcomeDeferredLive:
+    "Tak. Rapporten er gemt og sendes, når gudstjenesten er slut — vi sender aldrig noget, mens en gudstjeneste er i gang.",
+  reportOutcomeDeferredOffline:
+    "Tak. Rapporten er gemt og sendes, så snart maskinen er online igen.",
+  reportOutcomeNoEndpoint:
+    "Rapporten er gemt på maskinen. Denne udgave har ingen modtager indbygget, så der sendes intet herfra.",
+  reportFailed: "Kunne ikke gemme rapporten. Prøv igen.",
 };
 const de: Catalog = {
   appTagline: "Live-Präsentation",
@@ -3288,6 +3620,92 @@ const de: Catalog = {
   errBoundaryBody:
     "Die Leinwand bleibt unverändert — die Live-Ausgabe läuft in einem eigenen Prozess und hält ihr Bild. Neu laden, um die Bedienansicht zurückzuholen.",
   errBoundaryReload: "Neu laden",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Hilf uns, SundayStage besser zu machen?",
+  telConsentBody:
+    "SundayStage kann anonyme Fehler- und Qualitätsberichte senden, wenn etwas schiefgeht, dazu einfache Nutzungszahlen — damit wir Probleme finden und beheben, bevor sie einen Gottesdienst treffen. Völlig anonym: eine zufällige Installations-ID, niemals Name, E-Mail, Gemeinde oder Inhalte.",
+  telConsentWhatIsSent: "Was wird gesendet?",
+  telConsentCatCrashes:
+    "Abstürze und Fehler — die Fehlermeldung und an welcher Stelle im Programm sie auftrat",
+  telConsentCatQuality:
+    "Qualität — ob die Anzeige während eines Gottesdienstes stabil blieb (Neustarts, Verzögerungen und Ähnliches), als Zahlen — niemals Inhalte",
+  telConsentCatUsage:
+    "Nutzung — welche Funktionen verwendet werden, als Zähler",
+  telConsentNever:
+    "Liedtexte, Liedtitel, Gottesdienstnamen, Dateinamen, Dateipfade, Gerätenamen, Personennamen oder E-Mail-Adressen werden niemals gesendet. Während eines laufenden Gottesdienstes wird nie etwas gesendet.",
+  telConsentYes: "Ja, anonym teilen",
+  telConsentNo: "Nein, danke",
+  telConsentPrivacyLink: "Mehr in der Datenschutzerklärung",
+  telConsentDismissLabel: "Schließen — wir fragen beim nächsten Start erneut",
+  telConsentAnswered: "Danke — deine Wahl wurde gespeichert.",
+  setPrivacyTitle: "Datenschutz",
+  setPrivacyDesc:
+    "Du entscheidest, ob SundayStage anonyme Berichte senden darf. Das lässt sich jederzeit ein- und ausschalten, und du kannst immer genau sehen, was gesendet würde.",
+  setPrivacyShareLabel: "Anonyme Berichte teilen",
+  setPrivacyShareDesc:
+    "Abstürze, Qualitätszahlen aus Gottesdiensten und einfache Nutzungszähler. Niemals Inhalte.",
+  setPrivacyStateOn: "Ein",
+  setPrivacyStateOff: "Aus",
+  setPrivacyStateNotAsked: "Nicht beantwortet",
+  setPrivacyShowPayload: "Zeigen, was gesendet wird",
+  setPrivacyHidePayload: "Ausblenden",
+  setPrivacyPayloadNext: "Das ist genau der nächste Bericht, Byte für Byte.",
+  setPrivacyPayloadWouldSend:
+    "Das Teilen ist aus, es wird nichts gesendet. Das ist alles, was das Gerät zu senden hätte — Byte für Byte.",
+  setPrivacyPayloadEmpty: "Im Moment gibt es nichts zu senden.",
+  setPrivacyQueueEmpty: "Es wartet nichts in der Warteschlange.",
+  setPrivacyQueue: "{n} Bericht(e) warten · ältester von {date}",
+  setPrivacyQueueFailed:
+    "{n} Bericht(e) haben nach wiederholten Versuchen aufgegeben.",
+  setPrivacyReportsWaiting:
+    "{n} Problembericht(e) warten noch auf den Versand.",
+  setPrivacyLastError: "Letzter Fehler: {error}",
+  setPrivacyDelete: "Meine Daten löschen",
+  setPrivacyDeleteDesc:
+    "Löscht alles, was mit deiner Installations-ID verknüpft ist, vom Server sowie die lokale Kopie. Funktioniert auch, wenn das Teilen aus ist.",
+  setPrivacyDeleteTitle: "Deine Daten löschen?",
+  setPrivacyDeleteBody:
+    "Wir bitten den Server, alles zu löschen, was mit deiner Installations-ID verknüpft ist, und entfernen die lokale Kopie. Das lässt sich nicht rückgängig machen.",
+  setPrivacyDeleteDone:
+    "Löschung beauftragt. Sie wird ausgeführt, sobald das Gerät online ist.",
+  setPrivacyInstallId: "Installations-ID",
+  setPrivacyInstallIdNone: "Keine — es gibt keine ID, bevor du zustimmst",
+  setPrivacyRegenerate: "Neu erzeugen",
+  setPrivacyRegenerateDesc:
+    "Gibt dir eine neue, unabhängige ID. Für die alte wird die Löschung angefordert.",
+  setPrivacyLocalCrashes: "Lokale Fehlerspuren",
+  setPrivacyLocalCrashesDesc:
+    "Werden immer geschrieben und verlassen das Gerät nie von selbst.",
+  setPrivacyReportProblem: "Ein Problem melden",
+  reportTitle: "Ein Problem melden",
+  reportDesc:
+    "Sende eine Problembeschreibung mit den letzten (bereinigten) Logzeilen. Die Vorschau zeigt genau das, was gesendet wird.",
+  reportMessageLabel: "Was ist passiert?",
+  reportMessagePlaceholder: "Beschreibe kurz, was schiefgegangen ist …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Wo warst du?",
+  reportContextLive: "Während des Gottesdienstes",
+  reportContextEditor: "In der Bearbeitung",
+  reportContextSettings: "In den Einstellungen",
+  reportContextOther: "Woanders",
+  reportLogLabel: "Mitgesendete Logzeilen (bereinigt)",
+  reportLogEmpty: "Auf diesem Gerät gibt es noch keine Logdatei.",
+  reportSend: "Bericht senden",
+  reportSending: "Wird gesendet …",
+  reportEphemeralNote:
+    "Anonymes Teilen ist aus. Du kannst das trotzdem tun — der Bericht wird dann mit einer Einmal-ID gesendet, die nicht gespeichert wird und sich mit nichts anderem verknüpfen lässt.",
+  reportOutcomeQueued:
+    "Danke. Der Bericht steht in der Warteschlange und wird bei nächster Gelegenheit gesendet.",
+  reportOutcomeSent: "Danke. Der Bericht wurde gesendet.",
+  reportOutcomeDeferredLive:
+    "Danke. Der Bericht ist gespeichert und wird nach dem Gottesdienst gesendet — während eines laufenden Gottesdienstes senden wir nie etwas.",
+  reportOutcomeDeferredOffline:
+    "Danke. Der Bericht ist gespeichert und wird gesendet, sobald das Gerät wieder online ist.",
+  reportOutcomeNoEndpoint:
+    "Der Bericht ist auf dem Gerät gespeichert. In dieser Ausgabe ist kein Empfänger einkompiliert, es wird von hier nichts gesendet.",
+  reportFailed:
+    "Der Bericht konnte nicht gespeichert werden. Bitte versuche es erneut.",
 };
 const fr: Catalog = {
   appTagline: "Présentation en direct",
@@ -3928,6 +4346,94 @@ const fr: Catalog = {
   errBoundaryBody:
     "L'écran de la salle est inchangé — la sortie en direct tourne dans son propre processus et conserve son image. Rechargez pour retrouver la vue opérateur.",
   errBoundaryReload: "Recharger",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Nous aider à améliorer SundayStage ?",
+  telConsentBody:
+    "SundayStage peut envoyer des rapports d'erreur et de qualité anonymes lorsqu'un problème survient, ainsi que de simples compteurs d'usage — afin que nous trouvions et corrigions les problèmes avant qu'ils ne touchent un culte. Entièrement anonyme : un identifiant d'installation aléatoire, jamais de nom, d'e-mail, de paroisse ni de contenu.",
+  telConsentWhatIsSent: "Qu'est-ce qui est envoyé ?",
+  telConsentCatCrashes:
+    "Plantages et erreurs — le message d'erreur et l'endroit du programme où il s'est produit",
+  telConsentCatQuality:
+    "Qualité — si l'affichage est resté stable pendant un culte (redémarrages, retards et similaires), sous forme de chiffres — jamais de contenu",
+  telConsentCatUsage:
+    "Usage — quelles fonctions sont utilisées, sous forme de compteurs",
+  telConsentNever:
+    "Les paroles, les titres de chants, les noms de cultes, les noms de fichiers, les chemins de fichiers, les noms d'appareils, les noms de personnes et les adresses e-mail ne sont jamais envoyés. Aucun rapport n'est envoyé pendant un culte.",
+  telConsentYes: "Oui, partager anonymement",
+  telConsentNo: "Non merci",
+  telConsentPrivacyLink: "En savoir plus dans la politique de confidentialité",
+  telConsentDismissLabel:
+    "Fermer — nous redemanderons à la prochaine ouverture",
+  telConsentAnswered: "Merci — votre choix est enregistré.",
+  setPrivacyTitle: "Confidentialité",
+  setPrivacyDesc:
+    "Vous décidez si SundayStage peut envoyer des rapports anonymes. Cela s'active et se désactive à tout moment, et vous pouvez toujours voir exactement ce qui serait envoyé.",
+  setPrivacyShareLabel: "Partager des rapports anonymes",
+  setPrivacyShareDesc:
+    "Plantages, chiffres de qualité des cultes et simples compteurs d'usage. Jamais de contenu.",
+  setPrivacyStateOn: "Activé",
+  setPrivacyStateOff: "Désactivé",
+  setPrivacyStateNotAsked: "Sans réponse",
+  setPrivacyShowPayload: "Voir ce qui est envoyé",
+  setPrivacyHidePayload: "Masquer",
+  setPrivacyPayloadNext:
+    "Voici exactement le prochain rapport, octet par octet.",
+  setPrivacyPayloadWouldSend:
+    "Le partage est désactivé, rien n'est envoyé. Voici tout ce que la machine aurait à envoyer — octet par octet.",
+  setPrivacyPayloadEmpty: "Rien à envoyer pour le moment.",
+  setPrivacyQueueEmpty: "Rien n'attend dans la file.",
+  setPrivacyQueue: "{n} rapport(s) en attente · le plus ancien du {date}",
+  setPrivacyQueueFailed:
+    "{n} rapport(s) ont abandonné après plusieurs tentatives.",
+  setPrivacyReportsWaiting:
+    "{n} signalement(s) attendent encore d'être envoyés.",
+  setPrivacyLastError: "Dernière erreur : {error}",
+  setPrivacyDelete: "Supprimer mes données",
+  setPrivacyDeleteDesc:
+    "Supprime du serveur tout ce qui est lié à votre identifiant d'installation, ainsi que la copie locale. Fonctionne même si le partage est désactivé.",
+  setPrivacyDeleteTitle: "Supprimer vos données ?",
+  setPrivacyDeleteBody:
+    "Nous demandons au serveur de supprimer tout ce qui est lié à votre identifiant d'installation et nous retirons la copie locale. Cette action est irréversible.",
+  setPrivacyDeleteDone:
+    "Suppression demandée. Elle sera effectuée dès que la machine sera en ligne.",
+  setPrivacyInstallId: "Identifiant d'installation",
+  setPrivacyInstallIdNone:
+    "Aucun — il n'existe aucun identifiant tant que vous n'avez pas accepté",
+  setPrivacyRegenerate: "Régénérer",
+  setPrivacyRegenerateDesc:
+    "Vous donne un identifiant nouveau et sans lien. L'ancien est mis en file pour suppression.",
+  setPrivacyLocalCrashes: "Traces d'erreur locales",
+  setPrivacyLocalCrashesDesc:
+    "Toujours écrites, elles ne quittent jamais cette machine d'elles-mêmes.",
+  setPrivacyReportProblem: "Signaler un problème",
+  reportTitle: "Signaler un problème",
+  reportDesc:
+    "Envoyez une description du problème avec les dernières lignes de journal (nettoyées). L'aperçu montre exactement ce qui est envoyé.",
+  reportMessageLabel: "Que s'est-il passé ?",
+  reportMessagePlaceholder: "Décrivez brièvement ce qui n'a pas fonctionné …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Où étiez-vous ?",
+  reportContextLive: "Pendant le culte",
+  reportContextEditor: "Dans l'éditeur",
+  reportContextSettings: "Dans les paramètres",
+  reportContextOther: "Ailleurs",
+  reportLogLabel: "Lignes de journal jointes (nettoyées)",
+  reportLogEmpty: "Aucun fichier journal sur cette machine pour l'instant.",
+  reportSend: "Envoyer le signalement",
+  reportSending: "Envoi …",
+  reportEphemeralNote:
+    "Le partage anonyme est désactivé. Vous pouvez tout de même le faire — le signalement est alors envoyé avec un identifiant à usage unique qui n'est pas conservé et ne peut être relié à rien d'autre.",
+  reportOutcomeQueued:
+    "Merci. Le signalement est en file et sera envoyé à la prochaine occasion.",
+  reportOutcomeSent: "Merci. Le signalement a été envoyé.",
+  reportOutcomeDeferredLive:
+    "Merci. Le signalement est enregistré et sera envoyé une fois le culte terminé — nous n'envoyons jamais rien pendant un culte.",
+  reportOutcomeDeferredOffline:
+    "Merci. Le signalement est enregistré et sera envoyé dès que la machine sera de nouveau en ligne.",
+  reportOutcomeNoEndpoint:
+    "Le signalement est enregistré sur la machine. Cette version n'a aucun destinataire intégré : rien n'est envoyé d'ici.",
+  reportFailed: "Impossible d'enregistrer le signalement. Veuillez réessayer.",
 };
 const pl: Catalog = {
   appTagline: "Prezentacja na żywo",
@@ -4554,6 +5060,91 @@ const pl: Catalog = {
   errBoundaryBody:
     "Ekran na sali jest bez zmian — wyjście na żywo działa we własnym procesie i utrzymuje obraz. Odśwież, aby wrócić do widoku operatora.",
   errBoundaryReload: "Odśwież",
+
+  // ── Telemetry consent, privacy + problem reports (E6) ───────────────────
+  telConsentTitle: "Pomóc nam ulepszyć SundayStage?",
+  telConsentBody:
+    "SundayStage może wysyłać anonimowe raporty o błędach i jakości, gdy coś pójdzie nie tak, oraz proste liczniki użycia — dzięki temu znajdujemy i naprawiamy problemy, zanim dotkną nabożeństwa. Całkowicie anonimowo: losowy identyfikator instalacji, nigdy imię, e-mail, parafia ani treści.",
+  telConsentWhatIsSent: "Co jest wysyłane?",
+  telConsentCatCrashes:
+    "Awarie i błędy — komunikat błędu oraz miejsce w programie, w którym wystąpił",
+  telConsentCatQuality:
+    "Jakość — czy obraz był stabilny podczas nabożeństwa (restarty, opóźnienia i podobne), w postaci liczb — nigdy treści",
+  telConsentCatUsage:
+    "Użycie — z których funkcji korzystasz, w postaci liczników",
+  telConsentNever:
+    "Teksty pieśni, tytuły pieśni, nazwy nabożeństw, nazwy plików, ścieżki plików, nazwy urządzeń, imiona osób ani adresy e-mail nigdy nie są wysyłane. Raporty nigdy nie są wysyłane w trakcie nabożeństwa.",
+  telConsentYes: "Tak, udostępniaj anonimowo",
+  telConsentNo: "Nie, dziękuję",
+  telConsentPrivacyLink: "Więcej w polityce prywatności",
+  telConsentDismissLabel:
+    "Zamknij — zapytamy ponownie przy następnym uruchomieniu",
+  telConsentAnswered: "Dziękujemy — wybór został zapisany.",
+  setPrivacyTitle: "Prywatność",
+  setPrivacyDesc:
+    "To Ty decydujesz, czy SundayStage może wysyłać anonimowe raporty. Możesz to włączyć i wyłączyć w dowolnej chwili i zawsze zobaczyć dokładnie, co zostałoby wysłane.",
+  setPrivacyShareLabel: "Udostępniaj anonimowe raporty",
+  setPrivacyShareDesc:
+    "Awarie, liczby jakościowe z nabożeństw i proste liczniki użycia. Nigdy treści.",
+  setPrivacyStateOn: "Wł.",
+  setPrivacyStateOff: "Wył.",
+  setPrivacyStateNotAsked: "Bez odpowiedzi",
+  setPrivacyShowPayload: "Pokaż, co jest wysyłane",
+  setPrivacyHidePayload: "Ukryj",
+  setPrivacyPayloadNext: "To dokładnie następny raport, bajt po bajcie.",
+  setPrivacyPayloadWouldSend:
+    "Udostępnianie jest wyłączone, więc nic nie jest wysyłane. To wszystko, co komputer miałby do wysłania — bajt po bajcie.",
+  setPrivacyPayloadEmpty: "W tej chwili nie ma nic do wysłania.",
+  setPrivacyQueueEmpty: "W kolejce nic nie czeka.",
+  setPrivacyQueue: "Czeka raportów: {n} · najstarszy z {date}",
+  setPrivacyQueueFailed: "Raporty, które się poddały po wielu próbach: {n}.",
+  setPrivacyReportsWaiting: "Zgłoszenia problemów czekające na wysłanie: {n}.",
+  setPrivacyLastError: "Ostatni błąd: {error}",
+  setPrivacyDelete: "Usuń moje dane",
+  setPrivacyDeleteDesc:
+    "Usuwa z serwera wszystko powiązane z Twoim identyfikatorem instalacji oraz kopię lokalną. Działa nawet przy wyłączonym udostępnianiu.",
+  setPrivacyDeleteTitle: "Usunąć Twoje dane?",
+  setPrivacyDeleteBody:
+    "Poprosimy serwer o usunięcie wszystkiego, co jest powiązane z Twoim identyfikatorem instalacji, i usuniemy kopię lokalną. Tej operacji nie można cofnąć.",
+  setPrivacyDeleteDone:
+    "Usunięcie zlecone. Zostanie wykonane, gdy tylko komputer będzie online.",
+  setPrivacyInstallId: "Identyfikator instalacji",
+  setPrivacyInstallIdNone:
+    "Brak — identyfikator nie powstaje, dopóki się nie zgodzisz",
+  setPrivacyRegenerate: "Wygeneruj nowy",
+  setPrivacyRegenerateDesc:
+    "Nadaje nowy, niepowiązany identyfikator. Dla starego zlecamy usunięcie.",
+  setPrivacyLocalCrashes: "Lokalne ślady błędów",
+  setPrivacyLocalCrashesDesc:
+    "Zapisywane zawsze i nigdy samodzielnie nie opuszczają tego komputera.",
+  setPrivacyReportProblem: "Zgłoś problem",
+  reportTitle: "Zgłoś problem",
+  reportDesc:
+    "Wyślij opis problemu z ostatnimi (oczyszczonymi) wierszami dziennika. Podgląd pokazuje dokładnie to, co zostanie wysłane.",
+  reportMessageLabel: "Co się stało?",
+  reportMessagePlaceholder: "Opisz krótko, co poszło nie tak …",
+  reportCounter: "{n}/{max}",
+  reportContextLabel: "Gdzie byłeś?",
+  reportContextLive: "Podczas nabożeństwa",
+  reportContextEditor: "W edytorze",
+  reportContextSettings: "W ustawieniach",
+  reportContextOther: "Gdzie indziej",
+  reportLogLabel: "Dołączone wiersze dziennika (oczyszczone)",
+  reportLogEmpty: "Na tym komputerze nie ma jeszcze pliku dziennika.",
+  reportSend: "Wyślij zgłoszenie",
+  reportSending: "Wysyłanie …",
+  reportEphemeralNote:
+    "Anonimowe udostępnianie jest wyłączone. Mimo to możesz wysłać zgłoszenie — pójdzie ono z jednorazowym identyfikatorem, którego nie zapisujemy i którego nie da się z niczym powiązać.",
+  reportOutcomeQueued:
+    "Dziękujemy. Zgłoszenie trafiło do kolejki i zostanie wysłane przy najbliższej okazji.",
+  reportOutcomeSent: "Dziękujemy. Zgłoszenie zostało wysłane.",
+  reportOutcomeDeferredLive:
+    "Dziękujemy. Zgłoszenie jest zapisane i zostanie wysłane po zakończeniu nabożeństwa — w jego trakcie nigdy niczego nie wysyłamy.",
+  reportOutcomeDeferredOffline:
+    "Dziękujemy. Zgłoszenie jest zapisane i zostanie wysłane, gdy tylko komputer wróci do sieci.",
+  reportOutcomeNoEndpoint:
+    "Zgłoszenie zapisano na komputerze. To wydanie nie ma wbudowanego odbiorcy, więc nic stąd nie jest wysyłane.",
+  reportFailed: "Nie udało się zapisać zgłoszenia. Spróbuj ponownie.",
 };
 
 /** The full per-language catalog. Exported for parity tests. */
