@@ -242,7 +242,7 @@ uke 5: E9 (etter én ukes felt-soak) · E10 løpende.
 | E3 Lokalt observasjonsgrunnlag    | ✅     | 2026-08-08 | #46; 3 innholdslekkasjer tettet          |
 | E4 Worker stage-skjema v1         | ✅     | 2026-08-09 | Worker `f3f4c51` deployet; drill grønn   |
 | E5 Klient: samtykke/utboks/sender | ✅     | 2026-08-09 | #51; kontrakt bevist mot deployet Worker |
-| E6 Samtykke-UX + v0.6.0-beta.1    | 🟡     | 2026-08-09 | #55 bygget+merget; SLIPP venter eier     |
+| E6 Samtykke-UX + v0.6.0-beta.1    | ✅     | 2026-08-09 | #55+#59; beta.1 UTE, kun beta-ring       |
 | E7 Beta-herding, feilrunde 1      | ⬜     |            |                                          |
 | E8 Stabil utrulling               | ⬜     |            |                                          |
 | E9 Feilrunde 2, datadrevet        | ⬜     |            |                                          |
@@ -486,3 +486,23 @@ ansvarlig-linja (juridisk enhet + e-post; står «SundaySuite» m/ 👤-kommenta
 (3) personvernlenke peker på GitHub-PRIVACY.md — ompek til sundaysuite.app om
 ønsket · (4) `gh secret set SUNDAYSTAGE_TELEMETRY_URL` + `_WRITE_KEY` (kan
 kjøres av dirigent fra keychain på ordre) · (5) si «slipp beta» → v0.6.0-beta.1.
+
+---
+
+## E6-tillegg — v0.6.0-beta.1 SLUPPET 2026-08-09 (eier-ordre)
+
+Eier godkjente tekstene og beordret slippet. Secrets satt fra keychain
+(`SUNDAYSTAGE_TELEMETRY_URL`/`_WRITE_KEY` → release.yml baker dem inn;
+fravær = inert, så dev/CI-builds sender fortsatt ingenting). UTKAST-markørene
+av PRIVACY.md/TELEMETRY.md fjernet. PR #59 → tag → build grønn (NSIS-only +
+prerelease-vaktene fra E2 virket: ingen MSI forsøkt, GitHub-Latest står på
+v0.5.0). Publisert som PRERELEASE, promotert KUN til `sundaystage/beta`:
+ring 200 byte-identisk m/ GitHub-manifest, stable urørt på 0.5.0.
+
+S3-fiksen (server-tildelt cmd_seq) landet samme kveld i web (#33, deployet,
+røyk grønn) — eier kjørte kolonne+RPC m/ `greatest()`-overgangsvern i
+Dashboard; RPC live-bevist alle fire veier.
+
+👤 **Neste (starter E7):** Innstillinger → Avansert → kanal `beta` → relansér
+→ appen skal tilby 0.6.0-beta.1 → oppdater → svar JA på samtykke → etter
+første økt: verifiser payload i `/v1/admin/summary`. Funn → beta.2 via ringen.
