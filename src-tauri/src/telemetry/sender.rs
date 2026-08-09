@@ -758,6 +758,7 @@ mod tests {
                 db,
                 data_dir: dir.path().to_path_buf(),
                 live: Mutex::new(None),
+                recovery_offer: std::sync::atomic::AtomicBool::new(false),
                 companion: Mutex::new(None),
                 outputs: Mutex::new(None),
                 pending_update: Mutex::new(None),

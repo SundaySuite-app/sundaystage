@@ -138,6 +138,7 @@ const en: Catalog = {
 
   // ── Update banner ───────────────────────────────────────────────────────
   updateAvailable: "New version available",
+  updateFromRing: "From the {ring} ring.",
   updateBody: "Download and restart to update SundayStage.",
   updateInProgress: "Updating…",
   updateDownload: "Download and restart",
@@ -894,6 +895,7 @@ const no: Catalog = {
 
   // ── Update banner ───────────────────────────────────────────────────────
   updateAvailable: "Ny versjon tilgjengelig",
+  updateFromRing: "Fra {ring}-kanalen.",
   updateBody: "Last ned og start på nytt for å oppdatere SundayStage.",
   updateInProgress: "Oppdaterer…",
   updateDownload: "Last ned og start på nytt",
@@ -1628,6 +1630,7 @@ const sv: Catalog = {
   consentNote:
     "Din API-nyckel lagras i systemets nyckelring, aldrig i klartext. Funktioner med lokal reserv (som textformatering) fungerar utan AI. Du kan återkalla samtycket i Inställningar.",
   updateAvailable: "Ny version tillgänglig",
+  updateFromRing: "Från {ring}-kanalen.",
   updateBody: "Ladda ner och starta om för att uppdatera SundayStage.",
   updateInProgress: "Uppdaterar…",
   updateDownload: "Ladda ner och starta om",
@@ -2339,6 +2342,7 @@ const da: Catalog = {
   consentNote:
     "Din API-nøgle gemmes i systemets nøglering, aldrig i klartekst. Funktioner med en lokal reserveløsning (såsom sangtekstformatering) virker uden AI. Du kan trække dit samtykke tilbage i Indstillinger.",
   updateAvailable: "Ny version tilgængelig",
+  updateFromRing: "Fra {ring}-kanalen.",
   updateBody: "Download og genstart for at opdatere SundayStage.",
   updateInProgress: "Opdaterer…",
   updateDownload: "Download og genstart",
@@ -3049,6 +3053,7 @@ const de: Catalog = {
   consentNote:
     "Dein API-Schlüssel wird im Schlüsselbund des Systems gespeichert, niemals im Klartext. Funktionen mit lokalem Fallback (wie die Liedtext-Formatierung) funktionieren ohne KI. Du kannst deine Einwilligung in den Einstellungen widerrufen.",
   updateAvailable: "Neue Version verfügbar",
+  updateFromRing: "Aus dem {ring}-Ring.",
   updateBody: "Lade herunter und starte neu, um SundayStage zu aktualisieren.",
   updateInProgress: "Wird aktualisiert…",
   updateDownload: "Herunterladen und neu starten",
@@ -3775,6 +3780,7 @@ const fr: Catalog = {
   consentNote:
     "Votre clé API est stockée dans le trousseau du système, jamais en clair. Les fonctions avec une solution de repli locale (comme le formatage des paroles) fonctionnent sans IA. Vous pouvez retirer votre consentement dans Paramètres.",
   updateAvailable: "Nouvelle version disponible",
+  updateFromRing: "Depuis le canal {ring}.",
   updateBody: "Téléchargez et redémarrez pour mettre à jour SundayStage.",
   updateInProgress: "Mise à jour…",
   updateDownload: "Télécharger et redémarrer",
@@ -4503,6 +4509,7 @@ const pl: Catalog = {
   consentNote:
     "Twój klucz API jest przechowywany w systemowym pęku kluczy, nigdy w postaci jawnej. Funkcje z lokalną alternatywą (takie jak formatowanie tekstu) działają bez AI. Zgodę możesz wycofać w Ustawieniach.",
   updateAvailable: "Dostępna nowa wersja",
+  updateFromRing: "Z kanału {ring}.",
   updateBody: "Pobierz i uruchom ponownie, aby zaktualizować SundayStage.",
   updateInProgress: "Aktualizowanie…",
   updateDownload: "Pobierz i uruchom ponownie",

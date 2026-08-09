@@ -51,6 +51,25 @@ impl SessionStore {
         self.path.exists()
     }
 
+    /// Unix ms the log was last appended to — the last moment the process that
+    /// owned this session is known to have been alive.
+    ///
+    /// Every append is flushed immediately (see [`record`](Self::record)), so
+    /// the file's mtime is the timestamp of its last entry. That is the only
+    /// honest end bound for a session nobody ever ended: the alternative, the
+    /// moment the app is next launched, turns a crash on Sunday and a relaunch
+    /// the following Saturday into a six-day service. `None` when the file is
+    /// gone or its mtime is unreadable (a filesystem that does not keep one) —
+    /// callers must then say nothing about the duration rather than guess.
+    pub fn last_activity_at(&self) -> Option<i64> {
+        let modified = std::fs::metadata(&self.path).ok()?.modified().ok()?;
+        let ms = modified
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_millis();
+        i64::try_from(ms).ok()
+    }
+
     /// Sidecar file holding the companion broadcaster's next `seq`. Kept beside
     /// the action log (same "don't share a failure domain" philosophy) so crash
     /// recovery can resume the monotonic broadcast stream from the *true*

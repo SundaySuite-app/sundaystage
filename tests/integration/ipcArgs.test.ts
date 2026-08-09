@@ -54,6 +54,9 @@ describe("ipc arg-shape contract", () => {
       "id",
       "name",
     ]);
+    await expectCall(() => ipc.library.publish("lib"), "library_publish", [
+      "libraryId",
+    ]);
   });
 
   it("song", async () => {
@@ -168,6 +171,11 @@ describe("ipc arg-shape contract", () => {
       ["id", "notes"],
     );
     await expectCall(
+      () => ipc.service.setSecondaryLanguage("i", null),
+      "service_set_secondary_language",
+      ["id", "language"],
+    );
+    await expectCall(
       () => ipc.service.setStartsAt("i", 0),
       "service_set_starts_at",
       ["id", "startsAt"],
@@ -213,6 +221,7 @@ describe("ipc arg-shape contract", () => {
       ["serviceId"],
     );
     await expectCall(() => ipc.live.start("s"), "live_start", ["serviceId"]);
+    await expectCall(() => ipc.live.reload(), "live_reload_cue_list", []);
     await expectCall(
       () => ipc.live.dispatch({ type: "next" }),
       "live_dispatch",
@@ -221,6 +230,12 @@ describe("ipc arg-shape contract", () => {
     await expectCall(() => ipc.live.state(), "live_state", []);
     await expectCall(() => ipc.live.end(), "live_end", []);
     await expectCall(() => ipc.live.recover(), "live_recover", []);
+    // The narrow Discard: NOT `live_end`, which blacks the projector.
+    await expectCall(
+      () => ipc.live.discardRecovery(),
+      "live_discard_recovery",
+      [],
+    );
     await expectCall(() => ipc.live.stagePresets(), "stage_presets", []);
     await expectCall(
       () => ipc.live.bridgeVersion(),
@@ -235,6 +250,25 @@ describe("ipc arg-shape contract", () => {
     await expectCall(() => ipc.live.exportSrt(), "bridge_export_srt", [
       "endedAt",
     ]);
+    await expectCall(
+      () => ipc.live.exportManifest(),
+      "bridge_export_manifest",
+      ["endedAt"],
+    );
+  });
+
+  // The update ring (E2). No UI drives `update_check`/`update_install` outside
+  // the launch banner, so a drifted name here would ship an app that quietly
+  // stops updating — the one bug nobody reports, because nobody sees it.
+  it("update rings", async () => {
+    await expectCall(() => ipc.update.channel(), "update_channel_get", []);
+    await expectCall(
+      () => ipc.update.setChannel("beta"),
+      "update_channel_set",
+      ["channel"],
+    );
+    await expectCall(() => ipc.update.check(), "update_check", []);
+    await expectCall(() => ipc.update.install(), "update_install", []);
   });
 
   it("deck + slides", async () => {

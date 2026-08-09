@@ -294,6 +294,9 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         try {
           const v = await ipc.live.start(service.id);
           setSession(v);
+          // Going live IS an answer to any standing recovery offer: the backend
+          // has just replaced that session, so the banner must not outlive it.
+          setRecoverable(null);
           // Assemble the per-session bridge context: the planner already holds the
           // song behind each item — fetch the map and hand it to the driver so it
           // can report which song each cue showed. Best-effort: a failure here
@@ -785,12 +788,14 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
       )}
 
-      {recoverable && (
+      {/* Never over a live service, and Discard NEVER ends one: the banner's
+          old Discard ran `live.end()`, which blacks the projector. */}
+      {recoverable && !isLive && (
         <RecoveryBanner
           session={recoverable}
           onResume={() => void resumeRecovered()}
           onDiscard={() => {
-            void ipc.live.end();
+            void ipc.live.discardRecovery();
             setRecoverable(null);
           }}
         />
