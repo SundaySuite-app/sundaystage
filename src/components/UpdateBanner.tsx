@@ -41,6 +41,18 @@ export function UpdateBanner() {
           <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
             {t("updateBody")}
           </p>
+          {/* WHICH ring this build came from. An operator on beta who switches
+              back to stable must be able to see that a banner still on screen
+              is the beta offer — the install path refuses it, and this is the
+              half of that rule they can read. */}
+          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+            {t("updateFromRing", {
+              ring:
+                update.channel === "beta"
+                  ? t("setChannelBeta")
+                  : t("setChannelStable"),
+            })}
+          </p>
         </div>
         <button
           type="button"

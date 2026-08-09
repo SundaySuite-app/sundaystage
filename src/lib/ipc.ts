@@ -264,6 +264,10 @@ export const live = {
   state: () => call<LiveSessionView | null>("live_state"),
   end: () => call<void>("live_end"),
   recover: () => call<LiveSessionView | null>("live_recover"),
+  /** Drop a crash-recovery offer. Clears the recovery log and ends the offer
+   *  session if the operator never accepted it — but never touches a service
+   *  that is actually running (that is `end`, and it blacks the outputs). */
+  discardRecovery: () => call<void>("live_discard_recovery"),
   stagePresets: () => call<StageDisplayConfig[]>("stage_presets"),
   // SundayRec bridge (Phase 10)
   bridgeVersion: () => call<string>("bridge_protocol_version"),

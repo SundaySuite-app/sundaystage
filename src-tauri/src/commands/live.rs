@@ -6,6 +6,8 @@
 //! persisted to disk after every action for crash recovery (the Phase 5.2
 //! output process independently holds the last frame if the UI dies).
 
+use std::sync::atomic::Ordering;
+
 use tauri::State;
 
 use crate::db::now_ms;
@@ -148,6 +150,12 @@ pub async fn live_start(
     state: State<'_, AppState>,
     service_id: String,
 ) -> AppResult<LiveSessionView> {
+    start_session(&state, service_id).await
+}
+
+/// The body of [`live_start`], over a plain `&AppState` so the session
+/// bookkeeping is provable without a Tauri runtime.
+async fn start_session(state: &AppState, service_id: String) -> AppResult<LiveSessionView> {
     // Compile first (async, no lock held), then install the session. The
     // compile may be slow on a big service, but it can NOT false-time-out the
     // output watchdog: the supervisor's heartbeat pump runs on its own tokio
@@ -160,7 +168,7 @@ pub async fn live_start(
     let session = LiveSession::new(service_id, cue_list, now_ms());
     let view = session.view();
     // Best-effort WAL; a failed write must never block going live.
-    let _ = store(&state).begin(&session);
+    let _ = store(state).begin(&session);
     // Phase 12.2 — stand up the companion broadcaster for this service. The
     // transport is a no-op until the cloud layer is configured, so this never
     // affects the live output. Continue the `seq` stream from any broadcaster
@@ -179,13 +187,27 @@ pub async fn live_start(
     };
     // Persist the seed seq so an immediate crash recovers the true stream
     // position — `begin` just truncated the WAL, so its length is 0 here.
-    let _ = store(&state).record_seq(start_seq);
-    // E3 — one atomic store and one counter increment. This is the whole cost
+    let _ = store(state).record_seq(start_seq);
+    // E3 — a session this one REPLACES gets its row before the counters are
+    // reset, or the morning rehearsal's cues, restarts and failures would be
+    // filed against the service that follows it (and the rehearsal would leave
+    // no trace at all). `Clean`, not `Abnormal`: the operator moved on by
+    // deliberately starting another service — nothing crashed, and
+    // `abnormal-end` is the code for a session the PROCESS never finished.
+    if state.live.lock().is_some() {
+        state
+            .telemetry
+            .finish_session(now_ms(), SessionOutcome::Clean);
+    }
+    // …then one atomic store and one counter increment. This is the whole cost
     // of observing a service, and it happens before the session is installed so
     // nothing can be missed between `live.lock()` and the first cue.
     state.telemetry.begin_session(view.started_at);
     *state.live.lock() = Some(session);
-    push_to_outputs(&state, &view.frame);
+    // A crash-recovery offer, if one was standing, is answered: this IS the
+    // operator's answer.
+    state.recovery_offer.store(false, Ordering::SeqCst);
+    push_to_outputs(state, &view.frame);
     Ok(view)
 }
 
@@ -358,6 +380,7 @@ pub async fn live_end(state: State<'_, AppState>) -> AppResult<()> {
         .telemetry
         .finish_session(now_ms(), SessionOutcome::Clean);
     *state.live.lock() = None;
+    state.recovery_offer.store(false, Ordering::SeqCst);
     store(&state).clear();
     // The outputs stay open (the operator closes them separately) but the
     // service is over — show black, never a stale slide.
@@ -371,9 +394,27 @@ pub async fn live_end(state: State<'_, AppState>) -> AppResult<()> {
 
 /// On launch, recover an abnormally-terminated session if one exists. Installs
 /// it as the active session and returns its view so the UI can offer "resume".
+///
+/// **A running service is never replaced.** This command is called on every
+/// mount of the operator workspace — including the remount the
+/// [`ErrorBoundary`](../../../src/components/ErrorBoundary.tsx) performs
+/// mid-service when a panel throws — and rebuilding the session from the WAL
+/// there would restart the very service that is on the projector: a fresh
+/// `started_at`, a re-zeroed action log, and a recovery banner offered over a
+/// live congregation. When something is already live the answer is that
+/// session, unchanged, and nothing else happens.
 #[tauri::command]
 pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionView>> {
-    let Some(session) = store(&state).recover() else {
+    recover_session(&state)
+}
+
+/// The body of [`live_recover`], over a plain `&AppState` so the "never replace
+/// a running service" rule is provable without a Tauri runtime.
+fn recover_session(state: &AppState) -> AppResult<Option<LiveSessionView>> {
+    if let Some(view) = state.live.lock().as_ref().map(|s| s.view()) {
+        return Ok(Some(view));
+    }
+    let Some(session) = store(state).recover() else {
         return Ok(None);
     };
     let view = session.view();
@@ -385,7 +426,7 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
     // length misses — and floor it at `log_len` (which dispatches keep in sync)
     // in case the sidecar is absent or torn. Recovery never depends on the
     // crashed process's in-memory state.
-    let resume_seq = store(&state)
+    let resume_seq = store(state)
         .recover_seq()
         .unwrap_or(0)
         .max(view.log_len as u32);
@@ -399,6 +440,255 @@ pub fn live_recover(state: State<'_, AppState>) -> AppResult<Option<LiveSessionV
     state.telemetry.begin_session(view.started_at);
     state.telemetry.note_session_recovered();
     *state.live.lock() = Some(session);
-    push_to_outputs(&state, &view.frame);
+    // Installed, but not yet ACCEPTED: the operator still has to answer the
+    // banner. `live_discard_recovery` needs to know the difference between this
+    // session and one the operator started (see there).
+    state.recovery_offer.store(true, Ordering::SeqCst);
+    push_to_outputs(state, &view.frame);
     Ok(Some(view))
+}
+
+/// Discard a crash-recovery offer — WITHOUT ending a service that is running.
+///
+/// The narrow command behind the recovery banner's "Discard". It used to be
+/// `live_end`, which unconditionally pushes `Black` to the outputs: on the
+/// mount that follows an `ErrorBoundary` reload the banner can appear over a
+/// RUNNING service, and one click then blacked a live projector. Ending a
+/// service is `live_end`'s job and stays there.
+///
+/// Two cases, and only the WAL is common to both:
+///
+///   * the operator answered a banner for a session they never accepted (the
+///     ordinary launch case): `live_recover` installed it so the projector
+///     could show where the crash left off, and nothing else in the app would
+///     ever end it — while it sat there the telemetry drain's live gate stayed
+///     shut. So it ends here, exactly as `live_end` would have ended it.
+///   * a service is actually running: the WAL goes, the service does not.
+#[tauri::command]
+pub async fn live_discard_recovery(state: State<'_, AppState>) -> AppResult<()> {
+    discard_recovery(&state).await
+}
+
+/// The body of [`live_discard_recovery`], over a plain `&AppState` so both of
+/// its cases are provable without a Tauri runtime.
+async fn discard_recovery(state: &AppState) -> AppResult<()> {
+    // "Discard" means the log stops being an offer, in both cases.
+    store(state).clear();
+    if !state.recovery_offer.swap(false, Ordering::SeqCst) {
+        // A service the operator started is on the projector. Nothing else.
+        return Ok(());
+    }
+    if let Some(broadcaster) = state.companion.lock().as_mut() {
+        if broadcaster.on_service_end().is_err() {
+            state.telemetry.note_companion_failure();
+            tracing::warn!(seam = "service_end", "companion broadcast failed");
+        }
+    }
+    *state.companion.lock() = None;
+    state
+        .telemetry
+        .finish_session(now_ms(), SessionOutcome::Clean);
+    *state.live.lock() = None;
+    push_to_outputs(state, &LiveFrame::Black);
+    let _ = crate::commands::telemetry::flush(state).await;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::models::LibraryInput;
+    use crate::db::repositories::{LibraryRepo, TelemetryRepo};
+    use crate::db::Database;
+    use crate::services::cue_list::CueList;
+    use crate::telemetry::quality::QualityCollector;
+    use parking_lot::Mutex;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
+    /// An `AppState` with a real in-memory database, a real data dir and
+    /// nothing live. Everything these tests touch — the WAL, the collector, the
+    /// recovery flag — is the production type, not a stand-in.
+    async fn app_state() -> (AppState, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = Database::open_in_memory().await.expect("db");
+        (
+            AppState {
+                db,
+                data_dir: dir.path().to_path_buf(),
+                live: Mutex::new(None),
+                recovery_offer: AtomicBool::new(false),
+                companion: Mutex::new(None),
+                outputs: Mutex::new(None),
+                pending_update: Mutex::new(None),
+                telemetry: Arc::new(QualityCollector::new()),
+            },
+            dir,
+        )
+    }
+
+    fn a_session(service_id: &str, started_at: i64) -> LiveSession {
+        LiveSession::new(
+            service_id,
+            CueList {
+                service_id: service_id.into(),
+                compiled_at: 0,
+                cues: vec![],
+            },
+            started_at,
+        )
+    }
+
+    /// A leftover crash WAL for `service_id`, as a previous process would have
+    /// left it.
+    fn a_leftover_wal(state: &AppState, service_id: &str) {
+        let mut session = a_session(service_id, 1_000);
+        store(state).begin(&session).expect("begin");
+        session.dispatch(LiveAction::Next, 2_000);
+        store(state).record(&LiveAction::Next).expect("record");
+    }
+
+    /// An empty service that compiles, so `start_session` can be driven for
+    /// real rather than around.
+    async fn a_service(state: &AppState) -> String {
+        let library = LibraryRepo::new(&state.db.pool)
+            .create(LibraryInput {
+                name: "Menighet".into(),
+                default_locale: None,
+            })
+            .await
+            .expect("library");
+        ServiceRepo::new(&state.db.pool)
+            .create(&library.id, "Gudstjeneste", 0)
+            .await
+            .expect("service")
+            .id
+    }
+
+    // ── the recovery banner must never reach a running service ──────────────
+
+    /// Core promise #1, at the seam that could break it hardest.
+    ///
+    /// `live_recover` runs on every mount of the operator workspace, and the
+    /// `ErrorBoundary` remounts the workspace mid-service by reloading the
+    /// webview. Rebuilding the session from the WAL there replaced the running
+    /// service with a copy of itself — new `started_at`, re-zeroed log — and
+    /// raised a recovery banner over a live congregation whose Discard button
+    /// then ran `live_end` and blacked the projector.
+    #[tokio::test]
+    async fn a_recovery_never_replaces_a_running_service() {
+        let (state, _dir) = app_state().await;
+        a_leftover_wal(&state, "crashed-service");
+        *state.live.lock() = Some(a_session("todays-service", 999_000));
+
+        let view = recover_session(&state)
+            .expect("recovery is not an error")
+            .expect("the running session is the answer");
+
+        assert_eq!(
+            view.service_id, "todays-service",
+            "the answer is the RUNNING service, never the WAL's"
+        );
+        let live = state.live.lock();
+        let running = live.as_ref().expect("still live");
+        assert_eq!(running.service_id, "todays-service");
+        assert_eq!(
+            running.started_at, 999_000,
+            "the running session was not rebuilt underneath the operator"
+        );
+        assert!(
+            !state.recovery_offer.load(Ordering::SeqCst),
+            "a running service is never an unanswered offer"
+        );
+        // …and the WAL is untouched: it is still the crash record it was.
+        assert!(store(&state).exists());
+    }
+
+    /// Discard, over a running service, must not touch the projector.
+    #[tokio::test]
+    async fn discarding_over_a_running_service_leaves_the_service_running() {
+        let (state, _dir) = app_state().await;
+        a_leftover_wal(&state, "crashed-service");
+        *state.live.lock() = Some(a_session("todays-service", 999_000));
+        state.telemetry.begin_session(999_000);
+
+        discard_recovery(&state).await.expect("discard");
+
+        let live = state.live.lock();
+        assert!(
+            live.is_some(),
+            "the service the operator started is still live — nothing was blacked"
+        );
+        assert_eq!(live.as_ref().expect("live").service_id, "todays-service");
+        drop(live);
+        assert!(!store(&state).exists(), "the offer itself is gone");
+    }
+
+    /// The ordinary launch case still ends the offer it discards — nothing else
+    /// in the app ever would, and while it sat in `live` the telemetry drain's
+    /// gate stayed shut.
+    #[tokio::test]
+    async fn discarding_an_unanswered_offer_ends_it() {
+        let (state, _dir) = app_state().await;
+        a_leftover_wal(&state, "crashed-service");
+
+        recover_session(&state).expect("recover").expect("an offer");
+        assert!(state.recovery_offer.load(Ordering::SeqCst));
+        assert!(state.live.lock().is_some(), "installed for the projector");
+
+        discard_recovery(&state).await.expect("discard");
+
+        assert!(state.live.lock().is_none(), "the offer was ended");
+        assert!(!state.recovery_offer.load(Ordering::SeqCst));
+        assert!(!store(&state).exists());
+        // The gate is open again, and the discarded session's row went to disk
+        // through the flush the discard performs.
+        assert_eq!(
+            TelemetryRepo::new(&state.db.pool)
+                .quality_count()
+                .await
+                .expect("count"),
+            1
+        );
+    }
+
+    // ── one service's numbers never belong to another's row ─────────────────
+
+    /// The other half of the rehearsal bug: `begin_session` resetting the
+    /// counters is only honest if the session it replaces got its row FIRST.
+    /// Otherwise the rehearsal simply disappears — no row, no cues, no trace of
+    /// the output restart it hit.
+    #[tokio::test]
+    async fn going_live_again_gives_the_replaced_session_its_own_row() {
+        let (state, _dir) = app_state().await;
+        let service = a_service(&state).await;
+
+        // The 09:40 rehearsal: forty cues and an output child that died.
+        start_session(&state, service.clone()).await.expect("live");
+        for _ in 0..40 {
+            state.telemetry.note_cue_dispatched();
+        }
+        state.telemetry.note_output_restart();
+
+        // 11:00, without a `live_end` in between.
+        start_session(&state, service).await.expect("live again");
+        state.telemetry.note_cue_dispatched();
+
+        let rows = state.telemetry.take_buffered_rows();
+        let rehearsal = rows.last().expect("the replaced session kept its row");
+        assert_eq!(rehearsal.cue_count, 40, "{rehearsal:?}");
+        assert_eq!(rehearsal.output_child_restarts, 1, "{rehearsal:?}");
+
+        // …and the service that follows starts from zero.
+        state
+            .telemetry
+            .finish_session(now_ms(), SessionOutcome::Clean);
+        let service_row = state
+            .telemetry
+            .take_buffered_rows()
+            .pop()
+            .expect("the service's row");
+        assert_eq!(service_row.cue_count, 1, "{service_row:?}");
+        assert_eq!(service_row.output_child_restarts, 0, "{service_row:?}");
+    }
 }

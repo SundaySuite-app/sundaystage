@@ -36,6 +36,16 @@ pub struct AppState {
     /// handlers; guards are never held across an `.await`. parking_lot can't be
     /// poisoned, so a panic in any one handler can never wedge live dispatch.
     pub live: Mutex<Option<LiveSession>>,
+    /// Whether the session in `live` is a crash-recovery OFFER the operator has
+    /// not answered yet — installed by `live_recover` so the projector can show
+    /// where the last run left off, but never started by anybody.
+    ///
+    /// The one bit that tells `live_discard_recovery` which of its two cases it
+    /// is in: discarding an unanswered offer must end that session (nothing
+    /// else ever would, and while it sits in `live` the telemetry drain's gate
+    /// stays shut), while discarding the same banner over a RUNNING service
+    /// must not touch the projector.
+    pub recovery_offer: std::sync::atomic::AtomicBool,
     /// Phase 12.2 — the companion broadcaster for the running session, if any.
     /// Created on `live_start`, fed on `live_dispatch`, terminated on
     /// `live_end`. The network transport is a no-op until the cloud layer is
@@ -50,7 +60,12 @@ pub struct AppState {
     /// E2 — the signed update most recently offered by `update_check`, held so
     /// `update_install` installs exactly what the operator was shown. `None`
     /// until the first check finds something on the ring.
-    pub pending_update: Mutex<Option<tauri_plugin_updater::Update>>,
+    ///
+    /// It carries the RING it came from: an operator who switches back to
+    /// stable while a beta offer is on screen must not be able to install that
+    /// beta from the banner behind them (`update_channel_set` clears this, and
+    /// `update_install` re-asserts the ring before it downloads anything).
+    pub pending_update: Mutex<Option<crate::commands::updater::PendingUpdate>>,
     /// E3 — the local session-quality collector and counter buffer.
     ///
     /// An `Arc` because the output supervisor holds its own handle: restarts,
@@ -158,6 +173,7 @@ pub fn run() {
                 db,
                 data_dir,
                 live: Mutex::new(None),
+                recovery_offer: std::sync::atomic::AtomicBool::new(false),
                 companion: Mutex::new(None),
                 outputs: Mutex::new(None),
                 pending_update: Mutex::new(None),
@@ -314,6 +330,7 @@ pub fn run() {
             commands::live::live_state,
             commands::live::live_end,
             commands::live::live_recover,
+            commands::live::live_discard_recovery,
             commands::live::companion_channel,
             commands::live::companion_broadcast,
             commands::live::stage_presets,

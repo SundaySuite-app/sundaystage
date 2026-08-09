@@ -36,6 +36,7 @@
 //! six-bucket histogram. No allocation, no timestamp map, no clock syscall
 //! beyond a monotonic `Instant::elapsed`.
 
+use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
@@ -60,6 +61,12 @@ pub const LATENCY_BOUNDS_MS: [u64; 5] = [10, 25, 50, 100, 250];
 
 /// Number of histogram buckets: the five bounded ones plus the overflow.
 pub const LATENCY_BUCKETS: usize = LATENCY_BOUNDS_MS.len() + 1;
+
+/// How many already-written row ids the drain remembers, so a row that somehow
+/// reaches it twice is written once. Comfortably more than [`BUFFER_MAX`], the
+/// most rows a single pass can hold, and bounded so a long-running machine
+/// cannot grow it.
+const WRITTEN_ID_MEMORY: usize = BUFFER_MAX * 4;
 
 /// Cue-advance budget from CLAUDE.md. A session whose p95 exceeds this earns
 /// the `slow-cues` reason — the first honest measurement of core promise #1.
@@ -474,10 +481,20 @@ pub struct QualityCollector {
     rx: Mutex<Receiver<QualityRow>>,
     /// Rows dropped because the buffer was full — itself a finding.
     dropped: AtomicU64,
-    /// Highest `at` written to the store. The drain's watermark: a row at or
-    /// below it has already been persisted and is skipped, so draining twice
-    /// writes once.
-    watermark: AtomicI64,
+    /// Ids of rows already persisted in this process, oldest first.
+    ///
+    /// The drain's idempotency key, and it is an ID rather than a timestamp on
+    /// purpose. It used to be a forward-only `at` watermark, which quietly LOST
+    /// work: a row put back after a transient write error is re-buffered at the
+    /// BACK of the queue, so a newer row written in the same pass pushed the
+    /// watermark past it and every later pass skipped it — without writing it
+    /// and without putting it back. An id matches the one row it names, so a
+    /// retry is never mistaken for a duplicate. The database's `INSERT OR
+    /// IGNORE` on the `id` primary key (and the partial unique index on
+    /// `dedupe_key`) is the second, authoritative line of the same defence.
+    ///
+    /// Only ever touched by the drain, i.e. behind the live gate.
+    written_ids: Mutex<VecDeque<String>>,
 }
 
 impl Default for QualityCollector {
@@ -496,7 +513,7 @@ impl QualityCollector {
             tx,
             rx: Mutex::new(rx),
             dropped: AtomicU64::new(0),
-            watermark: AtomicI64::new(0),
+            written_ids: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -526,12 +543,45 @@ impl QualityCollector {
         let rx = self.rx.lock();
         std::iter::from_fn(|| rx.try_recv().ok()).collect()
     }
+
+    /// Has this exact row already been persisted in this process?
+    fn already_written(&self, id: &str) -> bool {
+        self.written_ids.lock().iter().any(|seen| seen == id)
+    }
+
+    /// Remember a persisted row's id, dropping the oldest memory once the ring
+    /// is full.
+    fn remember_written(&self, id: &str) {
+        let mut ids = self.written_ids.lock();
+        while ids.len() >= WRITTEN_ID_MEMORY {
+            ids.pop_front();
+        }
+        ids.push_back(id.to_string());
+    }
 }
 
 impl LiveSafe for QualityCollector {
     fn begin_session(&self, at_ms: i64) {
+        // EVERY per-session accumulator, not just the clock and the two flags.
+        // A session that begins while another is still open — `live_start`
+        // replaces a running session, and the operator who rehearses at 09:40
+        // and goes live at 11:00 does exactly that — would otherwise hand the
+        // rehearsal's cues, restarts and failures to the service's row, and the
+        // rehearsal would never get a row of its own. (`live_start` now also
+        // FINISHES the session it replaces, so the rehearsal keeps its row;
+        // this reset is the other half, and neither one alone is enough.)
         self.session.started_at.store(at_ms, Ordering::Relaxed);
+        self.session.cues.store(0, Ordering::Relaxed);
+        self.session.output_restarts.store(0, Ordering::Relaxed);
+        self.session.connect_timeouts.store(0, Ordering::Relaxed);
+        self.session.watchdog_holds.store(0, Ordering::Relaxed);
+        self.session.dispatch_errors.store(0, Ordering::Relaxed);
+        self.session.companion_failures.store(0, Ordering::Relaxed);
         self.session.recovered.store(false, Ordering::Relaxed);
+        // `fallback_used` and `stale_child_reaped` are deliberately NOT reset:
+        // both describe how the OUTPUTS came up (see their fields), not
+        // something that happened during one service, and the outputs are
+        // routinely opened before the first `live_start` of the morning.
         self.latency.reset();
         self.counters.note(CounterName::LiveSessionStarted);
     }
@@ -692,8 +742,10 @@ impl QualityCollector {
     /// Returns without touching `store` when the gate is closed, so a `store`
     /// that panics on contact is a valid way to prove the gate holds.
     ///
-    /// Idempotent by watermark: a row whose `at` is at or below the highest
-    /// already written is skipped, so two passes over the same rows write once.
+    /// Idempotent by row ID: a row this process has already persisted is
+    /// skipped, so two passes over the same row write once — while a row the
+    /// store REFUSED keeps its place in the queue and is retried, however many
+    /// newer rows went in ahead of it.
     pub async fn drain_if_quiet<S: QualityStore + ?Sized>(
         &self,
         live: &Mutex<Option<LiveSession>>,
@@ -717,13 +769,13 @@ impl QualityCollector {
                 self.buffer_row(row);
                 continue;
             }
-            if row.at <= self.watermark.load(Ordering::Relaxed) && row.dedupe_key.is_none() {
+            if self.already_written(&row.id) {
                 continue;
             }
             match store.write_quality(&row).await {
                 Ok(()) => {
                     report.rows_written += 1;
-                    self.watermark.fetch_max(row.at, Ordering::Relaxed);
+                    self.remember_written(&row.id);
                 }
                 // The store hands back an error CODE, never a message: a
                 // sqlx error can quote the failing statement, and this line
@@ -737,6 +789,16 @@ impl QualityCollector {
         }
 
         if !deltas.is_empty() {
+            // The same re-check the row loop does, for the same reason: a
+            // service can go live between the last row and this write, and law
+            // 1 is about touching the disk while one is running — not about
+            // which KIND of write it is. On a miss the deltas go straight back,
+            // exactly as a failed write returns them.
+            if !gate_is_open(live) {
+                report.skipped_live = true;
+                self.counters.restore(&deltas);
+                return report;
+            }
             match store.add_counters(&deltas).await {
                 Ok(()) => report.counters_written = deltas.len(),
                 Err(code) => {
@@ -777,6 +839,16 @@ pub fn reconstruct_previous_session(data_dir: &Path, at_ms: i64) -> Option<Quali
         return None;
     }
     let session = store.recover()?;
+    // When the session ENDED, which is not when this launch happened. The WAL's
+    // last append is the last moment the previous process is known to have been
+    // alive; `at_ms` is merely when we noticed. A crash on Sunday and a relaunch
+    // the following Saturday would otherwise be reported as a six-day service.
+    // With no readable mtime we say ZERO — the same "unknown" the ordinary row
+    // uses when it never saw a start — rather than a number we made up.
+    let duration_sec = store
+        .last_activity_at()
+        .filter(|end| *end >= session.started_at && *end <= at_ms)
+        .map_or(0, |end| (end - session.started_at) / 1_000);
     let mut row = QualityRow {
         id: uuid::Uuid::now_v7().to_string(),
         dedupe_key: Some(format!(
@@ -785,7 +857,7 @@ pub fn reconstruct_previous_session(data_dir: &Path, at_ms: i64) -> Option<Quali
             session.log.len()
         )),
         at: at_ms,
-        duration_sec: ((at_ms - session.started_at).max(0)) / 1_000,
+        duration_sec,
         cue_count: session.log.len() as i64,
         output_child_restarts: 0,
         connect_timeouts: 0,
@@ -1055,6 +1127,132 @@ mod tests {
         assert!(ok.counters_written >= 2, "the counter deltas came back too");
     }
 
+    /// A store that refuses exactly the FIRST row it is shown, then works —
+    /// the transient `database is locked` a busy SQLite hands back.
+    #[derive(Default)]
+    struct RefusesTheFirstRow {
+        rows: Mutex<Vec<QualityRow>>,
+        seen: std::sync::atomic::AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl QualityStore for RefusesTheFirstRow {
+        async fn write_quality(&self, row: &QualityRow) -> Result<(), String> {
+            if self.seen.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Err("database is locked".into());
+            }
+            self.rows.lock().push(row.clone());
+            Ok(())
+        }
+        async fn add_counters(&self, _d: &[(CounterName, u64)]) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    /// The seam an `at` watermark could not survive: a row is put back at the
+    /// BACK of the buffer after a failed write, so a NEWER row can be written
+    /// in the same pass. A forward-only watermark then read the older row as
+    /// "already persisted" and skipped it — for good, without writing it and
+    /// without putting it back. One transient sqlite error, and a whole
+    /// service's quality row vanished silently.
+    #[test]
+    fn a_row_requeued_after_a_failed_write_is_never_lost() {
+        let rt = runtime();
+        let collector = QualityCollector::new();
+        let live: Mutex<Option<LiveSession>> = Mutex::new(None);
+
+        // Two finished sessions buffered before any quiet moment: A older than B.
+        collector.begin_session(1_000);
+        collector.finish_session(100_000, SessionOutcome::Clean); // A
+        collector.begin_session(200_000);
+        collector.finish_session(300_000, SessionOutcome::Clean); // B
+
+        let store = RefusesTheFirstRow::default();
+
+        // Pass 1: A's INSERT hits the transient error and is re-buffered; B
+        // succeeds — and under the old rule pushed the watermark past A.
+        let first = rt.block_on(collector.drain_if_quiet(&live, &store));
+        assert_eq!(first.write_failures, 1, "A failed as arranged");
+        assert_eq!(first.rows_written, 1, "B went in");
+
+        // Pass 2 against a store that is healthy again.
+        let second = rt.block_on(collector.drain_if_quiet(&live, &store));
+
+        let ats: Vec<i64> = store.rows.lock().iter().map(|r| r.at).collect();
+        assert!(
+            ats.contains(&100_000),
+            "the re-buffered row must be retried, not skipped. Written: {ats:?}, \
+             second pass: {second:?}"
+        );
+        assert_eq!(second.rows_written, 1, "exactly the retry");
+
+        // …and a third pass writes nothing: retrying is not re-writing.
+        let third = rt.block_on(collector.drain_if_quiet(&live, &store));
+        assert_eq!(third.rows_written, 0);
+        assert_eq!(store.rows.lock().len(), 2, "each row landed exactly once");
+    }
+
+    /// Writing a quality row takes the app live, exactly as a `live_start`
+    /// landing mid-drain would. Records whether the counters were written anyway.
+    struct GoesLiveMidDrain<'a> {
+        live: &'a Mutex<Option<LiveSession>>,
+        counters_written_while_live: std::sync::atomic::AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl QualityStore for GoesLiveMidDrain<'_> {
+        async fn write_quality(&self, _row: &QualityRow) -> Result<(), String> {
+            *self.live.lock() = Some(empty_session());
+            Ok(())
+        }
+        async fn add_counters(&self, _d: &[(CounterName, u64)]) -> Result<(), String> {
+            if self.live.lock().is_some() {
+                self.counters_written_while_live
+                    .fetch_add(1, Ordering::SeqCst);
+            }
+            Ok(())
+        }
+    }
+
+    /// Law 1 for the COUNTER write. The row loop re-checks the gate between
+    /// rows; the counter write below it used to have no re-check at all, so a
+    /// service that went live mid-drain still got a disk write.
+    #[test]
+    fn counters_are_not_written_once_a_service_goes_live_mid_drain() {
+        let rt = runtime();
+        let collector = QualityCollector::new();
+        let live: Mutex<Option<LiveSession>> = Mutex::new(None);
+
+        collector.begin_session(1_000);
+        collector.note_cue_dispatched();
+        collector.finish_session(2_000, SessionOutcome::Clean);
+
+        let store = GoesLiveMidDrain {
+            live: &live,
+            counters_written_while_live: std::sync::atomic::AtomicUsize::new(0),
+        };
+
+        let report = rt.block_on(collector.drain_if_quiet(&live, &store));
+
+        assert_eq!(
+            store.counters_written_while_live.load(Ordering::SeqCst),
+            0,
+            "the counter write reached SQLite while a service was LIVE"
+        );
+        assert!(report.skipped_live, "the drain says why it stopped");
+        assert_eq!(report.counters_written, 0);
+
+        // Nothing was lost either: with the gate open again the deltas are
+        // still there to be written.
+        *live.lock() = None;
+        let store = RecordingStore::default();
+        let after = rt.block_on(collector.drain_if_quiet(&live, &store));
+        assert!(
+            after.counters_written > 0,
+            "the restored deltas reached the next quiet moment"
+        );
+    }
+
     #[test]
     fn the_buffer_is_bounded_and_drops_rather_than_waits() {
         let collector = QualityCollector::new();
@@ -1133,6 +1331,53 @@ mod tests {
         ] {
             assert!(row.reasons.contains(&want), "{want:?} missing: {row:?}");
         }
+    }
+
+    /// One service's numbers never belong to another's row.
+    ///
+    /// A second `live_start` without a `live_end` between them is an ordinary
+    /// morning: the operator rehearses at 09:40 and goes live at 11:00, or
+    /// switches to the second service from the schedule. `begin_session` used
+    /// to reset only `started_at`, the recovered flag and the latency
+    /// histogram — so the real service's row carried the rehearsal's cues,
+    /// restarts and failures, which is enough to turn a clean Sunday into a
+    /// `warn` with reasons that describe a service nobody ran.
+    #[test]
+    fn begin_session_starts_every_counter_from_zero() {
+        let collector = QualityCollector::new();
+
+        // Service A goes live and the operator drives it…
+        collector.begin_session(1_000);
+        for _ in 0..40 {
+            collector.note_cue_dispatched();
+        }
+        collector.note_output_restart();
+        collector.note_connect_timeout();
+        collector.note_watchdog_hold();
+        collector.note_dispatch_error();
+        collector.note_companion_failure();
+
+        // …then a second `live_start` lands without a `live_end` in between.
+        collector.begin_session(500_000);
+        collector.note_cue_dispatched();
+        collector.finish_session(600_000, SessionOutcome::Clean);
+
+        let row = collector
+            .take_buffered_rows()
+            .pop()
+            .expect("service B's row");
+        assert_eq!(row.cue_count, 1, "A's 40 cues leaked into B: {row:?}");
+        assert_eq!(row.output_child_restarts, 0, "A's restart leaked into B");
+        assert_eq!(row.connect_timeouts, 0, "A's connect timeout leaked into B");
+        assert_eq!(row.watchdog_holds, 0, "A's held frame leaked into B");
+        assert_eq!(row.dispatch_errors, 0, "A's dispatch error leaked into B");
+        assert_eq!(row.companion_failures, 0, "A's companion failure leaked");
+        assert_eq!(row.duration_sec, 100, "B's own clock");
+        assert_eq!(
+            row.verdict,
+            QualityVerdict::Pass,
+            "B ran clean and its verdict says so: {row:?}"
+        );
     }
 
     #[test]
@@ -1340,6 +1585,27 @@ mod tests {
 
     // ── (5) startup reconstruction ───────────────────────────────────────────
 
+    /// A session that started an hour before the crash, with a WAL written
+    /// (and so an mtime) NOW — the shape every real leftover has.
+    fn a_wal_from_an_hour_long_service(dir: &Path) -> crate::services::session_store::SessionStore {
+        let store = crate::services::session_store::SessionStore::in_dir(dir);
+        let mut session = LiveSession::new(
+            "svc",
+            CueList {
+                service_id: "svc".into(),
+                compiled_at: 0,
+                cues: vec![],
+            },
+            crate::db::now_ms() - 3_600_000,
+        );
+        store.begin(&session).expect("begin");
+        for action in [LiveAction::Next, LiveAction::Blackout] {
+            session.dispatch(action.clone(), 2_000);
+            store.record(&action).expect("record");
+        }
+        store
+    }
+
     #[test]
     fn a_leftover_wal_reconstructs_an_abnormal_end_for_the_previous_session() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1348,30 +1614,70 @@ mod tests {
             "a clean shutdown leaves nothing to reconstruct"
         );
 
-        let store = crate::services::session_store::SessionStore::in_dir(dir.path());
-        let mut session = empty_session(); // started_at = 1_000
-        store.begin(&session).expect("begin");
-        for action in [LiveAction::Next, LiveAction::Blackout] {
-            session.dispatch(action.clone(), 2_000);
-            store.record(&action).expect("record");
-        }
+        let store = a_wal_from_an_hour_long_service(dir.path());
+        let now = crate::db::now_ms();
 
-        let row = reconstruct_previous_session(dir.path(), 601_000)
-            .expect("the leftover WAL is a finding");
+        let row =
+            reconstruct_previous_session(dir.path(), now).expect("the leftover WAL is a finding");
         assert!(row.abnormal_end);
         assert_eq!(row.verdict, QualityVerdict::Fail);
         assert!(row.reasons.contains(&QualityReason::AbnormalEnd));
         assert_eq!(row.cue_count, 2, "the WAL's action count");
-        assert_eq!(row.duration_sec, 600);
+        assert!(
+            (3_590..=3_610).contains(&row.duration_sec),
+            "the service ran an hour: {}",
+            row.duration_sec
+        );
         assert!(!row.recovered, "reconstruction is not a resume");
         // Stable across launches, so `INSERT OR IGNORE` writes it once even if
         // the operator never resumes.
-        let again = reconstruct_previous_session(dir.path(), 999_000).expect("still there");
+        let again = reconstruct_previous_session(dir.path(), now + 1_000).expect("still there");
         assert_eq!(again.dedupe_key, row.dedupe_key);
         assert_ne!(again.id, row.id, "each attempt still mints its own id");
 
         // …and it is gone once the session is ended cleanly.
         store.clear();
-        assert!(reconstruct_previous_session(dir.path(), 999_000).is_none());
+        assert!(reconstruct_previous_session(dir.path(), now + 1_000).is_none());
+    }
+
+    /// The machine was OFF between the crash and the next launch, and a
+    /// reconstructed duration must not count that time as service.
+    ///
+    /// The report this protects is the one a support conversation reads: a
+    /// crash on Sunday morning and a relaunch the following Saturday used to
+    /// produce a six-day session — long enough to look like a hung projector
+    /// nobody noticed, in a row whose verdict is already `fail`.
+    #[test]
+    fn a_reconstructed_duration_does_not_count_the_time_the_machine_was_off() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let _store = a_wal_from_an_hour_long_service(dir.path());
+
+        let six_days_later = crate::db::now_ms() + 6 * 24 * 3_600_000;
+        let row = reconstruct_previous_session(dir.path(), six_days_later).expect("a finding");
+        assert!(
+            (3_590..=3_610).contains(&row.duration_sec),
+            "the service lasted an hour; the laptop was shut until Saturday. \
+             Reported duration: {} s",
+            row.duration_sec
+        );
+        // The row is still dated when it was OBSERVED — that part was never a
+        // guess, and E5's send window depends on it.
+        assert_eq!(row.at, six_days_later);
+    }
+
+    /// No readable mtime — say nothing rather than invent a number.
+    #[test]
+    fn a_reconstructed_duration_is_zero_when_the_end_cannot_be_known() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = crate::services::session_store::SessionStore::in_dir(dir.path());
+        let session = empty_session(); // started_at = 1_000, i.e. 1970
+        store.begin(&session).expect("begin");
+        // The WAL's mtime is NOW, which is not `<= at_ms` here: the end bound is
+        // outside the session's window, so it is not usable at all.
+        let row = reconstruct_previous_session(dir.path(), 601_000).expect("a finding");
+        assert_eq!(
+            row.duration_sec, 0,
+            "an unknowable duration is 0, never a made-up span"
+        );
     }
 }

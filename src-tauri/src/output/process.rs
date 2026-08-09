@@ -198,15 +198,182 @@ fn legacy_pidfile_path(label: &str) -> PathBuf {
     legacy_pidfile_dir().join(pidfile_name(label))
 }
 
-/// Record the running child so a crashed main process leaves a reapable trace.
+/// The executable names an output child can be running under: the cargo bin in
+/// a dev tree, the `externalBin` inside the installed bundle. Nothing else on
+/// the machine may ever be signalled by the reaper.
+const OUTPUT_PROCESS_NAMES: [&str; 2] = ["sundaystage-output", "output-process"];
+
+/// Shortest prefix of an [`OUTPUT_PROCESS_NAMES`] entry accepted as a match.
+/// Linux's `ps -o comm=` truncates at 15 characters, so `sundaystage-output`
+/// comes back as `sundaystage-out`; a floor keeps that from turning into "any
+/// short name matches".
+const MIN_NAME_MATCH: usize = 12;
+
+/// What one pidfile records.
+///
+/// The pid alone is not enough to authorise `kill -9`: pids are recycled, and
+/// (since 0.6) the file lives in the app-data dir, which nothing purges. So the
+/// file also carries a fingerprint of the process it was written for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PidRecord {
+    pid: u32,
+    /// When the OS says that process started. `None` in a file written by an
+    /// older build, or on a platform where we do not ask.
+    started: Option<String>,
+}
+
+/// How the OS identifies whatever holds a pid right now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProcessIdentity {
+    /// The executable it is running, as `ps`/`tasklist` reports it.
+    name: String,
+    /// When it started, when that is available.
+    started: Option<String>,
+}
+
+/// The pidfile's contents for a child we just spawned.
+fn pidfile_contents(record: &PidRecord) -> String {
+    match &record.started {
+        Some(started) => format!("{}:{started}", record.pid),
+        None => record.pid.to_string(),
+    }
+}
+
+/// Parse a pidfile. `0` is filtered out rather than passed on: on unix
+/// `kill -9 0` signals every process in our OWN process group, which is the
+/// whole app. A pidfile can only read `0` if it was written from an unknown
+/// child id, and no stale child is worth that blast radius.
+///
+/// A bare pid (the pre-0.6.1 shape) parses with no fingerprint, so an install
+/// upgrading across this change still reaps the child its old build left.
+fn parse_pidfile(contents: &str) -> Option<PidRecord> {
+    let text = contents.trim();
+    let (pid, started) = match text.split_once(':') {
+        Some((pid, started)) => (pid, Some(started.trim())),
+        None => (text, None),
+    };
+    let pid = pid.trim().parse::<u32>().ok().filter(|p| *p > 0)?;
+    Some(PidRecord {
+        pid,
+        started: started.filter(|s| !s.is_empty()).map(str::to_string),
+    })
+}
+
+/// Is this executable name one of ours?
+fn is_output_process_name(name: &str) -> bool {
+    let base = name.trim().rsplit(['/', '\\']).next().unwrap_or("").trim();
+    let base = base.strip_suffix(".exe").unwrap_or(base);
+    base.len() >= MIN_NAME_MATCH && OUTPUT_PROCESS_NAMES.iter().any(|n| n.starts_with(base))
+}
+
+/// Whether a pidfile authorises SIGKILL of whatever holds that pid NOW.
+///
+/// Pure, because this is the decision that must never be wrong in either
+/// direction: killing a recycled pid takes down an unrelated app (or another
+/// SundayStage's live output), and refusing to kill a real leftover leaves two
+/// full-screen windows stacked on the projector.
+///
+///   * nothing there → nothing to kill;
+///   * not one of OUR executables → never, whatever the file says;
+///   * a recorded start time that disagrees with the live one → a different
+///     process inherited the pid; leave it alone.
+fn may_signal(record: &PidRecord, live: Option<&ProcessIdentity>) -> bool {
+    let Some(live) = live else { return false };
+    if !is_output_process_name(&live.name) {
+        return false;
+    }
+    match (&record.started, &live.started) {
+        (Some(recorded), Some(running)) => recorded == running,
+        // A legacy file, or an OS we do not ask for a start time: the name is
+        // the guard, and it is the guard this reaper never had at all before.
+        _ => true,
+    }
+}
+
+/// Ask the OS what is running as `pid`, without a `/proc` walk or a new crate.
+///
+/// One `ps` per reap and one per spawn, both off the render path. On Windows
+/// only the image name is available this cheaply; [`may_signal`] degrades to
+/// the name check there, which is exactly the guard Windows never had (it had
+/// no pidfiles at all before 0.6).
+#[cfg(unix)]
+fn process_identity(pid: u32) -> Option<ProcessIdentity> {
+    let name = ps_field(pid, "comm=")?;
+    Some(ProcessIdentity {
+        started: ps_field(pid, "lstart="),
+        name,
+    })
+}
+
+#[cfg(unix)]
+fn ps_field(pid: u32, field: &str) -> Option<String> {
+    let out = std::process::Command::new("ps")
+        .args(["-o", field, "-p", &pid.to_string()])
+        .output()
+        .ok()?;
+    let value = String::from_utf8_lossy(&out.stdout)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    (!value.is_empty()).then_some(value)
+}
+
+#[cfg(windows)]
+fn process_identity(pid: u32) -> Option<ProcessIdentity> {
+    let out = std::process::Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+        .output()
+        .ok()?;
+    let line = String::from_utf8_lossy(&out.stdout);
+    // No match prints `INFO: No tasks are running…` rather than an empty body.
+    let name = line
+        .lines()
+        .find(|l| l.starts_with('"'))?
+        .trim_start_matches('"')
+        .split('"')
+        .next()?
+        .to_string();
+    (!name.is_empty()).then_some(ProcessIdentity {
+        name,
+        started: None,
+    })
+}
+
+/// Removes a pidfile when the scope that owns the child ends.
+///
+/// A `Drop` rather than a line at the exit, because [`run_child_once`] has
+/// SEVEN ways out — clean shutdown, the child dying before it connects, the
+/// connect timeout, a failed write to the child, a closed broadcast, a torn
+/// read, and the `?` on the socket bind — and only the first one used to remove
+/// the file. Every other path left a pidfile behind in a directory nothing
+/// purges, so the NEXT launch reported `staleChildReaped` and a
+/// `hold-last-frame` reason for a run that ended perfectly, and asked `kill -9`
+/// for a pid the OS had long since handed to somebody else.
+struct PidfileGuard {
+    path: PathBuf,
+}
+
+impl Drop for PidfileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+/// Record the running child so a crashed main process leaves a reapable trace,
+/// and return the guard that removes the trace again on every way out.
 /// Best-effort: failing to write costs the NEXT launch its reap, never this
 /// service.
-fn write_pidfile(data_dir: &Path, label: &str, pid: u32) {
+fn write_pidfile(data_dir: &Path, label: &str, pid: u32) -> PidfileGuard {
     let path = pidfile_path(data_dir, label);
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let _ = std::fs::write(path, pid.to_string());
+    let record = PidRecord {
+        pid,
+        started: process_identity(pid).and_then(|i| i.started),
+    };
+    let _ = std::fs::write(&path, pidfile_contents(&record));
+    PidfileGuard { path }
 }
 
 /// Best-effort kill of a stale child left over from a crashed main process,
@@ -226,32 +393,36 @@ fn reap_stale_child(data_dir: &Path, label: &str) -> bool {
     current || legacy
 }
 
-/// The pid a pidfile's contents authorise signalling, if any.
-///
-/// `0` is filtered out rather than passed on: on unix `kill -9 0` signals every
-/// process in our OWN process group, which is the whole app. A pidfile can only
-/// read `0` if it was written from an unknown child id, and no stale child is
-/// worth that blast radius.
-fn pid_to_signal(contents: &str) -> Option<u32> {
-    contents.trim().parse::<u32>().ok().filter(|p| *p > 0)
-}
-
-/// Kill whatever `pidfile` names, then delete it. Returns whether the file was
-/// there at all.
+/// Kill whatever `pidfile` names — if, and only if, that pid still belongs to
+/// the output child the file was written for ([`may_signal`]). Then delete the
+/// file. Returns whether the file was there at all, which is the
+/// `staleChildReaped` signal: a leftover file means the previous run never got
+/// to clean up, whether or not its child is still around.
 fn reap_pidfile_at(pidfile: &Path, label: &str) -> bool {
-    let Ok(s) = std::fs::read_to_string(pidfile) else {
+    let Ok(contents) = std::fs::read_to_string(pidfile) else {
         return false;
     };
-    if let Some(pid) = pid_to_signal(&s) {
-        tracing::warn!(label, pid, "reaping a stale output process");
-        #[cfg(unix)]
-        let _ = std::process::Command::new("kill")
-            .args(["-9", &pid.to_string()])
-            .status();
-        #[cfg(windows)]
-        let _ = std::process::Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/F"])
-            .status();
+    if let Some(record) = parse_pidfile(&contents) {
+        let pid = record.pid;
+        if may_signal(&record, process_identity(pid).as_ref()) {
+            tracing::warn!(label, pid, "reaping a stale output process");
+            #[cfg(unix)]
+            let _ = std::process::Command::new("kill")
+                .args(["-9", &pid.to_string()])
+                .status();
+            #[cfg(windows)]
+            let _ = std::process::Command::new("taskkill")
+                .args(["/PID", &pid.to_string(), "/F"])
+                .status();
+        } else {
+            // Gone, or recycled onto something that is not ours. Either way the
+            // file is stale bookkeeping, not a licence to signal.
+            tracing::info!(
+                label,
+                pid,
+                "a leftover output pidfile no longer names our child — not signalling"
+            );
+        }
     }
     let _ = std::fs::remove_file(pidfile);
     true
@@ -565,10 +736,16 @@ async fn run_child_once(
     let mut child = cmd.spawn()?;
     *shared.pid.lock() = child.id();
     // No id (the child has already been waited on) means no pidfile: a file
-    // naming pid `0` would be worse than none at all — see [`pid_to_signal`].
-    if let Some(pid) = child.id() {
-        write_pidfile(&inner.data_dir, &spec.label, pid);
-    }
+    // naming pid `0` would be worse than none at all — see [`parse_pidfile`].
+    //
+    // The guard is what removes it again. Holding it here means the file lives
+    // exactly as long as this child does, on EVERY way out of this function
+    // (and on an abort of the whole task, which drops these locals too) — not
+    // just on the graceful-shutdown branch that used to own the only
+    // `remove_file` call.
+    let _pidfile = child
+        .id()
+        .map(|pid| write_pidfile(&inner.data_dir, &spec.label, pid));
 
     // Wait for the child to connect (or die trying).
     let stream = tokio::select! {
@@ -609,11 +786,11 @@ async fn run_child_once(
                         return Ok(ChildExit::Died);
                     }
                     if is_shutdown {
-                        // Give it a moment, then make sure.
+                        // Give it a moment, then make sure. The pidfile goes
+                        // with the guard, like it does on every other exit.
                         let _ = tokio::time::timeout(
                             Duration::from_millis(1_000), child.wait()).await;
                         let _ = child.kill().await;
-                        let _ = std::fs::remove_file(pidfile_path(&inner.data_dir, &spec.label));
                         return Ok(ChildExit::Shutdown);
                     }
                 }
@@ -722,18 +899,52 @@ mod tests {
         assert!(!reap_stale_child(dir.path(), label));
 
         // Writing creates the directory (a fresh install has never had one).
-        write_pidfile(dir.path(), label, 4242);
+        // The guard is kept alive: dropping it is what removes the file.
+        let guard = write_pidfile(dir.path(), label, 4242);
         let path = pidfile_path(dir.path(), label);
-        assert_eq!(std::fs::read_to_string(&path).expect("written"), "4242");
+        let written = std::fs::read_to_string(&path).expect("written");
+        assert_eq!(
+            parse_pidfile(&written).map(|r| r.pid),
+            Some(4242),
+            "the file names the child: {written}"
+        );
         assert!(pidfiles_in(&pidfile_dir(dir.path())));
         assert!(stale_pidfiles_present(dir.path()));
 
         // …and reaping removes it and reports the find. (The pid is replaced
-        // first: the reaper would otherwise signal pid 4242 on this machine.)
+        // first: the reaper would otherwise ask about pid 4242 on this machine.)
         std::fs::write(&path, UNPARSEABLE).expect("overwrite");
         assert!(reap_stale_child(dir.path(), label));
         assert!(!path.exists());
         assert!(!pidfiles_in(&pidfile_dir(dir.path())));
+        drop(guard);
+    }
+
+    /// The leak this file's `Drop` exists to close: a pidfile must not outlive
+    /// the child it names. It used to, on every exit but the graceful one —
+    /// and since the file moved out of the auto-purged temp dir into app data
+    /// (0.6), every later launch on that machine read the leftover as "the
+    /// previous run crashed with a child still holding a frame" and stamped
+    /// `staleChildReaped` + `hold-last-frame` on a run that ended perfectly.
+    #[test]
+    fn the_pidfile_guard_removes_the_file_however_the_scope_ends() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let label = "output-main-0";
+        let path = pidfile_path(dir.path(), label);
+
+        {
+            let _guard = write_pidfile(dir.path(), label, 4242);
+            assert!(path.exists(), "the child is running, the trace is on disk");
+        }
+        assert!(!path.exists(), "leaving the scope removes it");
+
+        // …including when the scope is left by a PANIC (an aborted supervision
+        // task drops its locals the same way).
+        let _ = std::panic::catch_unwind(|| {
+            let _guard = write_pidfile(dir.path(), label, 4242);
+            panic!("the supervision task died");
+        });
+        assert!(!path.exists(), "an unwind removes it too");
     }
 
     #[test]
@@ -741,12 +952,105 @@ mod tests {
         // `kill -9 0` signals our entire process group — the whole app. Tested
         // on the pure decision rather than through the reaper on purpose: a
         // regression here must fail an assertion, not SIGKILL the test runner.
-        assert_eq!(pid_to_signal("4242\n"), Some(4242));
-        assert_eq!(pid_to_signal("0"), None);
-        assert_eq!(pid_to_signal(" 0 \n"), None);
-        assert_eq!(pid_to_signal(UNPARSEABLE), None);
-        assert_eq!(pid_to_signal(""), None);
-        assert_eq!(pid_to_signal("-1"), None);
+        assert_eq!(parse_pidfile("4242\n").map(|r| r.pid), Some(4242));
+        assert_eq!(parse_pidfile("0"), None);
+        assert_eq!(parse_pidfile(" 0 \n"), None);
+        assert_eq!(parse_pidfile("0:Sat Aug  9 10:00:00 2026"), None);
+        assert_eq!(parse_pidfile(UNPARSEABLE), None);
+        assert_eq!(parse_pidfile(""), None);
+        assert_eq!(parse_pidfile("-1"), None);
+    }
+
+    #[test]
+    fn a_pidfile_records_the_process_it_was_written_for() {
+        // Round-trip, including the pre-0.6.1 bare-pid shape an install
+        // upgrading across this change still has on disk.
+        let with_start = PidRecord {
+            pid: 4242,
+            started: Some("Sat Aug 9 10:00:00 2026".into()),
+        };
+        assert_eq!(
+            parse_pidfile(&pidfile_contents(&with_start)),
+            Some(with_start.clone())
+        );
+        let legacy = PidRecord {
+            pid: 4242,
+            started: None,
+        };
+        assert_eq!(pidfile_contents(&legacy), "4242");
+        assert_eq!(parse_pidfile("4242"), Some(legacy));
+    }
+
+    /// The reaper's whole decision, on the pure function — because the wrong
+    /// answer either SIGKILLs an unrelated app on the operator's machine or
+    /// leaves two full-screen windows stacked on the projector.
+    #[test]
+    fn only_our_own_output_child_is_ever_signalled() {
+        let started = "Sat Aug 9 10:00:00 2026";
+        let record = PidRecord {
+            pid: 4242,
+            started: Some(started.into()),
+        };
+        let ours = |name: &str, at: Option<&str>| ProcessIdentity {
+            name: name.into(),
+            started: at.map(str::to_string),
+        };
+
+        // The child we wrote the file for.
+        assert!(may_signal(
+            &record,
+            Some(&ours("/opt/SundayStage/sundaystage-output", Some(started)))
+        ));
+        // Nothing holds that pid any more.
+        assert!(!may_signal(&record, None));
+        // The pid was recycled onto something else entirely.
+        assert!(!may_signal(
+            &record,
+            Some(&ours("/usr/bin/zoom", Some(started)))
+        ));
+        // …or onto a DIFFERENT output child (a second SundayStage): same name,
+        // different start time.
+        assert!(!may_signal(
+            &record,
+            Some(&ours("output-process", Some("Sat Aug 9 11:30:00 2026")))
+        ));
+        // A legacy file has no start time, so the name is the whole guard.
+        let legacy = PidRecord {
+            pid: 4242,
+            started: None,
+        };
+        assert!(may_signal(&legacy, Some(&ours("output-process.exe", None))));
+        assert!(!may_signal(&legacy, Some(&ours("Finder", None))));
+    }
+
+    #[test]
+    fn the_executable_name_check_survives_truncation_but_not_strangers() {
+        assert!(is_output_process_name("sundaystage-output"));
+        assert!(is_output_process_name("/opt/app/sundaystage-output"));
+        assert!(is_output_process_name(
+            "C:\\Program Files\\App\\output-process.exe"
+        ));
+        // Linux `ps -o comm=` truncates at 15 characters.
+        assert!(is_output_process_name("sundaystage-out"));
+        // …but a short prefix is not an identification.
+        assert!(!is_output_process_name("sundaystage"));
+        assert!(!is_output_process_name("output"));
+        assert!(!is_output_process_name(""));
+        assert!(!is_output_process_name("sundaystage-outputter"));
+        assert!(!is_output_process_name(
+            "/System/Applications/Mail.app/Mail"
+        ));
+    }
+
+    /// The identity probe runs against a real process — this one — so a
+    /// platform whose `ps`/`tasklist` invocation drifted fails here rather
+    /// than silently refusing to reap on an operator's machine.
+    #[test]
+    fn the_running_process_can_be_identified() {
+        let me = process_identity(std::process::id()).expect("this process exists");
+        assert!(!me.name.is_empty());
+        // A pid that cannot exist has no identity, and therefore no licence.
+        assert!(process_identity(u32::MAX).is_none());
     }
 
     /// Transition (remove with the `legacy_*` helpers in 0.7.0): a pidfile left

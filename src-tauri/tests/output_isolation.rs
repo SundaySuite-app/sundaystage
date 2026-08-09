@@ -70,6 +70,32 @@ fn spawn_headless(socket: &std::path::Path, label: &str) -> tokio::process::Chil
     cmd.spawn().expect("spawn sundaystage-output")
 }
 
+/// The pid a pidfile records. The file is `<pid>` or `<pid>:<start time>` — the
+/// fingerprint that stops the reaper from signalling a RECYCLED pid — and this
+/// reads the pid half without duplicating the parser under test.
+fn recorded_pid(contents: &str) -> Option<u32> {
+    contents
+        .trim()
+        .split(':')
+        .next()
+        .and_then(|p| p.trim().parse().ok())
+}
+
+/// Pidfiles under THIS data dir. Deliberately not
+/// `stale_pidfiles_present`, whose unix transition arm also scans the shared
+/// system temp dir and so cannot be asserted on in a parallel test run.
+fn pidfiles_here(data_dir: &std::path::Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(sundaystage_lib::output::process::pidfile_dir(data_dir))
+    else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("sundaystage-") && n.ends_with(".pid"))
+        .collect()
+}
+
 async fn wait_until(what: &str, timeout: Duration, mut f: impl FnMut() -> bool) {
     let deadline = tokio::time::Instant::now() + timeout;
     while !f() {
@@ -239,10 +265,12 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
     // the startup "did we crash last time?" scan. Proven against the real
     // binary, not a mock pid.
     let pidfile = pidfile_dir(data_dir.path()).join(format!("sundaystage-{label}.pid"));
+    let recorded = std::fs::read_to_string(&pidfile)
+        .unwrap_or_else(|e| panic!("pidfile at {}: {e}", pidfile.display()));
     assert_eq!(
-        std::fs::read_to_string(&pidfile)
-            .unwrap_or_else(|e| panic!("pidfile at {}: {e}", pidfile.display())),
-        pid.to_string()
+        recorded_pid(&recorded),
+        Some(pid),
+        "the pidfile names the running child: {recorded}"
     );
     assert!(std::process::Command::new("kill")
         .args(["-9", &pid.to_string()])
@@ -263,8 +291,8 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
     // The pidfile follows the restart: it must name the child that is actually
     // on the projector now, or the next launch would reap the wrong pid.
     assert_eq!(
-        std::fs::read_to_string(&pidfile).expect("pidfile after restart"),
-        new_pid.to_string()
+        recorded_pid(&std::fs::read_to_string(&pidfile).expect("pidfile after restart")),
+        Some(new_pid)
     );
 
     // New frames flow to the replacement.
@@ -347,4 +375,74 @@ async fn child_outlives_a_dead_parent_holding_the_last_frame() {
         .args(["-9", &pid.to_string()])
         .status();
     let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+}
+
+// ── the pidfile outlives nothing (S5) ────────────────────────────────────────
+//
+// The pidfile is the ONLY trace of "a child from a crashed previous process may
+// still be holding a frame on a projector". Since it moved out of the
+// auto-purged temp dir into the app-data dir, a file left behind by a run that
+// ended fine is not merely untidy: every later launch on that machine reads it
+// as a crash, stamps `staleChildReaped` + `hold-last-frame` on the reconstructed
+// row, and asks `kill -9` for a pid the OS has long since given to somebody
+// else. So it must be gone on EVERY way out, not just the graceful one.
+
+/// A supervisor spawning one headless child in `data_dir`.
+fn supervisor_in(binary: PathBuf, data_dir: &std::path::Path, label: &str) -> OutputSupervisor {
+    OutputSupervisor::start(
+        binary,
+        data_dir.to_path_buf(),
+        vec![OutputSpec {
+            label: label.to_string(),
+            x: 0,
+            y: 0,
+            width: 640,
+            height: 480,
+            headless: true,
+            appearance_file: None,
+        }],
+        Arc::new(QualityCollector::new()),
+    )
+}
+
+#[tokio::test]
+async fn a_clean_shutdown_leaves_no_pidfile_behind() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let label = unique_label("clean-shutdown");
+    let supervisor = supervisor_in(output_bin(), dir.path(), &label);
+
+    // Let the child spawn, connect and record itself.
+    wait_until("the child records itself", Duration::from_secs(15), || {
+        !pidfiles_here(dir.path()).is_empty()
+    })
+    .await;
+
+    // The graceful teardown the app runs on exit / `output_close`.
+    supervisor.shutdown().await;
+    wait_until("the pidfile goes with it", Duration::from_secs(5), || {
+        pidfiles_here(dir.path()).is_empty()
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn a_child_that_dies_on_its_own_leaves_no_pidfile_behind() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    // `/bin/echo` spawns and exits immediately without ever connecting, so the
+    // supervisor takes the `Died` path — one of the six exits that had no
+    // pidfile removal at all.
+    let supervisor = supervisor_in(
+        PathBuf::from("/bin/echo"),
+        dir.path(),
+        &unique_label("died"),
+    );
+    tokio::time::sleep(Duration::from_millis(1_200)).await;
+    supervisor.shutdown().await;
+
+    wait_until(
+        "no trace of a child that died",
+        Duration::from_secs(5),
+        || pidfiles_here(dir.path()).is_empty(),
+    )
+    .await;
 }
