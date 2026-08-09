@@ -104,7 +104,35 @@ pub fn run() {
     crate::telemetry::crash_ring::install_panic_hook();
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+    let mut builder = tauri::Builder::default();
+
+    // Single-instance MUST be the FIRST plugin registered — the plugin's own
+    // requirement (it inspects the socket/mutex during its `setup`, before any
+    // window exists). A1 (live-safety): a second launch — the classic one is a
+    // Dock click after the UI has hung — must not spin up a second process. Two
+    // processes would open the same SQLite file with no cross-process lock (the
+    // pool in `db::Database::open` caps connections *per process*; WAL gives
+    // reader/writer concurrency, not mutual exclusion), and the two
+    // crash-isolated output children would fight over the projector mid-service.
+    // Instead the callback raises the RUNNING window so the operator sees the app
+    // respond. Desktop-only: the crate is `#![cfg(not(mobile))]` and there is no
+    // second-launch on mobile. A legitimate self-update relaunch is NOT rejected
+    // here — `update_install` drops the lock first; see `commands::updater`.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            tracing::info!(
+                "a second SundayStage launch was blocked — focusing the existing window"
+            );
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }));
+    }
+
+    builder = builder.plugin(tauri_plugin_opener::init());
 
     // Auto-update + relaunch (Phase 13.2) are desktop-only.
     #[cfg(desktop)]
@@ -390,6 +418,30 @@ mod tests {
     use super::Mutex;
     use crate::services::cue_list::CueList;
     use crate::services::live_session::{LiveAction, LiveSession};
+
+    /// A1 (live-safety): the single-instance guard only works if it is the FIRST
+    /// plugin registered — the plugin's own hard requirement — and the whole
+    /// second-launch protection (two processes on one SQLite file, two output
+    /// children fighting the projector) rides on it. The plugin callback needs a
+    /// real second OS process to exercise, and `tauri::Builder` exposes no way to
+    /// introspect plugin order at runtime, so the one thing that IS testable is
+    /// the registration order in the source: the first `.plugin(` call in this
+    /// file must be `tauri_plugin_single_instance::init`. This test is the tripwire
+    /// for anyone who later inserts a plugin above it in `run()`.
+    #[test]
+    fn single_instance_is_the_first_plugin_registered() {
+        let src = include_str!("lib.rs");
+        let first = src
+            .find(".plugin(")
+            .expect("run() registers at least one plugin");
+        let after = &src[first..];
+        assert!(
+            after.starts_with(".plugin(tauri_plugin_single_instance::init"),
+            "single-instance must be the FIRST plugin registered (found `{}` \
+             first) — see the A1 note in run()",
+            &after[..after.len().min(56)]
+        );
+    }
 
     /// The reliability guarantee that motivates `parking_lot`: a thread that
     /// PANICS while holding the `live` mutex must NOT poison it. With the old

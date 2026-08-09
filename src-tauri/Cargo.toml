@@ -28,6 +28,14 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+# Single-instance guard (live-safety, A1). A second launch — the classic one is
+# a Dock click after the UI has hung — must NOT start a second process: two
+# processes would open the same SQLite file with no cross-process lock (the pool
+# in `db::Database::open` is per-process — WAL only gives reader/writer
+# concurrency, not mutual exclusion), and two crash-isolated output children
+# would fight over the projector mid-service. The crate is `#![cfg(not(mobile))]`,
+# so every reference to it is `#[cfg(desktop)]`-gated. v2 matches the Tauri 2 line.
+tauri-plugin-single-instance = "2"
 # Shared Sunday Account (SSO): read the cross-app session this app shares with
 # the rest of the suite (login happens in SundayRec). Distributed by git tag
 # (see sunday-platform README) so each app builds standalone in CI — a path dep
