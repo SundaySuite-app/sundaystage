@@ -19,7 +19,7 @@
 //!
 //! Why a *runtime* endpoint and not just `tauri.conf.json`: the operator can
 //! opt into the beta ring from Settings, and the plugin's JS `check()` has no
-//! `endpoints` option (`@tauri-apps/plugin-updater` 2.10.1 `CheckOptions` =
+//! `endpoints` option (its `CheckOptions` as of plugin 2.10.1 =
 //! headers/timeout/proxy/target/allowDowngrades) and the Rust plugin `Builder`
 //! has no `endpoints()` either. The only seam that can pick an endpoint at
 //! runtime is `UpdaterBuilder::endpoints(..)`, which is why the update check

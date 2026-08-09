@@ -631,9 +631,10 @@ export const telemetry = {
 // ── Auto-update over the app-scoped rings (E2) ──────────────────────────────────
 //
 // The check runs in Rust: `UpdaterBuilder::endpoints(..)` is the only seam that
-// can pick the ring at runtime — the JS `check()` from
-// `@tauri-apps/plugin-updater` has no `endpoints` option. `check` resolves to
-// `null` when we are up to date, which includes the ring answering 204 (nothing
+// can pick the ring at runtime — the updater plugin's JS `check()` has no
+// `endpoints` option, which is why only the plugin's Rust crate is a dependency
+// here and its npm package is not installed at all. `check` resolves to `null`
+// when we are up to date, which includes the ring answering 204 (nothing
 // promoted / ring paused). Relaunching after `install` stays a JS concern
 // (`@tauri-apps/plugin-process`), see `lib/updater.ts`.
 

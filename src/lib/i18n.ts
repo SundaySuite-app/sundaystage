@@ -38,8 +38,6 @@ export function langLabel(l: string): string {
 type Catalog = Record<string, string>;
 
 const en: Catalog = {
-  appTagline: "Live Presentation",
-  navDashboard: "Dashboard",
   navLibrary: "Library",
   navDecks: "Decks",
   navServices: "Services",
@@ -51,7 +49,6 @@ const en: Catalog = {
 
   // ── Operator workspace (converged console) ──────────────────────────────
   wsBrowseLibrary: "Library",
-  wsScheduleTitle: "Schedule",
   wsEditSchedule: "Edit schedule",
   wsScheduleEmpty: "Nothing scheduled yet.",
   wsAddToSchedule: "Add to schedule",
@@ -96,7 +93,6 @@ const en: Catalog = {
   actionAdd: "Add",
   actionDone: "Done",
   actionNext: "Next",
-  actionBack: "Back",
   actionSearch: "Search",
   actionSkip: "Skip",
 
@@ -371,19 +367,8 @@ const en: Catalog = {
 
   // ── Operator console ────────────────────────────────────────────────────
   lpStartError: "Could not start live",
-  lpExit: "Exit",
-  lpExitTooltip: "Exit (⌘Q)",
-  lpStarting: "Starting live…",
-  lpNoCuesTitle: "No cues to show",
-  lpNoCuesBody:
-    "«{name}» has no songs or scripture in the queue yet. Add content to the service and the queue compiles automatically.",
-  lpToQueue: "To the queue",
-  lpCuesCount: "{n} cues",
-  liveNext: "next",
-  lpComingUp: "Coming up",
   lpNextCues: "Next cues",
   lpNoNotes: "No notes for this service.",
-  lpPrevious: "Previous",
   liveBlackout: "Blackout",
   liveMessage: "Message",
   liveClearOverride: "Clear",
@@ -396,11 +381,6 @@ const en: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Jump to",
   lpExport: "Export",
-  lpNoOutputTitle: "No screen is showing the main output",
-  lpNoOutputBody:
-    "No external screen is assigned to the main output. Connect a projector/TV, or open the «Screens» panel at the bottom right and pick a screen.",
-  lpGotIt: "Got it",
-  lpOutputOpened: "Main output opened on the external screen",
   lpJumpPlaceholder: "Jump to cue… (e.g. «verse 2» or «amazing»)",
   liveNoMatches: "No matches.",
   liveShowLogo: "Show logo",
@@ -553,16 +533,8 @@ const en: Catalog = {
   setBetaUpdates: "Get beta updates",
   setBetaUpdatesDesc:
     "Beta builds arrive earlier and may have rough edges — not recommended on the machine that runs the service. You can switch back to stable at any time.",
-  setCrashReporting: "Crash reporting",
-  setCrashDesc:
-    "Crash reports are stored on this machine so a problem can be looked at afterwards. They are never sent anywhere on their own.",
-  setCrashLocalOnly: "Local only",
-  setOn: "On",
-  setOff: "Off",
   setCrashCount: "{n} report(s) stored",
   actionClear: "Clear",
-  setTurnOff: "Turn off",
-  setTurnOn: "Turn on",
 
   // ── Song section-type labels (verse_1 → "Verse 1") ──────────────────────
   sectionIntro: "Intro",
@@ -596,7 +568,6 @@ const en: Catalog = {
   wsOpenVerse: "Open verse in Bible browser",
 
   // ── Service templates ─────────────────────────────────────────────────────
-  navTemplates: "Templates",
   tmplPageTitle: "Service templates",
   tmplBuiltin: "Built-in",
   tmplCustom: "Custom",
@@ -608,7 +579,6 @@ const en: Catalog = {
   tmplConfirmDeleteTitle: "Delete template?",
   tmplConfirmDeleteBody: "«{name}» will be permanently removed.",
   tmplApply: "Use in service",
-  tmplApplied: "Template applied",
   tmplApplySelectService: "Select a service to apply the template to:",
   tmplCueSpecs: "{n} slots",
   tmplApplying: "Applying…",
@@ -617,7 +587,6 @@ const en: Catalog = {
   tmplNewDescription: "Description (optional)",
   tmplNewSlots: "Slots",
   tmplAddSlot: "Add slot",
-  tmplSlotKind: "Kind",
   tmplSlotLabel: "Label",
   tmplSlotNotes: "Notes (optional)",
   tmplKindSong: "Song",
@@ -628,7 +597,6 @@ const en: Catalog = {
 
   // ── Template stage-display role (Phase 8) ─────────────────────────────────
   tmplRole: "Stage role",
-  tmplRoleHint: "Who watches the stage display when this template runs",
   tmplRoleWorshipLeader: "Worship leader",
   tmplRoleMusician: "Musician",
   tmplRoleOperator: "Operator",
@@ -728,7 +696,6 @@ const en: Catalog = {
   telConsentNo: "No thanks",
   telConsentPrivacyLink: "Read more in the privacy statement",
   telConsentDismissLabel: "Close — we'll ask again next time you open the app",
-  telConsentAnswered: "Thank you — your choice has been saved.",
   setPrivacyTitle: "Privacy",
   setPrivacyDesc:
     "You decide whether SundayStage may send anonymous reports. It can be switched on and off at any time, and you can always see exactly what would be sent.",
@@ -796,8 +763,6 @@ const en: Catalog = {
 };
 
 const no: Catalog = {
-  appTagline: "Live Presentasjon",
-  navDashboard: "Dashbord",
   navLibrary: "Bibliotek",
   navDecks: "Decks",
   navServices: "Gudstjenester",
@@ -809,7 +774,6 @@ const no: Catalog = {
 
   // ── Operatør-arbeidsflate (samlet konsoll) ──────────────────────────────
   wsBrowseLibrary: "Bibliotek",
-  wsScheduleTitle: "Kjøreplan",
   wsEditSchedule: "Rediger kjøreplan",
   wsScheduleEmpty: "Ingenting i kjøreplanen ennå.",
   wsAddToSchedule: "Legg til i kjøreplan",
@@ -854,7 +818,6 @@ const no: Catalog = {
   actionAdd: "Legg til",
   actionDone: "Ferdig",
   actionNext: "Neste",
-  actionBack: "Tilbake",
   actionSearch: "Søk",
   actionSkip: "Hopp over",
 
@@ -1132,19 +1095,8 @@ const no: Catalog = {
 
   // ── Operator console ────────────────────────────────────────────────────
   lpStartError: "Kunne ikke starte live",
-  lpExit: "Avslutt",
-  lpExitTooltip: "Avslutt (⌘Q)",
-  lpStarting: "Starter live…",
-  lpNoCuesTitle: "Ingen cues å vise",
-  lpNoCuesBody:
-    "«{name}» har ingen sanger eller skrift i køen enda. Legg til innhold i gudstjenesten, så kompileres køen automatisk.",
-  lpToQueue: "Til køen",
-  lpCuesCount: "{n} cues",
-  liveNext: "neste",
-  lpComingUp: "Kommer nå",
   lpNextCues: "Neste cues",
   lpNoNotes: "Ingen notater for denne gudstjenesten.",
-  lpPrevious: "Forrige",
   liveBlackout: "Blackout",
   liveMessage: "Melding",
   liveClearOverride: "Nullstill",
@@ -1157,11 +1109,6 @@ const no: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Hopp til",
   lpExport: "Eksport",
-  lpNoOutputTitle: "Ingen skjerm viser hovedutgangen",
-  lpNoOutputBody:
-    "Ingen ekstern skjerm er tilordnet hovedutgang. Koble til en projektor/TV, eller åpne «Skjermer»-panelet nederst til høyre og velg en skjerm.",
-  lpGotIt: "Skjønner",
-  lpOutputOpened: "Hovedutgang åpnet på ekstern skjerm",
   lpJumpPlaceholder: "Hopp til cue… (f.eks. «vers 2» eller «amazing»)",
   liveNoMatches: "Ingen treff.",
   liveShowLogo: "Vis logo",
@@ -1315,16 +1262,8 @@ const no: Catalog = {
   setBetaUpdates: "Få beta-oppdateringer",
   setBetaUpdatesDesc:
     "Beta-versjoner kommer tidligere og kan ha skarpe kanter — ikke anbefalt på maskinen som kjører gudstjenesten. Du kan bytte tilbake til stabil når som helst.",
-  setCrashReporting: "Feilrapportering",
-  setCrashDesc:
-    "Krasj-rapporter lagres på denne maskinen slik at et problem kan undersøkes etterpå. De sendes aldri noe sted av seg selv.",
-  setCrashLocalOnly: "Kun lokalt",
-  setOn: "På",
-  setOff: "Av",
   setCrashCount: "{n} rapport(er) lagret",
   actionClear: "Tøm",
-  setTurnOff: "Slå av",
-  setTurnOn: "Slå på",
 
   // ── Song section-type labels (verse_1 → "Vers 1") ───────────────────────
   sectionIntro: "Intro",
@@ -1358,7 +1297,6 @@ const no: Catalog = {
   wsOpenVerse: "Åpne vers i Bibel-panelet",
 
   // ── Gudstjeneste-maler ───────────────────────────────────────────────────
-  navTemplates: "Maler",
   tmplPageTitle: "Gudstjeneste-maler",
   tmplBuiltin: "Innebygd",
   tmplCustom: "Egne",
@@ -1370,7 +1308,6 @@ const no: Catalog = {
   tmplConfirmDeleteTitle: "Slette malen?",
   tmplConfirmDeleteBody: "«{name}» fjernes permanent.",
   tmplApply: "Bruk på gudstjeneste",
-  tmplApplied: "Mal brukt",
   tmplApplySelectService: "Velg en gudstjeneste å bruke malen på:",
   tmplCueSpecs: "{n} spor",
   tmplApplying: "Bruker…",
@@ -1379,7 +1316,6 @@ const no: Catalog = {
   tmplNewDescription: "Beskrivelse (valgfri)",
   tmplNewSlots: "Spor",
   tmplAddSlot: "Legg til spor",
-  tmplSlotKind: "Type",
   tmplSlotLabel: "Etikett",
   tmplSlotNotes: "Notater (valgfri)",
   tmplKindSong: "Sang",
@@ -1390,7 +1326,6 @@ const no: Catalog = {
 
   // ── Mal-sceneskjermrolle (Fase 8) ─────────────────────────────────────────
   tmplRole: "Scenerolle",
-  tmplRoleHint: "Hvem ser sceneskjermen når denne malen kjører",
   tmplRoleWorshipLeader: "Lovsangsleder",
   tmplRoleMusician: "Musiker",
   tmplRoleOperator: "Operatør",
@@ -1492,7 +1427,6 @@ const no: Catalog = {
   telConsentPrivacyLink: "Les mer i personvernerklæringen",
   telConsentDismissLabel:
     "Lukk — du blir spurt igjen neste gang du åpner appen",
-  telConsentAnswered: "Takk — valget er lagret.",
   setPrivacyTitle: "Personvern",
   setPrivacyDesc:
     "Du bestemmer om SundayStage får sende anonyme rapporter. Alt kan slås av og på når som helst, og du kan alltid se nøyaktig hva som sendes.",
@@ -1563,8 +1497,6 @@ const no: Catalog = {
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
 // before public release — see docs/LAUNCH_READINESS.md. en is the fallback.
 const sv: Catalog = {
-  appTagline: "Live-presentation",
-  navDashboard: "Översikt",
   navLibrary: "Bibliotek",
   navDecks: "Decks",
   navServices: "Gudstjänster",
@@ -1596,7 +1528,6 @@ const sv: Catalog = {
   actionAdd: "Lägg till",
   actionDone: "Klar",
   actionNext: "Nästa",
-  actionBack: "Tillbaka",
   actionSearch: "Sök",
   actionSkip: "Hoppa över",
   groupSongs: "Sånger",
@@ -1840,19 +1771,8 @@ const sv: Catalog = {
   liveStageScreen: "Scenskärm",
   liveEndOfList: "Slut på listan",
   lpStartError: "Kunde inte starta live",
-  lpExit: "Avsluta",
-  lpExitTooltip: "Avsluta (⌘Q)",
-  lpStarting: "Startar live…",
-  lpNoCuesTitle: "Inga cues att visa",
-  lpNoCuesBody:
-    "«{name}» har inga sånger eller skrift i kön än. Lägg till innehåll i gudstjänsten så kompileras kön automatiskt.",
-  lpToQueue: "Till kön",
-  lpCuesCount: "{n} cues",
-  liveNext: "nästa",
-  lpComingUp: "Kommer nu",
   lpNextCues: "Nästa cues",
   lpNoNotes: "Inga anteckningar för denna gudstjänst.",
-  lpPrevious: "Föregående",
   liveBlackout: "Blackout",
   liveMessage: "Meddelande",
   liveClearOverride: "Rensa",
@@ -1865,11 +1785,6 @@ const sv: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Hoppa till",
   lpExport: "Exportera",
-  lpNoOutputTitle: "Ingen skärm visar huvudutgången",
-  lpNoOutputBody:
-    "Ingen extern skärm är tilldelad huvudutgången. Anslut en projektor/TV, eller öppna «Skärmar»-panelen längst ner till höger och välj en skärm.",
-  lpGotIt: "Uppfattat",
-  lpOutputOpened: "Huvudutgången öppnad på den externa skärmen",
   lpJumpPlaceholder: "Hoppa till cue… (t.ex. «vers 2» eller «amazing»)",
   liveNoMatches: "Inga träffar.",
   liveShowLogo: "Visa logo",
@@ -2011,16 +1926,8 @@ const sv: Catalog = {
   setBetaUpdates: "Få beta-uppdateringar",
   setBetaUpdatesDesc:
     "Betaversioner kommer tidigare och kan ha skarpa kanter — rekommenderas inte på maskinen som kör gudstjänsten. Du kan byta tillbaka till stabil när som helst.",
-  setCrashReporting: "Kraschrapportering",
-  setCrashDesc:
-    "Kraschrapporter lagras på den här maskinen så att ett problem kan undersökas efteråt. De skickas aldrig någonstans av sig själva.",
-  setCrashLocalOnly: "Endast lokalt",
-  setOn: "På",
-  setOff: "Av",
   setCrashCount: "{n} rapport(er) lagrade",
   actionClear: "Töm",
-  setTurnOff: "Stäng av",
-  setTurnOn: "Slå på",
 
   // ── Song section-type labels (verse_1 → "Vers 1") ───────────────────────
   sectionIntro: "Intro",
@@ -2053,7 +1960,6 @@ const sv: Catalog = {
 
   // ── Operatörsarbetsyta (samlad konsol) ──────────────────────────────────
   wsBrowseLibrary: "Bibliotek",
-  wsScheduleTitle: "Körschema",
   wsEditSchedule: "Redigera körschema",
   wsScheduleEmpty: "Inget i körschemat än.",
   wsAddToSchedule: "Lägg till i körschemat",
@@ -2094,7 +2000,6 @@ const sv: Catalog = {
   kbShortcutsHelp: "Visa denna hjälp",
 
   // ── Gudstjänstmallar ─────────────────────────────────────────────────────
-  navTemplates: "Mallar",
   tmplPageTitle: "Gudstjänstmallar",
   tmplBuiltin: "Inbyggda",
   tmplCustom: "Egna",
@@ -2106,7 +2011,6 @@ const sv: Catalog = {
   tmplConfirmDeleteTitle: "Ta bort mallen?",
   tmplConfirmDeleteBody: "«{name}» tas bort permanent.",
   tmplApply: "Använd i gudstjänst",
-  tmplApplied: "Mall tillämpad",
   tmplApplySelectService: "Välj en gudstjänst att tillämpa mallen på:",
   tmplCueSpecs: "{n} platser",
   tmplApplying: "Tillämpar…",
@@ -2115,7 +2019,6 @@ const sv: Catalog = {
   tmplNewDescription: "Beskrivning (valfri)",
   tmplNewSlots: "Platser",
   tmplAddSlot: "Lägg till plats",
-  tmplSlotKind: "Typ",
   tmplSlotLabel: "Etikett",
   tmplSlotNotes: "Anteckningar (valfria)",
   tmplKindSong: "Sång",
@@ -2126,7 +2029,6 @@ const sv: Catalog = {
 
   // ── Mallens scenskärmsroll ─────────────────────────────────────────────────
   tmplRole: "Scenroll",
-  tmplRoleHint: "Vem tittar på scenskärmen när den här mallen körs",
   tmplRoleWorshipLeader: "Lovsångsledare",
   tmplRoleMusician: "Musiker",
   tmplRoleOperator: "Operatör",
@@ -2208,7 +2110,6 @@ const sv: Catalog = {
   telConsentNo: "Nej tack",
   telConsentPrivacyLink: "Läs mer i integritetspolicyn",
   telConsentDismissLabel: "Stäng — vi frågar igen nästa gång du öppnar appen",
-  telConsentAnswered: "Tack — ditt val har sparats.",
   setPrivacyTitle: "Integritet",
   setPrivacyDesc:
     "Du bestämmer om SundayStage får skicka anonyma rapporter. Det kan slås på och av när som helst, och du kan alltid se exakt vad som skickas.",
@@ -2276,8 +2177,6 @@ const sv: Catalog = {
   reportFailed: "Kunde inte spara rapporten. Försök igen.",
 };
 const da: Catalog = {
-  appTagline: "Live-præsentation",
-  navDashboard: "Oversigt",
   navLibrary: "Bibliotek",
   navDecks: "Decks",
   navServices: "Gudstjenester",
@@ -2309,7 +2208,6 @@ const da: Catalog = {
   actionAdd: "Tilføj",
   actionDone: "Færdig",
   actionNext: "Næste",
-  actionBack: "Tilbage",
   actionSearch: "Søg",
   actionSkip: "Spring over",
   groupSongs: "Sange",
@@ -2550,19 +2448,8 @@ const da: Catalog = {
   liveStageScreen: "Scenedisplay",
   liveEndOfList: "Slutningen af listen",
   lpStartError: "Kunne ikke starte live",
-  lpExit: "Afslut",
-  lpExitTooltip: "Afslut (⌘Q)",
-  lpStarting: "Starter live…",
-  lpNoCuesTitle: "Ingen cues at vise",
-  lpNoCuesBody:
-    "«{name}» har ingen sange eller skriftsteder i køen endnu. Tilføj indhold til gudstjenesten, så kompileres køen automatisk.",
-  lpToQueue: "Til køen",
-  lpCuesCount: "{n} cues",
-  liveNext: "næste",
-  lpComingUp: "Kommer nu",
   lpNextCues: "Næste cues",
   lpNoNotes: "Ingen noter til denne gudstjeneste.",
-  lpPrevious: "Forrige",
   liveBlackout: "Blackout",
   liveMessage: "Besked",
   liveClearOverride: "Ryd",
@@ -2575,11 +2462,6 @@ const da: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Hop til",
   lpExport: "Eksport",
-  lpNoOutputTitle: "Ingen skærm viser hovedudgangen",
-  lpNoOutputBody:
-    "Ingen ekstern skærm er tildelt hovedudgangen. Tilslut en projektor/TV, eller åbn «Skærme»-panelet nederst til højre og vælg en skærm.",
-  lpGotIt: "Forstået",
-  lpOutputOpened: "Hovedudgang åbnet på den eksterne skærm",
   lpJumpPlaceholder: "Hop til cue… (f.eks. «vers 2» eller «amazing»)",
   liveNoMatches: "Ingen resultater.",
   liveShowLogo: "Vis logo",
@@ -2721,16 +2603,8 @@ const da: Catalog = {
   setBetaUpdates: "Få beta-opdateringer",
   setBetaUpdatesDesc:
     "Betaversioner kommer tidligere og kan have skarpe kanter — anbefales ikke på maskinen, der kører gudstjenesten. Du kan skifte tilbage til stabil når som helst.",
-  setCrashReporting: "Fejlrapportering",
-  setCrashDesc:
-    "Nedbrudsrapporter gemmes på denne maskine, så et problem kan undersøges bagefter. De sendes aldrig nogen steder af sig selv.",
-  setCrashLocalOnly: "Kun lokalt",
-  setOn: "Til",
-  setOff: "Fra",
   setCrashCount: "{n} rapport(er) gemt",
   actionClear: "Ryd",
-  setTurnOff: "Slå fra",
-  setTurnOn: "Slå til",
 
   // ── Song section-type labels (verse_1 → "Vers 1") ───────────────────────
   sectionIntro: "Intro",
@@ -2763,7 +2637,6 @@ const da: Catalog = {
 
   // ── Operatørarbejdsflade (samlet konsol) ─────────────────────────────────
   wsBrowseLibrary: "Bibliotek",
-  wsScheduleTitle: "Køreplan",
   wsEditSchedule: "Redigér køreplan",
   wsScheduleEmpty: "Intet i køreplanen endnu.",
   wsAddToSchedule: "Tilføj til køreplan",
@@ -2804,7 +2677,6 @@ const da: Catalog = {
   kbShortcutsHelp: "Vis denne hjælp",
 
   // ── Gudstjenesteskabeloner ───────────────────────────────────────────────
-  navTemplates: "Skabeloner",
   tmplPageTitle: "Gudstjenesteskabeloner",
   tmplBuiltin: "Indbyggede",
   tmplCustom: "Egne",
@@ -2816,7 +2688,6 @@ const da: Catalog = {
   tmplConfirmDeleteTitle: "Slet skabelonen?",
   tmplConfirmDeleteBody: "«{name}» fjernes permanent.",
   tmplApply: "Brug i gudstjeneste",
-  tmplApplied: "Skabelon anvendt",
   tmplApplySelectService: "Vælg en gudstjeneste at anvende skabelonen på:",
   tmplCueSpecs: "{n} pladser",
   tmplApplying: "Anvender…",
@@ -2825,7 +2696,6 @@ const da: Catalog = {
   tmplNewDescription: "Beskrivelse (valgfri)",
   tmplNewSlots: "Pladser",
   tmplAddSlot: "Tilføj plads",
-  tmplSlotKind: "Type",
   tmplSlotLabel: "Etiket",
   tmplSlotNotes: "Noter (valgfri)",
   tmplKindSong: "Sang",
@@ -2836,7 +2706,6 @@ const da: Catalog = {
 
   // ── Skabelonens scenedisplayrolle ──────────────────────────────────────────
   tmplRole: "Scenerolle",
-  tmplRoleHint: "Hvem ser scenedisplayet, når denne skabelon kører",
   tmplRoleWorshipLeader: "Lovsangsleder",
   tmplRoleMusician: "Musiker",
   tmplRoleOperator: "Operatør",
@@ -2918,7 +2787,6 @@ const da: Catalog = {
   telConsentNo: "Nej tak",
   telConsentPrivacyLink: "Læs mere i privatlivspolitikken",
   telConsentDismissLabel: "Luk — vi spørger igen, næste gang du åbner appen",
-  telConsentAnswered: "Tak — dit valg er gemt.",
   setPrivacyTitle: "Privatliv",
   setPrivacyDesc:
     "Du bestemmer, om SundayStage må sende anonyme rapporter. Det kan slås til og fra når som helst, og du kan altid se præcis, hvad der sendes.",
@@ -2986,8 +2854,6 @@ const da: Catalog = {
   reportFailed: "Kunne ikke gemme rapporten. Prøv igen.",
 };
 const de: Catalog = {
-  appTagline: "Live-Präsentation",
-  navDashboard: "Übersicht",
   navLibrary: "Bibliothek",
   navDecks: "Decks",
   navServices: "Gottesdienste",
@@ -3019,7 +2885,6 @@ const de: Catalog = {
   actionAdd: "Hinzufügen",
   actionDone: "Fertig",
   actionNext: "Weiter",
-  actionBack: "Zurück",
   actionSearch: "Suchen",
   actionSkip: "Überspringen",
   groupSongs: "Lieder",
@@ -3264,19 +3129,8 @@ const de: Catalog = {
   liveStageScreen: "Bühnenanzeige",
   liveEndOfList: "Ende der Liste",
   lpStartError: "Live konnte nicht gestartet werden",
-  lpExit: "Beenden",
-  lpExitTooltip: "Beenden (⌘Q)",
-  lpStarting: "Live wird gestartet…",
-  lpNoCuesTitle: "Keine Cues zum Anzeigen",
-  lpNoCuesBody:
-    "«{name}» hat noch keine Lieder oder Schriftstellen in der Warteschlange. Füge dem Gottesdienst Inhalt hinzu, und die Warteschlange wird automatisch kompiliert.",
-  lpToQueue: "Zur Warteschlange",
-  lpCuesCount: "{n} Cues",
-  liveNext: "nächste",
-  lpComingUp: "Als Nächstes",
   lpNextCues: "Nächste Cues",
   lpNoNotes: "Keine Notizen für diesen Gottesdienst.",
-  lpPrevious: "Vorherige",
   liveBlackout: "Blackout",
   liveMessage: "Nachricht",
   liveClearOverride: "Zurücksetzen",
@@ -3289,11 +3143,6 @@ const de: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Springen zu",
   lpExport: "Export",
-  lpNoOutputTitle: "Kein Bildschirm zeigt die Hauptausgabe",
-  lpNoOutputBody:
-    "Kein externer Bildschirm ist der Hauptausgabe zugewiesen. Verbinde einen Projektor/Fernseher oder öffne unten rechts das Panel «Bildschirme» und wähle einen Bildschirm.",
-  lpGotIt: "Verstanden",
-  lpOutputOpened: "Hauptausgabe auf dem externen Bildschirm geöffnet",
   lpJumpPlaceholder: "Zu Cue springen… (z. B. «Strophe 2» oder «amazing»)",
   liveNoMatches: "Keine Treffer.",
   liveShowLogo: "Logo anzeigen",
@@ -3439,16 +3288,8 @@ const de: Catalog = {
   setBetaUpdates: "Beta-Updates erhalten",
   setBetaUpdatesDesc:
     "Beta-Versionen kommen früher und können Ecken und Kanten haben — nicht empfohlen auf dem Gerät, das den Gottesdienst fährt. Du kannst jederzeit zu Stabil zurückwechseln.",
-  setCrashReporting: "Absturzberichte",
-  setCrashDesc:
-    "Absturzberichte werden auf diesem Gerät gespeichert, damit ein Problem später untersucht werden kann. Sie werden von sich aus nirgendwohin gesendet.",
-  setCrashLocalOnly: "Nur lokal",
-  setOn: "An",
-  setOff: "Aus",
   setCrashCount: "{n} Bericht(e) gespeichert",
   actionClear: "Leeren",
-  setTurnOff: "Ausschalten",
-  setTurnOn: "Einschalten",
 
   // ── Song section-type labels (verse_1 → "Strophe 1") ────────────────────
   sectionIntro: "Intro",
@@ -3482,7 +3323,6 @@ const de: Catalog = {
 
   // ── Operator-Arbeitsbereich (vereinte Konsole) ───────────────────────────
   wsBrowseLibrary: "Bibliothek",
-  wsScheduleTitle: "Ablaufplan",
   wsEditSchedule: "Ablaufplan bearbeiten",
   wsScheduleEmpty: "Noch nichts im Ablaufplan.",
   wsAddToSchedule: "Zum Ablaufplan hinzufügen",
@@ -3525,7 +3365,6 @@ const de: Catalog = {
   kbShortcutsHelp: "Diese Hilfe anzeigen",
 
   // ── Gottesdienst-Vorlagen ────────────────────────────────────────────────
-  navTemplates: "Vorlagen",
   tmplPageTitle: "Gottesdienst-Vorlagen",
   tmplBuiltin: "Integriert",
   tmplCustom: "Eigene",
@@ -3537,7 +3376,6 @@ const de: Catalog = {
   tmplConfirmDeleteTitle: "Vorlage löschen?",
   tmplConfirmDeleteBody: "«{name}» wird dauerhaft entfernt.",
   tmplApply: "Im Gottesdienst verwenden",
-  tmplApplied: "Vorlage angewendet",
   tmplApplySelectService:
     "Wähle einen Gottesdienst, auf den die Vorlage angewendet werden soll:",
   tmplCueSpecs: "{n} Plätze",
@@ -3547,7 +3385,6 @@ const de: Catalog = {
   tmplNewDescription: "Beschreibung (optional)",
   tmplNewSlots: "Plätze",
   tmplAddSlot: "Platz hinzufügen",
-  tmplSlotKind: "Art",
   tmplSlotLabel: "Bezeichnung",
   tmplSlotNotes: "Notizen (optional)",
   tmplKindSong: "Lied",
@@ -3558,7 +3395,6 @@ const de: Catalog = {
 
   // ── Bühnenanzeige-Rolle der Vorlage ─────────────────────────────────────────
   tmplRole: "Bühnenrolle",
-  tmplRoleHint: "Wer schaut auf die Bühnenanzeige, wenn diese Vorlage läuft",
   tmplRoleWorshipLeader: "Lobpreisleiter",
   tmplRoleMusician: "Musiker",
   tmplRoleOperator: "Operator",
@@ -3643,7 +3479,6 @@ const de: Catalog = {
   telConsentNo: "Nein, danke",
   telConsentPrivacyLink: "Mehr in der Datenschutzerklärung",
   telConsentDismissLabel: "Schließen — wir fragen beim nächsten Start erneut",
-  telConsentAnswered: "Danke — deine Wahl wurde gespeichert.",
   setPrivacyTitle: "Datenschutz",
   setPrivacyDesc:
     "Du entscheidest, ob SundayStage anonyme Berichte senden darf. Das lässt sich jederzeit ein- und ausschalten, und du kannst immer genau sehen, was gesendet würde.",
@@ -3713,8 +3548,6 @@ const de: Catalog = {
     "Der Bericht konnte nicht gespeichert werden. Bitte versuche es erneut.",
 };
 const fr: Catalog = {
-  appTagline: "Présentation en direct",
-  navDashboard: "Tableau de bord",
   navLibrary: "Bibliothèque",
   navDecks: "Decks",
   navServices: "Services",
@@ -3746,7 +3579,6 @@ const fr: Catalog = {
   actionAdd: "Ajouter",
   actionDone: "Terminé",
   actionNext: "Suivant",
-  actionBack: "Retour",
   actionSearch: "Rechercher",
   actionSkip: "Ignorer",
   groupSongs: "Chants",
@@ -3992,19 +3824,8 @@ const fr: Catalog = {
   liveStageScreen: "Écran de scène",
   liveEndOfList: "Fin de la liste",
   lpStartError: "Impossible de démarrer le direct",
-  lpExit: "Quitter",
-  lpExitTooltip: "Quitter (⌘Q)",
-  lpStarting: "Démarrage du direct…",
-  lpNoCuesTitle: "Aucun cue à afficher",
-  lpNoCuesBody:
-    "«{name}» n'a encore aucun chant ni écriture dans la file d'attente. Ajoutez du contenu au service et la file d'attente se compile automatiquement.",
-  lpToQueue: "Vers la file d'attente",
-  lpCuesCount: "{n} cues",
-  liveNext: "suivant",
-  lpComingUp: "À venir",
   lpNextCues: "Cues suivants",
   lpNoNotes: "Aucune note pour ce service.",
-  lpPrevious: "Précédent",
   liveBlackout: "Blackout",
   liveMessage: "Message",
   liveClearOverride: "Effacer",
@@ -4017,11 +3838,6 @@ const fr: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Aller à",
   lpExport: "Exporter",
-  lpNoOutputTitle: "Aucun écran n'affiche la sortie principale",
-  lpNoOutputBody:
-    "Aucun écran externe n'est attribué à la sortie principale. Connectez un projecteur/TV, ou ouvrez le panneau «Écrans» en bas à droite et choisissez un écran.",
-  lpGotIt: "Compris",
-  lpOutputOpened: "Sortie principale ouverte sur l'écran externe",
   lpJumpPlaceholder: "Aller au cue… (par ex. «couplet 2» ou «amazing»)",
   liveNoMatches: "Aucun résultat.",
   liveShowLogo: "Afficher le logo",
@@ -4169,16 +3985,8 @@ const fr: Catalog = {
   setBetaUpdates: "Recevoir les mises à jour bêta",
   setBetaUpdatesDesc:
     "Les versions bêta arrivent plus tôt et peuvent comporter des aspérités — déconseillé sur la machine qui anime le culte. Vous pouvez revenir au canal stable à tout moment.",
-  setCrashReporting: "Rapports d'incident",
-  setCrashDesc:
-    "Les rapports d'incident sont conservés sur cette machine afin qu'un problème puisse être examiné ensuite. Ils ne sont jamais envoyés d'eux-mêmes.",
-  setCrashLocalOnly: "Local uniquement",
-  setOn: "Activé",
-  setOff: "Désactivé",
   setCrashCount: "{n} rapport(s) stocké(s)",
   actionClear: "Effacer",
-  setTurnOff: "Désactiver",
-  setTurnOn: "Activer",
 
   // ── Song section-type labels (verse_1 → "Couplet 1") ────────────────────
   sectionIntro: "Intro",
@@ -4211,7 +4019,6 @@ const fr: Catalog = {
 
   // ── Espace de travail de l'opérateur (console unifiée) ───────────────────
   wsBrowseLibrary: "Bibliothèque",
-  wsScheduleTitle: "Déroulé",
   wsEditSchedule: "Modifier le déroulé",
   wsScheduleEmpty: "Rien dans le déroulé pour l'instant.",
   wsAddToSchedule: "Ajouter au déroulé",
@@ -4253,7 +4060,6 @@ const fr: Catalog = {
   kbShortcutsHelp: "Afficher cette aide",
 
   // ── Modèles de service ───────────────────────────────────────────────────
-  navTemplates: "Modèles",
   tmplPageTitle: "Modèles de service",
   tmplBuiltin: "Intégrés",
   tmplCustom: "Personnalisés",
@@ -4265,7 +4071,6 @@ const fr: Catalog = {
   tmplConfirmDeleteTitle: "Supprimer le modèle ?",
   tmplConfirmDeleteBody: "«{name}» sera supprimé définitivement.",
   tmplApply: "Utiliser dans un service",
-  tmplApplied: "Modèle appliqué",
   tmplApplySelectService:
     "Sélectionnez un service auquel appliquer le modèle :",
   tmplCueSpecs: "{n} emplacements",
@@ -4275,7 +4080,6 @@ const fr: Catalog = {
   tmplNewDescription: "Description (facultative)",
   tmplNewSlots: "Emplacements",
   tmplAddSlot: "Ajouter un emplacement",
-  tmplSlotKind: "Type",
   tmplSlotLabel: "Étiquette",
   tmplSlotNotes: "Notes (facultatives)",
   tmplKindSong: "Chant",
@@ -4286,7 +4090,6 @@ const fr: Catalog = {
 
   // ── Rôle d'écran de scène du modèle ─────────────────────────────────────────
   tmplRole: "Rôle de scène",
-  tmplRoleHint: "Qui regarde l'écran de scène lorsque ce modèle s'exécute",
   tmplRoleWorshipLeader: "Responsable de louange",
   tmplRoleMusician: "Musicien",
   tmplRoleOperator: "Opérateur",
@@ -4371,7 +4174,6 @@ const fr: Catalog = {
   telConsentPrivacyLink: "En savoir plus dans la politique de confidentialité",
   telConsentDismissLabel:
     "Fermer — nous redemanderons à la prochaine ouverture",
-  telConsentAnswered: "Merci — votre choix est enregistré.",
   setPrivacyTitle: "Confidentialité",
   setPrivacyDesc:
     "Vous décidez si SundayStage peut envoyer des rapports anonymes. Cela s'active et se désactive à tout moment, et vous pouvez toujours voir exactement ce qui serait envoyé.",
@@ -4442,8 +4244,6 @@ const fr: Catalog = {
   reportFailed: "Impossible d'enregistrer le signalement. Veuillez réessayer.",
 };
 const pl: Catalog = {
-  appTagline: "Prezentacja na żywo",
-  navDashboard: "Pulpit",
   navLibrary: "Biblioteka",
   navDecks: "Decks",
   navServices: "Nabożeństwa",
@@ -4475,7 +4275,6 @@ const pl: Catalog = {
   actionAdd: "Dodaj",
   actionDone: "Gotowe",
   actionNext: "Dalej",
-  actionBack: "Wstecz",
   actionSearch: "Szukaj",
   actionSkip: "Pomiń",
   groupSongs: "Pieśni",
@@ -4715,19 +4514,8 @@ const pl: Catalog = {
   liveStageScreen: "Ekran sceniczny",
   liveEndOfList: "Koniec listy",
   lpStartError: "Nie udało się rozpocząć transmisji na żywo",
-  lpExit: "Zakończ",
-  lpExitTooltip: "Zakończ (⌘Q)",
-  lpStarting: "Rozpoczynanie transmisji na żywo…",
-  lpNoCuesTitle: "Brak cues do wyświetlenia",
-  lpNoCuesBody:
-    "«{name}» nie ma jeszcze pieśni ani Pisma w kolejce. Dodaj treść do nabożeństwa, a kolejka skompiluje się automatycznie.",
-  lpToQueue: "Do kolejki",
-  lpCuesCount: "{n} cues",
-  liveNext: "następny",
-  lpComingUp: "Już za chwilę",
   lpNextCues: "Następne cues",
   lpNoNotes: "Brak notatek do tego nabożeństwa.",
-  lpPrevious: "Poprzedni",
   liveBlackout: "Blackout",
   liveMessage: "Komunikat",
   liveClearOverride: "Wyczyść",
@@ -4740,11 +4528,6 @@ const pl: Catalog = {
   liveLogo: "Logo",
   lpJumpTo: "Przejdź do",
   lpExport: "Eksport",
-  lpNoOutputTitle: "Żaden ekran nie wyświetla wyjścia głównego",
-  lpNoOutputBody:
-    "Żaden zewnętrzny ekran nie jest przypisany do wyjścia głównego. Podłącz projektor/TV lub otwórz panel «Ekrany» w prawym dolnym rogu i wybierz ekran.",
-  lpGotIt: "Rozumiem",
-  lpOutputOpened: "Wyjście główne otwarte na ekranie zewnętrznym",
   lpJumpPlaceholder: "Przejdź do cue… (np. «zwrotka 2» lub «amazing»)",
   liveNoMatches: "Brak wyników.",
   liveShowLogo: "Pokaż logo",
@@ -4886,16 +4669,8 @@ const pl: Catalog = {
   setBetaUpdates: "Odbieraj aktualizacje beta",
   setBetaUpdatesDesc:
     "Wersje beta pojawiają się wcześniej i mogą mieć niedociągnięcia — niezalecane na komputerze prowadzącym nabożeństwo. W każdej chwili możesz wrócić do kanału stabilnego.",
-  setCrashReporting: "Raportowanie awarii",
-  setCrashDesc:
-    "Raporty awarii są przechowywane na tym komputerze, aby problem można było zbadać później. Nigdy nie są nigdzie wysyłane samoczynnie.",
-  setCrashLocalOnly: "Tylko lokalnie",
-  setOn: "Wł.",
-  setOff: "Wył.",
   setCrashCount: "{n} zapisanych raportów",
   actionClear: "Wyczyść",
-  setTurnOff: "Wyłącz",
-  setTurnOn: "Włącz",
 
   // ── Song section-type labels (verse_1 → "Zwrotka 1") ────────────────────
   sectionIntro: "Intro",
@@ -4927,7 +4702,6 @@ const pl: Catalog = {
 
   // ── Pulpit operatora (zintegrowana konsola) ──────────────────────────────
   wsBrowseLibrary: "Biblioteka",
-  wsScheduleTitle: "Plan przebiegu",
   wsEditSchedule: "Edytuj plan przebiegu",
   wsScheduleEmpty: "Nic jeszcze w planie przebiegu.",
   wsAddToSchedule: "Dodaj do planu przebiegu",
@@ -4969,7 +4743,6 @@ const pl: Catalog = {
   kbShortcutsHelp: "Pokaż tę pomoc",
 
   // ── Szablony nabożeństw ──────────────────────────────────────────────────
-  navTemplates: "Szablony",
   tmplPageTitle: "Szablony nabożeństw",
   tmplBuiltin: "Wbudowane",
   tmplCustom: "Własne",
@@ -4981,7 +4754,6 @@ const pl: Catalog = {
   tmplConfirmDeleteTitle: "Usunąć szablon?",
   tmplConfirmDeleteBody: "«{name}» zostanie trwale usunięty.",
   tmplApply: "Użyj w nabożeństwie",
-  tmplApplied: "Zastosowano szablon",
   tmplApplySelectService: "Wybierz nabożeństwo, do którego zastosować szablon:",
   tmplCueSpecs: "{n} miejsc",
   tmplApplying: "Stosowanie…",
@@ -4990,7 +4762,6 @@ const pl: Catalog = {
   tmplNewDescription: "Opis (opcjonalnie)",
   tmplNewSlots: "Miejsca",
   tmplAddSlot: "Dodaj miejsce",
-  tmplSlotKind: "Typ",
   tmplSlotLabel: "Etykieta",
   tmplSlotNotes: "Notatki (opcjonalnie)",
   tmplKindSong: "Pieśń",
@@ -5001,7 +4772,6 @@ const pl: Catalog = {
 
   // ── Rola szablonu na ekranie scenicznym ─────────────────────────────────────
   tmplRole: "Rola sceniczna",
-  tmplRoleHint: "Kto patrzy na ekran sceniczny, gdy działa ten szablon",
   tmplRoleWorshipLeader: "Prowadzący uwielbienie",
   tmplRoleMusician: "Muzyk",
   tmplRoleOperator: "Operator",
@@ -5086,7 +4856,6 @@ const pl: Catalog = {
   telConsentPrivacyLink: "Więcej w polityce prywatności",
   telConsentDismissLabel:
     "Zamknij — zapytamy ponownie przy następnym uruchomieniu",
-  telConsentAnswered: "Dziękujemy — wybór został zapisany.",
   setPrivacyTitle: "Prywatność",
   setPrivacyDesc:
     "To Ty decydujesz, czy SundayStage może wysyłać anonimowe raporty. Możesz to włączyć i wyłączyć w dowolnej chwili i zawsze zobaczyć dokładnie, co zostałoby wysłane.",
