@@ -13,7 +13,11 @@ use crate::AppState;
 
 /// Whether a cloud backend is configured. Wired to real config when Phase 9's
 /// Supabase transport lands.
-const CLOUD_ENABLED: bool = false;
+///
+/// Public since E5: the telemetry payload's `syncEnabled` reads THIS, not a
+/// literal of its own, so the number reported is the one the operator's sync
+/// indicator shows. Two spellings of one fact is one spelling too many.
+pub const CLOUD_ENABLED: bool = false;
 
 #[tauri::command]
 pub fn sync_status(state: State<'_, AppState>) -> AppResult<SyncStatus> {

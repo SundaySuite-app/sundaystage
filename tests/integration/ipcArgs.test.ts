@@ -380,12 +380,71 @@ describe("ipc arg-shape contract", () => {
       ["libraryId"],
     );
     await expectCall(() => ipc.sync.status(), "sync_status", []);
-    await expectCall(() => ipc.crash.status(), "crash_reporting_status", []);
-    await expectCall(() => ipc.crash.set(true), "crash_reporting_set", [
-      "enabled",
-    ]);
+    // No `crash.status` / `crash.set` since E5: local capture is always on,
+    // because the ring never leaves the machine. Sending is `telemetry.consent`.
     await expectCall(() => ipc.crash.count(), "crash_reports_count", []);
     await expectCall(() => ipc.crash.clear(), "crash_reports_clear", []);
+    await expectCall(
+      () =>
+        ipc.crash.report({ kind: "webview_error", message: "TypeError: x" }),
+      "crash_report_frontend",
+      ["kind", "message", "location", "component"],
+    );
+  });
+
+  // ── Local observation (E3) + the telemetry client (E5) ──────────────────
+  //
+  // Worth pinning harder than most: these are the commands with no UI in this
+  // release, so a drifted name or arg key would not be caught by anyone using
+  // the app. E6 builds the consent UX on exactly this surface.
+  it("telemetry — local observation (E3)", async () => {
+    await expectCall(() => ipc.telemetry.counters(), "telemetry_counters", []);
+    await expectCall(
+      () => ipc.telemetry.quality(20),
+      "telemetry_quality_recent",
+      ["limit"],
+    );
+    await expectCall(() => ipc.telemetry.flush(), "telemetry_flush", []);
+    await expectCall(() => ipc.telemetry.clear(), "telemetry_clear", []);
+    await expectCall(() => ipc.telemetry.logTail(50), "log_tail", ["lines"]);
+  });
+
+  it("telemetry — the client (E5)", async () => {
+    await expectCall(
+      () => ipc.telemetry.consent.get(),
+      "telemetry_consent_get",
+      [],
+    );
+    await expectCall(
+      () => ipc.telemetry.consent.set(true),
+      "telemetry_consent_set",
+      ["granted"],
+    );
+    await expectCall(
+      () => ipc.telemetry.regenerateInstallId(),
+      "telemetry_regenerate_install_id",
+      [],
+    );
+    await expectCall(
+      () => ipc.telemetry.deleteMyData(),
+      "telemetry_delete_my_data",
+      [],
+    );
+    await expectCall(
+      () => ipc.telemetry.queueStatus(),
+      "telemetry_queue_status",
+      [],
+    );
+    await expectCall(
+      () => ipc.telemetry.previewPayload(),
+      "telemetry_preview_payload",
+      [],
+    );
+    await expectCall(
+      () => ipc.telemetry.setLanguage("nb"),
+      "telemetry_set_language",
+      ["lang"],
+    );
   });
 
   it("output", async () => {

@@ -8,6 +8,7 @@ use crate::db::models::{BibleTranslation, BibleVerse, ServiceItem};
 use crate::db::repositories::{BibleRepo, ServiceRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::bible::{book_display, parse_reference, render_reference};
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 /// A book in a translation, with its localized display name.
@@ -164,7 +165,7 @@ pub async fn bible_add_to_service(
             .fetch_one(&state.db.pool)
             .await?;
 
-    ServiceRepo::new(&state.db.pool)
+    let item = ServiceRepo::new(&state.db.pool)
         .add_item(
             &service_id,
             position,
@@ -175,5 +176,13 @@ pub async fn bible_add_to_service(
             Some(&cached.id),
             None,
         )
-        .await
+        .await?;
+    // E5 — `bible.verse.projected` counts a passage being PUT ON THE SCHEDULE,
+    // which is this command. The counter's name is the wire contract and cannot
+    // be changed, but its meaning is worth stating: nothing else in the app
+    // knows a slide came from scripture once it is a service item.
+    state
+        .telemetry
+        .note_counter(crate::telemetry::counters::CounterName::BibleVerseProjected);
+    Ok(item)
 }

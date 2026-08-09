@@ -163,6 +163,18 @@ pub fn run() {
                 pending_update: Mutex::new(None),
                 telemetry: Arc::new(QualityCollector::new()),
             });
+
+            // E5 — the telemetry client's startup, AFTER `manage` so it can
+            // reach the state. Nothing can be live yet, so the drain (if any)
+            // cannot contend with a service. On every install shipping this
+            // stage it reads one row, finds no consent, and returns.
+            let startup_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Some(state) = startup_handle.try_state::<AppState>() {
+                    crate::commands::telemetry::startup(&startup_handle, state.inner()).await;
+                }
+            });
+
             tracing::info!("SundayStage backend ready");
             Ok(())
         })
@@ -220,9 +232,9 @@ pub fn run() {
             commands::sync::sync_status,
             // Library publish (desktop → cloud, one-way)
             commands::library_publish::library_publish,
-            // Crash reporting (Phase 6.1, rebuilt on the E3 crash ring)
-            commands::crash::crash_reporting_status,
-            commands::crash::crash_reporting_set,
+            // Crash reporting (Phase 6.1, rebuilt on the E3 crash ring).
+            // Local capture is always on since E5 — the ring is the boundary —
+            // so there is no status/set pair any more.
             commands::crash::crash_reports_count,
             commands::crash::crash_reports_clear,
             commands::crash::crash_report_frontend,
@@ -232,6 +244,16 @@ pub fn run() {
             commands::telemetry::telemetry_flush,
             commands::telemetry::telemetry_clear,
             commands::telemetry::log_tail,
+            // The telemetry client (E5). Inert until E6 builds a way to answer
+            // the consent question: with no answer recorded, `consent_get` is
+            // `never-asked`, no install id exists and nothing is ever queued.
+            commands::telemetry::telemetry_consent_get,
+            commands::telemetry::telemetry_consent_set,
+            commands::telemetry::telemetry_regenerate_install_id,
+            commands::telemetry::telemetry_delete_my_data,
+            commands::telemetry::telemetry_queue_status,
+            commands::telemetry::telemetry_preview_payload,
+            commands::telemetry::telemetry_set_language,
             // Auto-update over the app-scoped rings (E2)
             commands::updater::update_channel_get,
             commands::updater::update_channel_set,
@@ -336,6 +358,9 @@ pub fn run() {
                 if let Some(supervisor) = supervisor {
                     tauri::async_runtime::block_on(supervisor.shutdown());
                 }
+                // E5 — and the telemetry pump with it, on the same bounded
+                // grace. A no-op in every build that never started one.
+                tauri::async_runtime::block_on(crate::telemetry::sender::shutdown());
             }
         });
 }

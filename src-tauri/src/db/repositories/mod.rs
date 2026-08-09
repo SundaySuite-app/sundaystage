@@ -26,6 +26,6 @@ pub use media::MediaRepo;
 pub use service_templates::ServiceTemplateRepo;
 pub use services::ServiceRepo;
 pub use songs::SongRepo;
-pub use telemetry::TelemetryRepo;
+pub use telemetry::{StateKey, TelemetryRepo};
 pub use themes::ThemeRepo;
 pub use translate::TranslateRepo;

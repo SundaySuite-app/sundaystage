@@ -16,6 +16,7 @@ use crate::db::repositories::SongRepo;
 use crate::error::AppResult;
 use crate::services::ai::lyric_format::apply_formatted_song;
 use crate::services::song_import::{import_song, ImportFormat};
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 /// Outcome of importing one song file.
@@ -57,6 +58,12 @@ pub async fn import_song_file(
         .await?;
 
     apply_formatted_song(&state.db.pool, &song.id, &formatted).await?;
+
+    // E5 — one import RUN, not one song: the counter answers "is the importer
+    // used", and a hundred-file drag would otherwise drown every other counter.
+    state
+        .telemetry
+        .note_counter(crate::telemetry::counters::CounterName::LibraryImportRun);
 
     Ok(ImportResult {
         song_id: song.id,

@@ -9,7 +9,7 @@ import { hasSeenTutorial, markTutorialSeen } from "@/lib/tutorial";
 import { OperatorWorkspace } from "@/features/workspace/OperatorWorkspace";
 import { WelcomeScreen } from "@/features/onboarding/WelcomeScreen";
 import { ipc } from "@/lib/ipc";
-import { useT } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n";
 import type { Library } from "@/lib/bindings";
 
 const ONBOARDED_KEY = "ss-onboarded";
@@ -22,6 +22,22 @@ function App() {
   useEffect(() => {
     installErrorReporting();
   }, []);
+
+  // E5 — mirror the UI locale into the backend whenever it changes.
+  //
+  // The locale is a renderer concern (`localStorage`), so Rust cannot read it,
+  // and a telemetry payload that could not name the UI language would be
+  // missing the one setting that says which translations actually get used.
+  // Mirroring here rather than inside the i18n store keeps `lib/i18n.ts` free of
+  // any dependency on IPC — it is imported by pure unit tests that have no Tauri
+  // host. Fire-and-forget: a failed mirror must never surface to an operator who
+  // only changed the menu language.
+  const lang = useLocale((s) => s.lang);
+  useEffect(() => {
+    void ipc.telemetry.setLanguage(lang).catch(() => {
+      /* a stale language field is not worth an error */
+    });
+  }, [lang]);
 
   const [tutorialDone, setTutorialDone] = useState(() => hasSeenTutorial());
   const [onboarded, setOnboarded] = useState(() => {

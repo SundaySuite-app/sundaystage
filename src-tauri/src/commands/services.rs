@@ -9,6 +9,7 @@ use crate::db::repositories::{DeckRepo, ServiceRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::cue_list::{CueCompiler, CueSummary};
 use crate::services::sundayplan::{self, PlanImportResult};
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 #[tauri::command]
@@ -18,9 +19,15 @@ pub async fn service_create(
     name: String,
     starts_at: i64,
 ) -> AppResult<Service> {
-    ServiceRepo::new(&state.db.pool)
+    let service = ServiceRepo::new(&state.db.pool)
         .create(&library_id, &name, starts_at)
-        .await
+        .await?;
+    // E5 — counted only on success: a validation failure is not a service. One
+    // relaxed atomic add, no allocation, no `Result` (see `LiveSafe`).
+    state
+        .telemetry
+        .note_counter(crate::telemetry::counters::CounterName::EditorServiceCreated);
+    Ok(service)
 }
 
 #[tauri::command]

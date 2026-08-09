@@ -61,7 +61,10 @@ import type {
   SongSection,
   QualityRow,
   SyncStatus,
+  TelemetryConsent,
   TelemetryFlush,
+  TelemetryPreview,
+  TelemetryQueueStatus,
   Template,
   Theme,
   ThemeTokens,
@@ -476,10 +479,12 @@ export const bible = {
 };
 
 // ── Crash reporting (Phase 6.1) ─────────────────────────────────────────────────
+//
+// Local capture is ALWAYS ON since E5 — hence no `status`/`set` pair. The ring
+// never leaves the machine, which is exactly why it needs no permission; what
+// needs permission is sending, and that is `telemetry.consent` below.
 
 export const crash = {
-  status: () => call<boolean>("crash_reporting_status"),
-  set: (enabled: boolean) => call<void>("crash_reporting_set", { enabled }),
   count: () => call<number>("crash_reports_count"),
   clear: () => call<void>("crash_reports_clear"),
   /**
@@ -505,11 +510,17 @@ export const crash = {
     }),
 };
 
-// ── Local observation (E3) ─────────────────────────────────────────────────────
+// ── Local observation (E3) + the client (E5) ───────────────────────────────────
 //
-// Reads of what this machine has accumulated, plus the log tail. NOTHING here
-// sends anything anywhere — that is E5. `logTail` takes a LINE COUNT and no
-// path, deliberately: the renderer cannot aim the reader at a file.
+// The E3 half reads what this machine has accumulated, plus the log tail.
+// `logTail` takes a LINE COUNT and no path, deliberately: the renderer cannot
+// aim the reader at a file.
+//
+// The E5 half is the machinery that COULD send. It sends nothing in this
+// release, for two independent reasons: no UI calls `consent.set`, so the record
+// stays `never-asked`; and no build has a telemetry endpoint baked in, so no
+// sender is ever constructed. E6 builds the consent UX; until then these exist
+// so that E6 adds a question rather than a pipeline.
 
 export const telemetry = {
   counters: () => call<CounterTotal[]>("telemetry_counters"),
@@ -520,6 +531,60 @@ export const telemetry = {
   clear: () => call<void>("telemetry_clear"),
   logTail: (lines?: number) =>
     call<string>("log_tail", { lines: lines ?? null }),
+
+  /**
+   * The three-state consent record.
+   *
+   * `status` is `never-asked` | `granted` | `denied` — and `never-asked` is NOT
+   * `denied`: the first must be asked exactly once, the second left alone
+   * forever. Read `needsPrompt` and `active` rather than deriving them; the
+   * "a stale grant is not a grant" rule lives in Rust and has tests.
+   */
+  consent: {
+    get: () => call<TelemetryConsent>("telemetry_consent_get"),
+    /**
+     * Record an answer. Granting mints the install id and starts the send
+     * pump; revoking purges the outbox and the accumulated counters, so "off"
+     * means nothing is left to send rather than a paused pile.
+     */
+    set: (granted: boolean) =>
+      call<TelemetryConsent>("telemetry_consent_set", { granted }),
+  },
+
+  /**
+   * Become a different install: the current id is retired and parked for a
+   * remote delete. Resolves to the new id, or `null` when consent is not
+   * active — someone who is not consenting must not be handed a fresh durable
+   * identifier.
+   */
+  regenerateInstallId: () =>
+    call<string | null>("telemetry_regenerate_install_id"),
+
+  /**
+   * "Delete my data": retire the identity, empty the outbox, and delete the
+   * local observation copy. Deliberately NOT consent-gated — a deletion is the
+   * withdrawal of data already contributed, and is most needed by someone who
+   * has already said no.
+   */
+  deleteMyData: () => call<string | null>("telemetry_delete_my_data"),
+
+  /** What is waiting to be delivered, for an honest settings line. */
+  queueStatus: () => call<TelemetryQueueStatus>("telemetry_queue_status"),
+
+  /**
+   * The exact payload this machine would send, through the REAL builder — a
+   * mock would be a promise about code that never runs. Read-only: it mints no
+   * id, advances no watermark and spends no counter.
+   */
+  previewPayload: () => call<TelemetryPreview>("telemetry_preview_payload"),
+
+  /**
+   * Mirror the UI locale into the backend. The locale lives in `localStorage`,
+   * which Rust cannot read, and a payload that could not name the UI language
+   * would be missing the one setting that says which translations get used.
+   * Reduced to a primary subtag on the way in (`nb-NO` → `nb`).
+   */
+  setLanguage: (lang: string) => call<void>("telemetry_set_language", { lang }),
 };
 
 // ── Auto-update over the app-scoped rings (E2) ──────────────────────────────────

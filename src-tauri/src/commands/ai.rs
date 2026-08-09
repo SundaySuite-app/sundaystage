@@ -31,6 +31,8 @@ use crate::services::ai::{
     claude_models, keystore, AiProvider, AiPurpose, AnthropicProvider, ClaudeModel,
     StructuredRequest, DEFAULT_MODEL,
 };
+use crate::telemetry::counters::CounterName;
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 #[tauri::command]
@@ -58,25 +60,50 @@ pub struct AiTestResult {
 
 /// Store the Anthropic API key in the OS keychain.
 #[tauri::command]
-pub fn ai_key_set(key: String) -> AppResult<()> {
+pub async fn ai_key_set(state: State<'_, AppState>, key: String) -> AppResult<()> {
     if key.trim().is_empty() {
         return Err(AppError::Validation("Tom nøkkel.".into()));
     }
-    keystore::set_key(key.trim())
+    keystore::set_key(key.trim())?;
+    mirror_key_presence(&state, true).await;
+    Ok(())
 }
 
 /// Remove the stored key.
 #[tauri::command]
-pub fn ai_key_clear() -> AppResult<()> {
-    keystore::clear_key()
+pub async fn ai_key_clear(state: State<'_, AppState>) -> AppResult<()> {
+    keystore::clear_key()?;
+    mirror_key_presence(&state, false).await;
+    Ok(())
 }
 
 /// Whether a key is available (keychain and/or env).
 #[tauri::command]
-pub fn ai_key_status() -> AiKeyStatus {
-    AiKeyStatus {
-        stored: keystore::has_key(),
+pub async fn ai_key_status(state: State<'_, AppState>) -> AppResult<AiKeyStatus> {
+    let stored = keystore::has_key();
+    mirror_key_presence(&state, stored).await;
+    Ok(AiKeyStatus {
+        stored,
         env: keystore::has_env_key(),
+    })
+}
+
+/// Keep the telemetry mirror of "a key is in the keychain" up to date (E5).
+///
+/// The three `ai_key_*` commands are the only paths that read or write the
+/// keychain under an explicit operator action, and that is exactly why the
+/// mirror is written here rather than read on demand: on macOS an
+/// unsigned/dev binary reading a keychain item can raise a BLOCKING GUI
+/// authorisation dialog. This codebase already refuses to risk that on the
+/// go-live path (`keystore::resolve_noninteractive`), and a background telemetry
+/// beat is no better a place for a modal than a Sunday morning.
+///
+/// Best-effort: a failed mirror write must never turn "save my API key" into an
+/// error. The consequence of a miss is one boolean being stale until the AI tab
+/// is next opened, which is a fair price for never blocking on the keychain.
+async fn mirror_key_presence(state: &AppState, present: bool) {
+    if let Err(e) = crate::telemetry::client::set_ai_key_mirror(&state.db.pool, present).await {
+        tracing::debug!("telemetry: could not mirror the AI key state: {}", e.code());
     }
 }
 
@@ -118,10 +145,17 @@ pub async fn ai_test_connection(model: Option<String>) -> AiTestResult {
 
 #[tauri::command]
 pub async fn ai_format_lyrics(
+    state: State<'_, AppState>,
     raw: String,
     api_key: Option<String>,
     model: Option<String>,
 ) -> AppResult<FormattedSong> {
+    // E5 — counted at the TOP, before the key check, because this command
+    // always formats something: with a key through Claude, without one through
+    // the local heuristic. The counter answers "is lyric formatting used", and
+    // only counting the cloud path would make an offline church look idle.
+    state.telemetry.note_counter(CounterName::AiFormatRun);
+
     let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
     let Some(key) = keystore::resolve(api_key) else {
         let mut f = heuristic_format(&raw);
@@ -209,6 +243,10 @@ pub async fn ai_plan_service(
         purpose: AiPurpose::ServicePlan,
     };
     let input = provider.complete_structured(req).await?;
+    // E5 — counted after the call returns: unlike lyric formatting there is no
+    // offline fallback here, so a run that never reached Claude is not a run of
+    // the planner, it is a missing key.
+    state.telemetry.note_counter(CounterName::AiSearchRun);
     Ok(parse_plan_response(&input, &valid))
 }
 

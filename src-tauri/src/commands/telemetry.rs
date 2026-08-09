@@ -1,6 +1,6 @@
-//! E3 — local observation commands. **Nothing here sends anything anywhere.**
+//! E3/E5 — the `telemetry.*` command surface.
 //!
-//! Four reads and one write, all against the machine they run on:
+//! **E3 — local observation. None of it sends anything:**
 //!
 //!   * [`telemetry_counters`] / [`telemetry_quality_recent`] — what has been
 //!     accumulated, so the operator (and E6's privacy card) can see EXACTLY
@@ -11,16 +11,32 @@
 //!   * [`log_tail`] — the last N lines of the log file, scrubbed again on the
 //!     way out.
 //!
+//! **E5 — the client. Present, and unreachable from the shipping UI:**
+//!
+//!   * [`telemetry_consent_get`] / [`telemetry_consent_set`] — the three-state
+//!     record. E6 builds the only UI that will ever call `set`; until then no
+//!     answer is recorded, so nothing downstream runs.
+//!   * [`telemetry_preview_payload`] — the real builder, read-only.
+//!   * [`telemetry_queue_status`] — what is waiting in the outbox.
+//!   * [`telemetry_regenerate_install_id`] / [`telemetry_delete_my_data`] — the
+//!     two ways to be forgotten. Neither is consent-gated.
+//!   * [`telemetry_set_language`] — mirrors the renderer's locale, which lives
+//!     in `localStorage` where Rust cannot see it.
+//!
 //! [`log_tail`] takes NO path. The renderer names a line count and nothing
 //! else, so no IPC caller can point the reader at a file of its choosing.
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::db::repositories::TelemetryRepo;
 use crate::error::AppResult;
+use crate::telemetry::client::{self, TelemetryPreview};
+use crate::telemetry::consent::TelemetryConsent;
 use crate::telemetry::counters::CounterTotal;
 use crate::telemetry::logfile;
+use crate::telemetry::outbox::TelemetryQueueStatus;
 use crate::telemetry::quality::{DrainReport, QualityRow};
+use crate::telemetry::sender;
 use crate::AppState;
 
 /// Default number of log lines handed back when the caller names none.
@@ -74,6 +90,128 @@ pub async fn telemetry_clear(state: State<'_, AppState>) -> AppResult<()> {
 #[tauri::command]
 pub fn log_tail(lines: Option<usize>) -> AppResult<String> {
     Ok(logfile::tail(lines.unwrap_or(DEFAULT_TAIL_LINES))?)
+}
+
+// ── E5: the client ──────────────────────────────────────────────────────────
+
+/// The consent state: what was answered, when, and the two derived questions
+/// (should we ask, may we send).
+#[tauri::command]
+pub async fn telemetry_consent_get(state: State<'_, AppState>) -> AppResult<TelemetryConsent> {
+    client::consent_get(&state.db.pool).await
+}
+
+/// Record an answer at the current scope version.
+///
+/// **No UI calls this yet — E6 builds the only thing that will.** Granting mints
+/// the install id and starts the pump; revoking purges the outbox and the
+/// accumulated counters.
+#[tauri::command]
+pub async fn telemetry_consent_set(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    granted: bool,
+) -> AppResult<TelemetryConsent> {
+    let consent = client::consent_set(&state.db.pool, granted).await?;
+    // Spawn on GRANT, not only at startup: an operator who says yes mid-session
+    // would otherwise have reports queue until the next launch — collected,
+    // consented to, and going nowhere, which looks exactly like a broken
+    // feature. The call is idempotent.
+    if consent.active {
+        sender::maybe_spawn(&app, &state.db.pool).await;
+    }
+    Ok(consent)
+}
+
+/// Become a different install: retire the current id (parking it for the remote
+/// DELETE) and mint a new one.
+///
+/// Returns the new id, or `null` when consent is not active — an operator who is
+/// not consenting must not be handed a fresh durable identifier.
+#[tauri::command]
+pub async fn telemetry_regenerate_install_id(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<Option<String>> {
+    let id = client::regenerate_install_id(&state.db.pool).await?;
+    // A parked deletion is work even with consent off — see
+    // `sender::should_run`. This is the seam SundayRec was missing.
+    sender::maybe_spawn(&app, &state.db.pool).await;
+    Ok(id)
+}
+
+/// "Delete my data": retire the identity, empty the outbox, and delete the local
+/// observation copy too.
+///
+/// Deliberately NOT consent-gated. A deletion is the withdrawal of data already
+/// contributed, and it is the request an operator is most entitled to have
+/// carried out — including, especially, after they have already said no.
+#[tauri::command]
+pub async fn telemetry_delete_my_data(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<Option<String>> {
+    let id = client::delete_my_data(&state.db.pool).await?;
+    sender::maybe_spawn(&app, &state.db.pool).await;
+    Ok(id)
+}
+
+/// What is waiting in the outbox.
+#[tauri::command]
+pub async fn telemetry_queue_status(state: State<'_, AppState>) -> AppResult<TelemetryQueueStatus> {
+    client::queue_status(&state.db.pool).await
+}
+
+/// The exact payload this machine would send, through the REAL builder.
+///
+/// Read-only: no install id is minted, no watermark advances, no counter is
+/// spent. Calling it a hundred times changes nothing.
+#[tauri::command]
+pub async fn telemetry_preview_payload(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<TelemetryPreview> {
+    let version = app.package_info().version.to_string();
+    client::preview_payload(&state.db.pool, &state.data_dir, &version).await
+}
+
+/// Mirror the renderer's UI locale so a payload can name the language.
+///
+/// The locale lives in the renderer's `localStorage`; Rust cannot read it. The
+/// value is reduced to a primary subtag on the way in, so the stored fact is
+/// already the fact that would be sent.
+#[tauri::command]
+pub async fn telemetry_set_language(state: State<'_, AppState>, lang: String) -> AppResult<()> {
+    client::set_language(&state.db.pool, &lang).await
+}
+
+/// Everything telemetry does at startup, in order.
+///
+/// With consent off — which is every install after this stage — it reads one
+/// state row, requeues nothing, and starts a pump only if a deletion is owed.
+pub async fn startup(app: &AppHandle, state: &AppState) {
+    let pool = &state.db.pool;
+    if !client::consent_active(pool).await {
+        tracing::debug!("telemetry: consent is not active — nothing is collected or sent");
+        // …with ONE exception, and it is the operator's own request rather than
+        // ours: a "delete my data" parked before the app was last closed.
+        // `maybe_spawn` starts nothing unless one is actually waiting.
+        sender::maybe_spawn(app, pool).await;
+        return;
+    }
+    // A force-quit mid-send strands a row in `sending` forever otherwise.
+    match TelemetryRepo::new(pool).outbox_reset_stale_sending().await {
+        Ok(n) if n > 0 => tracing::info!("telemetry: requeued {n} report(s) stranded mid-send"),
+        Ok(_) => {}
+        Err(e) => tracing::warn!("telemetry: could not reset stranded reports: {}", e.code()),
+    }
+    // Whatever the LAST run left behind. Nothing can be live yet at startup, so
+    // this cannot contend with a service.
+    let version = app.package_info().version.to_string();
+    if let Err(e) = client::drain(pool, &state.data_dir, &version).await {
+        tracing::warn!("telemetry: startup drain failed: {}", e.code());
+    }
+    sender::maybe_spawn(app, pool).await;
 }
 
 /// Drain the collector into the database. The one place the two are wired

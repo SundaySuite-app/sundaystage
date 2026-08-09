@@ -63,6 +63,16 @@ impl RealtimeTransport {
     pub fn local_only() -> Self {
         Self { configured: false }
     }
+
+    /// Whether a cloud backend is wired up.
+    ///
+    /// Read by the telemetry payload's `companionEnabled` (E5) so that field
+    /// reports what the app actually does rather than a literal written beside
+    /// it: when Phase 9 lands a real transport, the setting and the telemetry
+    /// move together or not at all.
+    pub fn is_configured(&self) -> bool {
+        self.configured
+    }
 }
 
 impl BroadcastTransport for RealtimeTransport {

@@ -1,38 +1,25 @@
 //! Crash-reporting commands, on the E3 ring.
 //!
-//! The `crash.*` IPC namespace is unchanged — `status`, `set`, `count` and
-//! `clear` still mean exactly what they meant when the Advanced tab's card was
-//! written, so the card keeps working with no frontend change. What changed is
-//! underneath: the plain-text files became a bounded ring of scrubbed JSON
-//! records ([`crate::telemetry::crash_ring`]).
+//! Local capture is ALWAYS ON since E5, so the `status` / `set` pair is gone:
+//! there is no longer a local setting to read or write. The ring never leaves
+//! the machine, which is exactly why it needs no permission — and the old
+//! default (off) meant the records did not exist on the machines that most
+//! needed them. See [`crate::telemetry::crash_ring::RETIRED_FLAG_FILE`].
 //!
-//! One command is new: [`crash_report_frontend`], the renderer's route into the
-//! same ring. A `window.onerror` in the operator workspace is a crash the
-//! operator experienced; it belongs in the same file the panic hook writes to,
-//! through the same scrubbing and the same caps.
+//! What DOES need permission is transmission, and that is the separate
+//! three-state consent record in [`crate::telemetry::consent`], reached through
+//! the `telemetry.*` commands. Retiring the local flag grants none of it.
 //!
-//! The opt-in flag still gates LOCAL capture only. It is not, and must never
-//! be read as, consent to SEND anything — that is E5's separate three-state
-//! consent record.
+//! [`crash_report_frontend`] is the renderer's route into the same ring. A
+//! `window.onerror` in the operator workspace is a crash the operator
+//! experienced; it belongs in the same file the panic hook writes to, through
+//! the same scrubbing and the same caps.
 
 use tauri::State;
 
 use crate::error::AppResult;
 use crate::telemetry::crash_ring::{self, CrashKind};
 use crate::AppState;
-
-/// Whether local crash capture is enabled.
-#[tauri::command]
-pub fn crash_reporting_status(state: State<'_, AppState>) -> bool {
-    crash_ring::is_enabled(&state.data_dir)
-}
-
-/// Opt in/out of local crash capture.
-#[tauri::command]
-pub fn crash_reporting_set(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
-    crash_ring::set_enabled(&state.data_dir, enabled)?;
-    Ok(())
-}
 
 /// How many crash records the ring holds.
 #[tauri::command]
@@ -67,7 +54,7 @@ pub fn crash_report_frontend(
     component: Option<String>,
 ) {
     // The renderer cannot reach the ring except through `crash_ring::record`,
-    // which applies the opt-in gate and the scrubbing itself.
+    // which applies the scrubbing and the caps itself.
     let _ = &state;
     crash_ring::record(kind, &message, location.as_deref(), component.as_deref());
 }
@@ -75,7 +62,7 @@ pub fn crash_report_frontend(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::telemetry::crash_ring::{crash_dir, read_entries, set_enabled};
+    use crate::telemetry::crash_ring::{crash_dir, read_entries};
 
     #[test]
     fn the_frontend_kinds_are_the_only_ones_the_boundary_accepts() {
@@ -93,23 +80,14 @@ mod tests {
     }
 
     #[test]
-    fn a_frontend_report_lands_scrubbed_capped_and_opt_in_gated() {
+    fn a_frontend_report_lands_scrubbed_and_capped() {
         // The command's exact path, with the exact inputs a renderer sends: a
         // `TypeError` whose stack frame is full of the operator's home dir.
         let dir = tempfile::tempdir().expect("tempdir");
         let ring = crash_dir(dir.path());
 
-        // Opted OUT (the default): nothing is written at all.
-        crash_ring::record_in(
-            dir.path(),
-            CrashKind::WebviewError,
-            "an error nobody asked us to keep",
-            None,
-            None,
-        );
-        assert_eq!(crash_ring::count(&ring), 0, "capture is opt-in");
-
-        set_enabled(dir.path(), true).expect("opt in");
+        // No opt-in step: capture is always on since E5, because the ring is
+        // the boundary — these files never leave the machine.
         crash_ring::record_in(
             dir.path(),
             CrashKind::UnhandledRejection,
