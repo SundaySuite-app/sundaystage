@@ -246,8 +246,19 @@ pub enum ReportOutcome {
 ///     alone. It is delivered by itself under a one-shot random id that is
 ///     stored nowhere, and no durable identity is created.
 ///
-/// The live gate stands in front of both: with a service running nothing is
-/// sent, the report is kept, and the pump delivers it once the gate opens.
+/// ## The live gate stands in front of BOTH, before anything else
+///
+/// With a service running this function stores the report and returns. It does
+/// not drain, does not build a payload, does not touch the outbox and does not
+/// open a socket — law 1, and the reason it applies to the durable path too: the
+/// drain is a series of SQLite reads and writes, and "the collector only writes
+/// when `AppState.live` is `None`" has no exception for a write an operator
+/// asked for politely. The one thing that does happen is the counter increment,
+/// which is a `fetch_add` on an atomic and live-safe by type.
+///
+/// The report is kept either way, and the pump delivers it once the service
+/// ends. That is also exactly what the privacy text promises in as many words:
+/// reports are never sent while a service is running.
 #[tauri::command]
 pub async fn telemetry_report_submit(
     app: AppHandle,
@@ -267,10 +278,17 @@ pub async fn telemetry_report_submit(
         state
             .telemetry
             .note_counter(crate::telemetry::counters::CounterName::ReportManualSent);
+    }
+
+    // Gate 1, before any of the work below.
+    if !crate::telemetry::quality::gate_is_open(&state.live) {
+        return Ok(ReportOutcome::DeferredLive);
+    }
+
+    if !stored.ephemeral {
         let version = app.package_info().version.to_string();
         // Drain now rather than on the next beat: the report is the one payload
-        // an operator is actively waiting on. A closed live gate is not an error
-        // — `drain` is consent-gated, and the pump will pick the report up.
+        // an operator is actively waiting on.
         if let Err(e) = client::drain(pool, &state.data_dir, &version).await {
             tracing::warn!("telemetry: drain after a report failed: {}", e.code());
         }
@@ -279,11 +297,8 @@ pub async fn telemetry_report_submit(
     }
 
     // The ephemeral path. Spawn the pump either way, so a report that cannot go
-    // now still goes later.
+    // now (no network) still goes later.
     sender::maybe_spawn(&app, pool).await;
-    if !crate::telemetry::quality::gate_is_open(&state.live) {
-        return Ok(ReportOutcome::DeferredLive);
-    }
     let Some(http) = sender::build_sender() else {
         return Ok(ReportOutcome::NoEndpoint);
     };
