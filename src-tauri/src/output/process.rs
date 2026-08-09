@@ -17,7 +17,7 @@
 //! its parent (verified headlessly in `tests/output_isolation.rs`).
 //!
 //! Stale children from a *crashed* previous main process are reaped via a
-//! pidfile next to the socket before respawning, so a relaunch never stacks
+//! pidfile in [`pidfile_dir`] before respawning, so a relaunch never stacks
 //! two full-screen windows on the same projector.
 
 use std::path::{Path, PathBuf};
@@ -32,7 +32,7 @@ use parking_lot::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
-use crate::output::ipc::{endpoint_path, IpcListener};
+use crate::output::ipc::{endpoint_path, safe_tag, IpcListener};
 use crate::output::{OutputAck, OutputMessage, DEFAULT_TIMEOUT_MS};
 use crate::services::live_session::LiveFrame;
 use crate::telemetry::quality::{LiveSafe, QualityCollector};
@@ -47,6 +47,15 @@ const CONNECT_TIMEOUT_MS: u64 = 10_000;
 /// How long graceful [`shutdown`](OutputSupervisor::shutdown) waits for the
 /// supervision tasks (and their children) to exit cleanly before aborting them.
 const SHUTDOWN_GRACE_MS: u64 = 500;
+
+/// Directory (under the app-local data dir) holding one pidfile per running
+/// output child.
+const PIDFILE_DIR: &str = "pidfiles";
+/// Filename shape: `sundaystage-<label>.pid`. The prefix is what the scan in
+/// [`stale_pidfiles_present`] matches on, and it is kept from the old
+/// next-to-the-socket layout so the transition scan below needs no second rule.
+const PIDFILE_PREFIX: &str = "sundaystage-";
+const PIDFILE_SUFFIX: &str = ".pid";
 
 /// Everything needed to spawn one output process.
 #[derive(Debug, Clone)]
@@ -98,6 +107,11 @@ struct Inner {
     shutting_down: AtomicBool,
     children: Mutex<Vec<Arc<ChildShared>>>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
+    /// The app-local data dir — the root [`pidfile_dir`] hangs off. Carried
+    /// here rather than resolved from a path API so the supervisor stays
+    /// testable without an app handle (and so the reaper and the startup scan
+    /// cannot drift onto two different directories).
+    data_dir: PathBuf,
     /// E3 — where restarts, connect timeouts, held frames and cue latencies go.
     /// Every call on it is an atomic increment (see `telemetry::quality`), so
     /// the render path stays exactly as cheap as it was.
@@ -137,21 +151,98 @@ pub fn output_binary_path() -> Option<PathBuf> {
         .find(|p| usable(p))
 }
 
-fn pidfile_path(label: &str) -> PathBuf {
-    let mut p = endpoint_path(label);
-    p.set_extension("pid");
-    p
+/// Where output pidfiles live, given the app-local data dir.
+///
+/// A REAL directory on both platforms, and deliberately **not** derived from
+/// the IPC endpoint. It used to be: `pidfile_path` took [`endpoint_path`] and
+/// swapped the extension, which on Windows produced
+/// `\\.\pipe\sundaystage-<label>.pid` — not a filesystem location, so the file
+/// could not be written, read, deleted or scanned. Stale-child reaping and the
+/// startup "did we crash last time?" signal were both silently inert there.
+///
+/// This function has no `cfg` branch, which is the point: the layout a macOS
+/// test observes IS the Windows layout.
+pub fn pidfile_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join(PIDFILE_DIR)
+}
+
+/// The pidfile name for one output child. Pure; shares [`safe_tag`] with the
+/// endpoint so both names come from the same sanitised label.
+fn pidfile_name(label: &str) -> String {
+    format!("{PIDFILE_PREFIX}{}{PIDFILE_SUFFIX}", safe_tag(label))
+}
+
+fn pidfile_path(data_dir: &Path, label: &str) -> PathBuf {
+    pidfile_dir(data_dir).join(pidfile_name(label))
+}
+
+// ── transition: the pre-0.6 unix location ───────────────────────────────────
+//
+// Up to and including 0.5.0, unix pidfiles sat next to the socket in the system
+// temp dir (`<tmp>/sundaystage-<label>.pid`); on Windows they never existed at
+// all. A machine that crashed under the old layout still has a child holding a
+// frame and a pidfile in the OLD place, so for ONE release both locations are
+// reaped and scanned.
+//
+// REMOVE the `legacy_*` items and their two call sites in 0.7.0: by then every
+// install has launched at least once on 0.6.x, and that launch deleted any
+// old-location pidfile it found (`reap_pidfile_at` removes the file whether or
+// not the pid was still alive).
+#[cfg(unix)]
+fn legacy_pidfile_dir() -> PathBuf {
+    std::env::temp_dir()
+}
+
+#[cfg(unix)]
+fn legacy_pidfile_path(label: &str) -> PathBuf {
+    legacy_pidfile_dir().join(pidfile_name(label))
+}
+
+/// Record the running child so a crashed main process leaves a reapable trace.
+/// Best-effort: failing to write costs the NEXT launch its reap, never this
+/// service.
+fn write_pidfile(data_dir: &Path, label: &str, pid: u32) {
+    let path = pidfile_path(data_dir, label);
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(path, pid.to_string());
 }
 
 /// Best-effort kill of a stale child left over from a crashed main process,
 /// recorded in the pidfile. Never touches anything when the file is absent.
 /// Returns whether a stale child was found — E3's `staleChildReaped` signal.
-fn reap_stale_child(label: &str) -> bool {
-    let pidfile = pidfile_path(label);
-    let Ok(s) = std::fs::read_to_string(&pidfile) else {
+///
+/// Both locations are checked and both are cleaned; see the transition note
+/// above.
+fn reap_stale_child(data_dir: &Path, label: &str) -> bool {
+    let current = reap_pidfile_at(&pidfile_path(data_dir, label), label);
+    #[cfg(unix)]
+    let legacy = reap_pidfile_at(&legacy_pidfile_path(label), label);
+    #[cfg(not(unix))]
+    let legacy = false;
+    // Not `||`: short-circuiting would leave the old-location file behind on a
+    // machine that has one in both places.
+    current || legacy
+}
+
+/// The pid a pidfile's contents authorise signalling, if any.
+///
+/// `0` is filtered out rather than passed on: on unix `kill -9 0` signals every
+/// process in our OWN process group, which is the whole app. A pidfile can only
+/// read `0` if it was written from an unknown child id, and no stale child is
+/// worth that blast radius.
+fn pid_to_signal(contents: &str) -> Option<u32> {
+    contents.trim().parse::<u32>().ok().filter(|p| *p > 0)
+}
+
+/// Kill whatever `pidfile` names, then delete it. Returns whether the file was
+/// there at all.
+fn reap_pidfile_at(pidfile: &Path, label: &str) -> bool {
+    let Ok(s) = std::fs::read_to_string(pidfile) else {
         return false;
     };
-    if let Ok(pid) = s.trim().parse::<u32>() {
+    if let Some(pid) = pid_to_signal(&s) {
         tracing::warn!(label, pid, "reaping a stale output process");
         #[cfg(unix)]
         let _ = std::process::Command::new("kill")
@@ -162,7 +253,7 @@ fn reap_stale_child(label: &str) -> bool {
             .args(["/PID", &pid.to_string(), "/F"])
             .status();
     }
-    let _ = std::fs::remove_file(&pidfile);
+    let _ = std::fs::remove_file(pidfile);
     true
 }
 
@@ -172,22 +263,18 @@ fn reap_stale_child(label: &str) -> bool {
 /// Read at startup by [`crate::telemetry::quality::reconstruct_previous_session`]
 /// to decide the `staleChildReaped` flag on the reconstructed row.
 ///
-/// **Unix only.** On Windows [`endpoint_path`] returns a named-pipe path, so
-/// `pidfile_path` produces `\\.\pipe\sundaystage-<label>.pid` — which is not a
-/// filesystem location, cannot be written, and therefore cannot be scanned.
-/// The pidfile mechanism is inert on Windows today (a pre-existing gap, noted
-/// in the E3 report rather than silently worked around here); this function
-/// reports `false` there instead of pretending otherwise.
-pub fn stale_pidfiles_present() -> bool {
+/// Works on **both** platforms since the pidfiles moved off the IPC endpoint
+/// into [`pidfile_dir`]; on unix it also covers the pre-0.6 temp-dir location
+/// for one release (see the transition note above).
+pub fn stale_pidfiles_present(data_dir: &Path) -> bool {
+    if pidfiles_in(&pidfile_dir(data_dir)) {
+        return true;
+    }
+    // A scan has no side effects, so unlike the reaper this one may
+    // short-circuit.
     #[cfg(unix)]
     {
-        let Ok(rd) = std::fs::read_dir(std::env::temp_dir()) else {
-            return false;
-        };
-        rd.filter_map(Result::ok).any(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            name.starts_with("sundaystage-") && name.ends_with(".pid")
-        })
+        pidfiles_in(&legacy_pidfile_dir())
     }
     #[cfg(not(unix))]
     {
@@ -195,11 +282,27 @@ pub fn stale_pidfiles_present() -> bool {
     }
 }
 
+/// Does `dir` hold any `sundaystage-*.pid`? A missing directory is simply "no".
+fn pidfiles_in(dir: &Path) -> bool {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    rd.filter_map(Result::ok).any(|e| {
+        let name = e.file_name().to_string_lossy().into_owned();
+        name.starts_with(PIDFILE_PREFIX) && name.ends_with(PIDFILE_SUFFIX)
+    })
+}
+
 impl OutputSupervisor {
     /// Spawn + supervise one child per spec. Must be called on a tokio runtime
     /// (Tauri's async runtime or `#[tokio::test]`).
+    ///
+    /// `data_dir` is the app-local data dir (`AppState::data_dir`); pidfiles go
+    /// in [`pidfile_dir`] under it, so a crashed run's children are reapable on
+    /// the next launch on every platform.
     pub fn start(
         binary: PathBuf,
+        data_dir: PathBuf,
         specs: Vec<OutputSpec>,
         telemetry: Arc<QualityCollector>,
     ) -> Self {
@@ -211,6 +314,7 @@ impl OutputSupervisor {
             shutting_down: AtomicBool::new(false),
             children: Mutex::new(Vec::new()),
             tasks: Mutex::new(Vec::new()),
+            data_dir,
             telemetry,
         });
 
@@ -361,7 +465,7 @@ async fn supervise_child(
     let socket = endpoint_path(&spec.label);
     // A previous *crashed* main app may have left a child holding the last
     // frame on this very display — reap it before we put a new one there.
-    if reap_stale_child(&spec.label) {
+    if reap_stale_child(&inner.data_dir, &spec.label) {
         inner.telemetry.note_stale_child_reaped();
     }
     mark_disconnected(&shared);
@@ -460,10 +564,11 @@ async fn run_child_once(
     cmd.kill_on_drop(true);
     let mut child = cmd.spawn()?;
     *shared.pid.lock() = child.id();
-    let _ = std::fs::write(
-        pidfile_path(&spec.label),
-        child.id().unwrap_or_default().to_string(),
-    );
+    // No id (the child has already been waited on) means no pidfile: a file
+    // naming pid `0` would be worse than none at all — see [`pid_to_signal`].
+    if let Some(pid) = child.id() {
+        write_pidfile(&inner.data_dir, &spec.label, pid);
+    }
 
     // Wait for the child to connect (or die trying).
     let stream = tokio::select! {
@@ -508,7 +613,7 @@ async fn run_child_once(
                         let _ = tokio::time::timeout(
                             Duration::from_millis(1_000), child.wait()).await;
                         let _ = child.kill().await;
-                        let _ = std::fs::remove_file(pidfile_path(&spec.label));
+                        let _ = std::fs::remove_file(pidfile_path(&inner.data_dir, &spec.label));
                         return Ok(ChildExit::Shutdown);
                     }
                 }
@@ -556,18 +661,149 @@ mod tests {
     use super::*;
     use crate::telemetry::quality::SessionOutcome;
 
+    /// A pidfile the reaper will find but never signal on: `parse::<u32>`
+    /// fails, so the file is cleaned up and nothing on this machine is killed.
+    /// Every test that runs the reaper uses it — a test that left a REAL pid in
+    /// the file would ask `kill -9` for it on the developer's machine.
+    const UNPARSEABLE: &str = "not-a-pid";
+
     #[test]
-    fn pidfile_path_derives_from_endpoint() {
-        let p = pidfile_path("output-main-0");
-        assert!(p.to_string_lossy().contains("sundaystage-output-main-0"));
+    fn a_pidfile_is_a_real_file_under_the_data_dir_on_every_platform() {
+        // Pure path logic: no `cfg`, no filesystem, no IPC endpoint. That is
+        // exactly what makes this test meaningful for Windows while running on
+        // macOS — the answer here IS the Windows layout.
+        let data = PathBuf::from("app-data");
+        let p = pidfile_path(&data, "output-main-0");
+
+        assert_eq!(
+            p,
+            data.join(PIDFILE_DIR).join("sundaystage-output-main-0.pid")
+        );
+        assert_eq!(p.parent(), Some(pidfile_dir(&data).as_path()));
         assert_eq!(p.extension().and_then(|e| e.to_str()), Some("pid"));
+        assert!(p.starts_with(&data), "pidfiles live under the app data dir");
+
+        // The regression this file exists to prevent: a path derived from the
+        // Windows endpoint (`\\.\pipe\…`) cannot be created, written or
+        // scanned. Nothing pipe-shaped may appear in a pidfile path.
+        let shown = p.to_string_lossy().into_owned();
+        assert!(!shown.contains("pipe"), "{shown}");
+        assert!(!shown.contains(".sock"), "{shown}");
+    }
+
+    #[test]
+    fn pidfile_names_are_sanitised_exactly_like_the_endpoint() {
+        // One label, one sanitisation rule — the endpoint and the pidfile must
+        // never key the same child differently.
+        assert_eq!(
+            pidfile_name("output-main-0"),
+            "sundaystage-output-main-0.pid"
+        );
+        assert_eq!(
+            pidfile_name("output/main 0"),
+            "sundaystage-output_main_0.pid"
+        );
+        let name = pidfile_name("a/b\\c:d");
+        assert!(
+            !name.contains(['/', '\\', ':']),
+            "no path separator survives sanitisation: {name}"
+        );
+    }
+
+    #[test]
+    fn a_pidfile_is_written_scanned_and_reaped_in_the_data_dir() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let label = "output-main-0";
+
+        // Nothing yet — and this asks the data dir DIRECTLY rather than going
+        // through `stale_pidfiles_present`, whose unix transition arm also
+        // reads the shared system temp dir and so is not hermetic.
+        assert!(!pidfiles_in(&pidfile_dir(dir.path())));
+        assert!(!reap_stale_child(dir.path(), label));
+
+        // Writing creates the directory (a fresh install has never had one).
+        write_pidfile(dir.path(), label, 4242);
+        let path = pidfile_path(dir.path(), label);
+        assert_eq!(std::fs::read_to_string(&path).expect("written"), "4242");
+        assert!(pidfiles_in(&pidfile_dir(dir.path())));
+        assert!(stale_pidfiles_present(dir.path()));
+
+        // …and reaping removes it and reports the find. (The pid is replaced
+        // first: the reaper would otherwise signal pid 4242 on this machine.)
+        std::fs::write(&path, UNPARSEABLE).expect("overwrite");
+        assert!(reap_stale_child(dir.path(), label));
+        assert!(!path.exists());
+        assert!(!pidfiles_in(&pidfile_dir(dir.path())));
+    }
+
+    #[test]
+    fn pid_zero_is_never_signalled() {
+        // `kill -9 0` signals our entire process group — the whole app. Tested
+        // on the pure decision rather than through the reaper on purpose: a
+        // regression here must fail an assertion, not SIGKILL the test runner.
+        assert_eq!(pid_to_signal("4242\n"), Some(4242));
+        assert_eq!(pid_to_signal("0"), None);
+        assert_eq!(pid_to_signal(" 0 \n"), None);
+        assert_eq!(pid_to_signal(UNPARSEABLE), None);
+        assert_eq!(pid_to_signal(""), None);
+        assert_eq!(pid_to_signal("-1"), None);
+    }
+
+    /// Transition (remove with the `legacy_*` helpers in 0.7.0): a pidfile left
+    /// by a 0.5.x crash sits next to the socket in the system temp dir, and the
+    /// first launch after the upgrade must still find, reap and delete it.
+    #[cfg(unix)]
+    #[test]
+    fn a_pidfile_from_the_old_location_is_still_reaped_and_scanned() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Process-unique so parallel tests (and stray files on the machine)
+        // cannot collide in the shared temp dir.
+        let label = format!("output-test-legacy-{}", std::process::id());
+        let legacy = legacy_pidfile_path(&label);
+        assert_eq!(legacy.parent(), Some(std::env::temp_dir().as_path()));
+        assert_eq!(
+            legacy.file_name().and_then(|n| n.to_str()),
+            Some(format!("sundaystage-{label}.pid").as_str()),
+            "the old-location name is unchanged, so one predicate covers both"
+        );
+
+        std::fs::write(&legacy, UNPARSEABLE).expect("write legacy pidfile");
+        // The startup "crashed last time" signal sees it even though the new
+        // location is empty…
+        assert!(!pidfiles_in(&pidfile_dir(dir.path())));
+        assert!(stale_pidfiles_present(dir.path()));
+        // …and the reaper cleans it up, so the NEXT launch is quiet again.
+        assert!(reap_stale_child(dir.path(), &label));
+        assert!(!legacy.exists());
+    }
+
+    /// Both locations at once: the reaper must not short-circuit on the first
+    /// one it finds, or the old file would survive the transition release.
+    #[cfg(unix)]
+    #[test]
+    fn a_child_recorded_in_both_locations_is_reaped_from_both() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let label = format!("output-test-both-{}", std::process::id());
+        let current = pidfile_path(dir.path(), &label);
+        let legacy = legacy_pidfile_path(&label);
+        std::fs::create_dir_all(current.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&current, UNPARSEABLE).expect("write");
+        std::fs::write(&legacy, UNPARSEABLE).expect("write legacy");
+
+        assert!(reap_stale_child(dir.path(), &label));
+        assert!(!current.exists());
+        assert!(
+            !legacy.exists(),
+            "the old-location file must be cleaned too"
+        );
     }
 
     #[test]
     fn reaping_without_a_pidfile_is_a_noop_and_reports_nothing_found() {
         // Must never error or kill anything when no stale child exists — and
         // must not raise the `staleChildReaped` quality signal either.
-        assert!(!reap_stale_child("output-test-never-spawned"));
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert!(!reap_stale_child(dir.path(), "output-test-never-spawned"));
     }
 
     #[test]
@@ -593,6 +829,8 @@ mod tests {
             shutting_down: AtomicBool::new(false),
             children: Mutex::new(vec![shared.clone()]),
             tasks: Mutex::new(Vec::new()),
+            // No child is spawned here, so no pidfile is ever written.
+            data_dir: PathBuf::new(),
             telemetry: telemetry.clone(),
         });
 
@@ -648,6 +886,7 @@ mod tests {
             shutting_down: AtomicBool::new(false),
             children: Mutex::new(Vec::new()),
             tasks: Mutex::new(Vec::new()),
+            data_dir: PathBuf::new(),
             telemetry: telemetry.clone(),
         });
         let supervisor = OutputSupervisor { inner };
@@ -664,9 +903,12 @@ mod tests {
 
     #[test]
     fn a_stale_pidfile_scan_never_panics() {
-        // Reads the system temp dir; on Windows the pidfile path is a named
-        // pipe and the answer is a flat `false`.
-        let _ = stale_pidfiles_present();
+        // Reads two directories, either of which may be missing or unreadable
+        // (a fresh install has no `pidfiles/` yet) — that is a "no", never a
+        // panic, on the startup path of every launch.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let _ = stale_pidfiles_present(dir.path());
+        let _ = stale_pidfiles_present(&dir.path().join("never-created"));
     }
 
     #[test]

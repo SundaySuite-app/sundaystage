@@ -371,9 +371,11 @@ dobbelt-skjerm-dubletter), fast 6-bøtte-histogram, ærlig 250 ms-metning.
 
 **Gjenstår fra etappen (mekaniske følgesaker, listet i PR):** ~8 teller-sømmer
 (editor/ai/bible/theme/template m.fl.), `deck.presented` = designbeslutning,
-`companion.connected` venter på Phase 9-søm. ⚠️ Windows-pidfile-gap
+`companion.connected` venter på Phase 9-søm. ~~⚠️ Windows-pidfile-gap
 (pre-eksisterende: pidfile på named-pipe-sti → stale-deteksjon inert på win)
-→ egen chip. Drain-trigger er håndplassert (live_end/output_close/
+→ egen chip.~~ **LUKKET** — pidfiler flyttet til `<app-data>/pidfiles/` på
+BEGGE plattformer (`fix/pidfile-dir`); gammel unix-plassering skannes/ryddes
+én utgivelse til. Drain-trigger er håndplassert (live_end/output_close/
 update_install/oppstart); supervised pumpe m/ live-gate-beat er E5-leveranse.
 
 ---

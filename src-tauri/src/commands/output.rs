@@ -148,8 +148,12 @@ pub async fn output_open(app: AppHandle, state: State<'_, AppState>) -> AppResul
             // a fallback that has since been fixed.
             state.telemetry.note_counter(CounterName::OutputOpened);
             state.telemetry.note_isolated_outputs();
-            let supervisor =
-                process::OutputSupervisor::start(binary, specs, state.telemetry.clone());
+            let supervisor = process::OutputSupervisor::start(
+                binary,
+                state.data_dir.clone(),
+                specs,
+                state.telemetry.clone(),
+            );
             // A service may already be live (outputs opened mid-service) —
             // seed the current frame so the first paint is correct.
             if let Some(frame) = state.live.lock().as_ref().map(|s| s.current_frame()) {
