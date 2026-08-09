@@ -23,6 +23,14 @@
 //!   * [`telemetry_set_language`] — mirrors the renderer's locale, which lives
 //!     in `localStorage` where Rust cannot see it.
 //!
+//! **E6 — the consent UX's surface. The first stage where any of it runs:**
+//!
+//!   * [`telemetry_install_id`] — what the settings card shows next to
+//!     "regenerate". Reads; never mints.
+//!   * [`telemetry_report_preview`] / [`telemetry_report_submit`] — the manual
+//!     problem report. The preview IS the outgoing bytes, and the submit path
+//!     carries the one-shot-id rule for operators without standing consent.
+//!
 //! [`log_tail`] takes NO path. The renderer names a line count and nothing
 //! else, so no IPC caller can point the reader at a file of its choosing.
 
@@ -35,7 +43,8 @@ use crate::telemetry::consent::TelemetryConsent;
 use crate::telemetry::counters::CounterTotal;
 use crate::telemetry::logfile;
 use crate::telemetry::outbox::TelemetryQueueStatus;
-use crate::telemetry::quality::{DrainReport, QualityRow};
+use crate::telemetry::payload::{ProblemReport, ReportContext};
+use crate::telemetry::quality::{DrainReport, LiveSafe, QualityRow};
 use crate::telemetry::sender;
 use crate::AppState;
 
@@ -173,6 +182,133 @@ pub async fn telemetry_preview_payload(
 ) -> AppResult<TelemetryPreview> {
     let version = app.package_info().version.to_string();
     client::preview_payload(&state.db.pool, &state.data_dir, &version).await
+}
+
+/// The install id this machine reports under, or `null` when it has none.
+///
+/// Reads; never mints. A machine that has not consented has no id, and asking
+/// the settings card to show one must not be the thing that creates it.
+#[tauri::command]
+pub async fn telemetry_install_id(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    client::install_id_if_any(&state.db.pool).await
+}
+
+// ── E6: the manual problem report ───────────────────────────────────────────
+
+/// The EXACT report that pressing send would produce — the dialog's preview.
+///
+/// Built by the same function the submit path uses, so what is on screen is what
+/// would be on the wire: scrubbed once, capped once, log tail included.
+#[tauri::command]
+pub fn telemetry_report_preview(context: ReportContext, message: String) -> ProblemReport {
+    client::preview_report(context, &message)
+}
+
+/// What happened to a report the operator just submitted.
+///
+/// Every value is a true statement about bytes, not a reassurance. The dialog
+/// says one of five things and never "sent" unless something was.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, ts_rs::TS)]
+#[ts(export, export_to = "../../src/lib/bindings/ReportOutcome.ts")]
+#[serde(rename_all = "kebab-case")]
+pub enum ReportOutcome {
+    /// Standing consent is on: the report was put in a payload and queued with
+    /// everything else, under the durable install id.
+    Queued,
+    /// Standing consent is off: the report was delivered on its own, under a
+    /// one-shot id, and is gone from this machine's owed list.
+    Sent,
+    /// A service is live. Nothing was sent — law 1, and the promise the privacy
+    /// text makes. The report is stored and goes out after the service ends.
+    DeferredLive,
+    /// The endpoint could not be reached. The report is stored and will be
+    /// retried on a later beat.
+    DeferredOffline,
+    /// This build has no telemetry endpoint compiled in (every development
+    /// build, and every build before the release that bakes the two variables
+    /// in). Nothing can be sent from here — said plainly rather than shown as a
+    /// spinner that never resolves.
+    NoEndpoint,
+}
+
+/// Submit a manual problem report.
+///
+/// `log_tail` is the text [`telemetry_report_preview`] SHOWED, handed back so
+/// the previewed bytes are the sent bytes — see [`client::submit_report`] for
+/// why that round-trip is safer than re-reading the log a second later.
+///
+/// The two consent stories meet here:
+///
+///   * **standing consent on** — the report joins the ordinary drain and rides
+///     the outbox under the durable install id, marked sent only when a payload
+///     actually carried it;
+///   * **standing consent off** — pressing send IS the consent, for this report
+///     alone. It is delivered by itself under a one-shot random id that is
+///     stored nowhere, and no durable identity is created.
+///
+/// ## The live gate stands in front of BOTH, before anything else
+///
+/// With a service running this function stores the report and returns. It does
+/// not drain, does not build a payload, does not touch the outbox and does not
+/// open a socket — law 1, and the reason it applies to the durable path too: the
+/// drain is a series of SQLite reads and writes, and "the collector only writes
+/// when `AppState.live` is `None`" has no exception for a write an operator
+/// asked for politely. The one thing that does happen is the counter increment,
+/// which is a `fetch_add` on an atomic and live-safe by type.
+///
+/// The report is kept either way, and the pump delivers it once the service
+/// ends. That is also exactly what the privacy text promises in as many words:
+/// reports are never sent while a service is running.
+#[tauri::command]
+pub async fn telemetry_report_submit(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    context: ReportContext,
+    message: String,
+    log_tail: String,
+) -> AppResult<ReportOutcome> {
+    let pool = &state.db.pool;
+    let stored = client::submit_report(pool, context, &message, &log_tail).await?;
+
+    if !stored.ephemeral {
+        // Counted only for reports written under standing consent: an increment
+        // for an ephemeral one would be reported LATER under the durable id, and
+        // "this machine sent an anonymous report" is exactly the link the
+        // one-shot id exists to break.
+        state
+            .telemetry
+            .note_counter(crate::telemetry::counters::CounterName::ReportManualSent);
+    }
+
+    // Gate 1, before any of the work below.
+    if !crate::telemetry::quality::gate_is_open(&state.live) {
+        return Ok(ReportOutcome::DeferredLive);
+    }
+
+    if !stored.ephemeral {
+        let version = app.package_info().version.to_string();
+        // Drain now rather than on the next beat: the report is the one payload
+        // an operator is actively waiting on.
+        if let Err(e) = client::drain(pool, &state.data_dir, &version).await {
+            tracing::warn!("telemetry: drain after a report failed: {}", e.code());
+        }
+        sender::maybe_spawn(&app, pool).await;
+        return Ok(ReportOutcome::Queued);
+    }
+
+    // The ephemeral path. Spawn the pump either way, so a report that cannot go
+    // now (no network) still goes later.
+    sender::maybe_spawn(&app, pool).await;
+    let Some(http) = sender::build_sender() else {
+        return Ok(ReportOutcome::NoEndpoint);
+    };
+    let version = app.package_info().version.to_string();
+    let delivered = sender::drain_ephemeral_reports(pool, &http, &version).await;
+    Ok(if delivered > 0 {
+        ReportOutcome::Sent
+    } else {
+        ReportOutcome::DeferredOffline
+    })
 }
 
 /// Mirror the renderer's UI locale so a payload can name the language.

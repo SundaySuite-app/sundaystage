@@ -4,7 +4,7 @@ import type { ReportContext } from "./ReportContext";
 /**
  * One manual "report a problem" submission.
  *
- * **E6 fills this; E5 always sends an empty list.** The field exists on the
+ * **E6 fills this; E5 always sent an empty list.** The field exists on the
  * wire from day one because `STAGE_OPTIONAL_PAYLOAD_KEYS` is empty by design
  * (the programme's Nøkkeldesign): the Worker requires every top-level key, so a
  * client that omitted `reports` until E6 would be rejected with a 400 — dropped

@@ -118,6 +118,8 @@ export type { CrashReport }       from "./CrashReport";
 export type { QualityReport }     from "./QualityReport";
 export type { ProblemReport }     from "./ProblemReport";
 export type { ReportContext }     from "./ReportContext";
+// What the submit path did with a report the operator just wrote (E6).
+export type { ReportOutcome }     from "./ReportOutcome";
 export type { DisplayBucket }     from "./DisplayBucket";
 export type { LibraryBucket }     from "./LibraryBucket";
 export type { ThemeBucket }       from "./ThemeBucket";

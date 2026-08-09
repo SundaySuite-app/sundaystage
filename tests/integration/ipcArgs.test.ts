@@ -447,6 +447,29 @@ describe("ipc arg-shape contract", () => {
     );
   });
 
+  // ── The consent UX's own surface (E6) ────────────────────────────────────
+  //
+  // `report.submit` is the one command in the app that can put an operator's
+  // hand-written words on the wire, so a drifted arg key here would be a send
+  // button that silently does nothing on the Sunday-morning rig.
+  it("telemetry — the consent UX (E6)", async () => {
+    await expectCall(
+      () => ipc.telemetry.installId(),
+      "telemetry_install_id",
+      [],
+    );
+    await expectCall(
+      () => ipc.telemetry.report.preview("live", "skjermen frøs"),
+      "telemetry_report_preview",
+      ["context", "message"],
+    );
+    await expectCall(
+      () => ipc.telemetry.report.submit("live", "skjermen frøs", "log line"),
+      "telemetry_report_submit",
+      ["context", "message", "logTail"],
+    );
+  });
+
   it("output", async () => {
     await expectCall(() => ipc.output.monitors(), "output_monitors", []);
     await expectCall(() => ipc.output.config(), "output_config", []);

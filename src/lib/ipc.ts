@@ -45,6 +45,9 @@ import type {
   OutputConfig,
   OutputDisplayConfig,
   PlanImportResult,
+  ProblemReport,
+  ReportContext,
+  ReportOutcome,
   SearchResult,
   StageDisplayConfig,
   Service,
@@ -568,8 +571,42 @@ export const telemetry = {
    */
   deleteMyData: () => call<string | null>("telemetry_delete_my_data"),
 
-  /** What is waiting to be delivered, for an honest settings line. */
+  /**
+   * What is waiting to be delivered, for an honest settings line.
+   *
+   * Two numbers: `pending` payloads and `pendingReports`. They are different
+   * facts — a report the byte cap deferred is still owed even when every queued
+   * payload went out cleanly — so the panel shows both.
+   */
   queueStatus: () => call<TelemetryQueueStatus>("telemetry_queue_status"),
+
+  /** The install id this machine reports under, or `null` when it has none. */
+  installId: () => call<string | null>("telemetry_install_id"),
+
+  /**
+   * The manual "report a problem" path (E6).
+   *
+   * `preview` returns the EXACT report pressing send would produce — scrubbed,
+   * capped, log tail included — and `submit` takes that previewed `logTail`
+   * back, so the bytes on screen are the bytes on the wire rather than a second
+   * read of a log that has moved on.
+   *
+   * With standing consent OFF the report is still sendable: pressing send is
+   * consent for that one report, it travels alone under a one-shot random id
+   * that is stored nowhere, and no durable install id is created. The resolved
+   * `ReportOutcome` says which of the five things actually happened — including
+   * "this build has no endpoint", which is every development build.
+   */
+  report: {
+    preview: (context: ReportContext, message: string) =>
+      call<ProblemReport>("telemetry_report_preview", { context, message }),
+    submit: (context: ReportContext, message: string, logTail: string) =>
+      call<ReportOutcome>("telemetry_report_submit", {
+        context,
+        message,
+        logTail,
+      }),
+  },
 
   /**
    * The exact payload this machine would send, through the REAL builder — a

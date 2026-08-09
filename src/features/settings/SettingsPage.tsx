@@ -52,6 +52,8 @@ import {
 } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { OutputSettingsPanel } from "./OutputSettingsPanel";
+import { PrivacyCard } from "./PrivacyCard";
+import { ToggleRow } from "./ToggleRow";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
 import { useErrorToast } from "@/lib/useErrorToast";
@@ -352,48 +354,6 @@ function ColorRow({
   );
 }
 
-function ToggleRow({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <div className="text-sm">{label}</div>
-        <div className="text-xs text-[var(--color-fg-muted)]">
-          {description}
-        </div>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-          checked
-            ? "bg-[var(--color-accent)]"
-            : "bg-[var(--color-bg-surface)] ring-1 ring-[var(--color-border)]",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-            checked && "translate-x-5",
-          )}
-        />
-      </button>
-    </div>
-  );
-}
-
 function AiSettings() {
   const t = useT();
   const qc = useQueryClient();
@@ -571,7 +531,10 @@ function AdvancedSettings() {
   return (
     <div className="space-y-6">
       <UpdateChannelCard />
-      <CrashReportingCard />
+      {/* E6 — replaces the old crash-reporting card. Local capture is still
+          always on; it lives in this card's footer, where the question it
+          belongs to (may any of it be SENT?) is answered right above it. */}
+      <PrivacyCard />
     </div>
   );
 }
@@ -617,56 +580,6 @@ function UpdateChannelCard() {
           checked={isBeta}
           onChange={(v) => setChannel.mutate(v ? "beta" : "stable")}
         />
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Local crash records (E3 ring, E5 semantics).
- *
- * There is no on/off switch any more. The ring is the boundary: these records
- * are written to this machine and never leave it, so they need no more
- * permission than the log file beside them — and the old opt-in defaulted to
- * OFF, which meant the records did not exist on precisely the machines that
- * needed them. Sending is a separate question, and E6 replaces this card with
- * the privacy card that asks it.
- */
-function CrashReportingCard() {
-  const t = useT();
-  const qc = useQueryClient();
-  const crashCount = useQuery({
-    queryKey: ["crashCount"],
-    queryFn: () => ipc.crash.count(),
-  });
-  const clearCrashes = useMutation({
-    mutationFn: () => ipc.crash.clear(),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["crashCount"] }),
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("setCrashReporting")}</CardTitle>
-        <CardDescription>{t("setCrashDesc")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-[var(--color-fg-muted)]">{t("setStatus")}</span>
-          <Badge variant="neutral">{t("setCrashLocalOnly")}</Badge>
-          <span className="text-xs text-[var(--color-fg-muted)]">
-            {t("setCrashCount", { n: crashCount.data ?? 0 })}
-          </span>
-        </div>
-        {(crashCount.data ?? 0) > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => clearCrashes.mutate()}
-          >
-            {t("actionClear")}
-          </Button>
-        )}
       </CardContent>
     </Card>
   );

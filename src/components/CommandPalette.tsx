@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
   Settings,
   Palette,
+  MessageSquareWarning,
 } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
@@ -31,7 +32,8 @@ export type Route =
   "library" | "decks" | "services" | "bible" | "media" | "settings" | "design";
 
 /** Quick actions under the palette's "Actions" group. */
-export type PaletteAction = "new-song" | "new-service" | "go-live";
+export type PaletteAction =
+  "new-song" | "new-service" | "go-live" | "report-problem";
 
 interface CommandPaletteProps {
   onNavigate: (route: Route) => void;
@@ -229,6 +231,14 @@ export function CommandPalette({
                   onSelect={() => act("go-live")}
                   icon={<Play size={14} fill="currentColor" />}
                   label={t("goLive")}
+                />
+                {/* E6 — reachable without hunting through settings, because the
+                    moment worth reporting is rarely the moment you feel like
+                    opening a settings tab. */}
+                <Item
+                  onSelect={() => act("report-problem")}
+                  icon={<MessageSquareWarning size={14} />}
+                  label={t("reportTitle")}
                 />
               </Group>
 

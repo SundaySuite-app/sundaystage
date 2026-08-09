@@ -172,6 +172,84 @@ describe("update-channel i18n parity", () => {
   });
 });
 
+// The telemetry consent question (E6) is the one string in the app that asks
+// permission. An English fall-back here would mean an operator agreeing to
+// something they were not asked in their own language, so it gets its own suite
+// on top of the whole-catalog check below — including floors on the two lines
+// the promise actually rests on.
+const CONSENT_KEYS = [
+  "telConsentTitle",
+  "telConsentBody",
+  "telConsentWhatIsSent",
+  "telConsentCatCrashes",
+  "telConsentCatQuality",
+  "telConsentCatUsage",
+  "telConsentNever",
+  "telConsentYes",
+  "telConsentNo",
+  "telConsentPrivacyLink",
+  "telConsentDismissLabel",
+] as const;
+
+describe("telemetry consent i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries every consent key`, () => {
+      const cat = CATALOG[lang];
+      for (const key of CONSENT_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        expect(cat[key].trim().length, `${lang}.${key}`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it("the yes and no buttons are never the same words", () => {
+    // They are deliberately equally weighted in the UI, which only works if
+    // they are also distinguishable.
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].telConsentYes, lang).not.toBe(
+        CATALOG[lang].telConsentNo,
+      );
+    }
+  });
+
+  it("the 'never' line stays long enough to name what is never sent", () => {
+    // Not a wording test — a floor, so the promise cannot quietly shrink to
+    // "we respect your privacy" in a locale nobody on the team reads.
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].telConsentNever.length, lang).toBeGreaterThan(80);
+      expect(CATALOG[lang].telConsentBody.length, lang).toBeGreaterThan(80);
+    }
+  });
+});
+
+// The five report outcomes are the app's only answer to "did my words reach
+// anyone". Each one has to say something DIFFERENT in every locale, or the
+// honest distinction between "sent" and "saved, but this build sends nothing"
+// collapses into a single reassuring sentence.
+const REPORT_OUTCOME_KEYS = [
+  "reportOutcomeQueued",
+  "reportOutcomeSent",
+  "reportOutcomeDeferredLive",
+  "reportOutcomeDeferredOffline",
+  "reportOutcomeNoEndpoint",
+] as const;
+
+describe("problem-report outcome i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} distinguishes all five outcomes`, () => {
+      const cat = CATALOG[lang];
+      const seen = new Set<string>();
+      for (const key of REPORT_OUTCOME_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        seen.add(cat[key]);
+      }
+      expect(seen.size, `${lang} reuses an outcome sentence`).toBe(
+        REPORT_OUTCOME_KEYS.length,
+      );
+    });
+  }
+});
+
 // ── Whole-catalog parity ──────────────────────────────────────────────────────
 //
 // The targeted suites above guard individual feature areas. This suite enforces
