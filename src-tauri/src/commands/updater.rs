@@ -198,8 +198,31 @@ async fn check_ring(
 ///
 /// The caller relaunches afterwards (`@tauri-apps/plugin-process`), matching
 /// the pre-E2 behaviour.
+///
+/// ## Interaction with the single-instance guard (A1)
+///
+/// The guard (registered first in `lib::run`) makes a second launch focus the
+/// running window instead of starting a new process. A self-update relaunch is
+/// *exactly* a second launch: `@tauri-apps/plugin-process`'s `relaunch()` spawns
+/// a fresh copy of the bundle and then exits the current one. If the new copy
+/// runs its single-instance check while THIS process is still alive, it connects
+/// to our still-listening socket, treats itself as the redundant second
+/// instance, focuses our (dying) window and exits — and the app never comes
+/// back. That is the same "restart did nothing" trap SundayRec hit; its fix is
+/// `tauri_plugin_single_instance::destroy(app)` before the relaunch.
+///
+/// Stage relaunches from the frontend (`installAndRelaunch` calls
+/// `ipc.update.install()` then `relaunch()`), so the last Rust code to run before
+/// the relaunch is the tail of this command — that is where the lock is dropped.
+/// `destroy` only removes the socket/mutex; it does not stop the guard for a
+/// process that keeps running, and it runs ONLY after a successful
+/// `download_and_install`, so a failed install (which does not relaunch — see
+/// `updater.test.ts`) leaves the guard fully intact. The brief window between
+/// this return and `relaunch()` where the guard is absent is acceptable: it
+/// exists only during an install the operator just triggered, and the incoming
+/// relaunch re-establishes the lock.
 #[tauri::command]
-pub async fn update_install(state: State<'_, AppState>) -> AppResult<()> {
+pub async fn update_install(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     // Cloned out of the lock inside `take_offer`: the guard must never live
     // across the await below.
     let update = match take_offer(&state.pending_update, update_channel::load(&state.data_dir)) {
@@ -226,6 +249,11 @@ pub async fn update_install(state: State<'_, AppState>) -> AppResult<()> {
     // this returns, and an in-memory counter does not survive that. The live
     // gate is inside `flush`, so this is safe even mid-service.
     let _ = crate::commands::telemetry::flush(&state).await;
+    // Drop the single-instance lock so the imminent `relaunch()` is not rejected
+    // as a second instance (see the command doc above). Desktop-only: the crate
+    // does not exist on mobile, where there is no updater relaunch either.
+    #[cfg(desktop)]
+    tauri_plugin_single_instance::destroy(&app);
     Ok(())
 }
 
