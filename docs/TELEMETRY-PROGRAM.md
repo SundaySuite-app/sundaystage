@@ -408,3 +408,43 @@ byte-måle serialisert body FØR enqueue (413 droppes like stille som 400).
 Og: QualityRows lokale felt (id, dedupe_key) er `unknown_field` på wire —
 loud-testet. **Repo-nytt:** `sunday-telemetry` er nå PRIVAT på GitHub
 (`SundaySuite-app/sunday-telemetry`, alle grener pushet etter secretskann).
+
+---
+
+## Etapperapport E5 — 2026-08-09 (natt) ✅
+
+**Levert (PR #51, main `ce1d54b`, 48 filer):** hele klienthalvdelen finnes og
+INGENTING sender — av to uavhengige grunner: ingen UI kaller consent.set
+(record fraværende → NeverAsked), og ingen build bærer de to
+byggetids-variablene (ingen sender konstrueres). E6 legger til et spørsmål,
+ikke en rørledning. Moduler: consent.rs (3-tilstands, CONSENT_VERSION=1),
+client.rs, payload.rs (ÉN builder for wire/preview/rapport), outbox.rs
+(50/6/stige, Retry-After æret som max(stige, header) klemt til 24 t),
+config.rs (kun option_env! — runtime-var ville latt en shippet app pekes
+hvor som helst), http_sender.rs (NETWORK-UNVERIFIED), sender.rs (supervisert
+pumpe m/ live-gate-beat). Migr `sql/0008_telemetry_client.sql`. 8 mekaniske
+teller-sømmer wiret. Gates: cargo 713 (+145), vitest 396, alt grønt.
+
+**Nattens viktigste grep:** agenten serialiserte en EKTE maksimal payload
+gjennom den ekte builderen og matet den til den DEPLOYEDE validatoren —
+fanget 3 kontraktsfeil som hver ville gitt stille permanent 400-drop i felt:
+oppfunnede bøtte-vokabularer (deployede lister vant), nil-install-id-stien
+(drain bruker ensure_install_id), QualityRow-projeksjonen (unknown_field-
+negativkontroll). Proben ligger som ignored-test m/ runbook i payload.rs.
+
+**E4-kravene innfridd:** byte-tak 60 kB (64−4 margin) m/ gjenvinnbart-først-
+trimming (quality→reports→crashes; vannmerker i LÅSSTEG med payloaden —
+testet helt og delvis trimmet; krasj-trim er eneste tapende og logger høyt) ·
+lokale felt strippet (nøkkelsett-pinnet + tegn-sveip på id).
+
+**Ærlighetsnotater:** aiConfigured leser SPEIL, aldri keychain (macOS kan
+reise blokkerende GUI-dialog) — install som satte nøkkel før E5 melder false
+til AI-fanen åpnes én gang · syncEnabled/companionEnabled leser appens egne
+kilder (begge false i dag, flytter seg med Phase 9) · builtAt =
+payload-byggetid (kompilstempel ville gitt identisk tid for hele releasen).
+
+**Til E6:** `reports: []` shipper fra dag én (optional-keys tom server-side).
+Manuell rapport må merkes sendt KUN når den faktisk ble med i payloaden
+(byte-trimmen må aldri bli stedet operatørens ord forsvinner). telemetry.*-
+IPC + TelemetryPreview klare; Avansert-fanens krasjkort forenklet til
+alltid-på lokal fangst (E6 erstatter det).
