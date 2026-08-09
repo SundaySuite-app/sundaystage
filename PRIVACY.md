@@ -1,5 +1,3 @@
-<!-- UTKAST: venter eier-godkjenning -->
-
 # Personvern i SundayStage
 
 _Gjelder SundayStage v0.6.0 og nyere. Norsk først, engelsk under._

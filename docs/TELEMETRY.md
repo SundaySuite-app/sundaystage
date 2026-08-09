@@ -1,5 +1,3 @@
-<!-- UTKAST: venter eier-godkjenning -->
-
 # Telemetry in SundayStage — the honest description
 
 This is the technical companion to [PRIVACY.md](../PRIVACY.md). Where that
