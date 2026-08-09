@@ -44,12 +44,19 @@
 //! no live path left in THIS process to protect, and the output child survives
 //! as its own process holding the last frame.
 //!
-//! ## Opt-in
+//! ## Capture is always on (E5)
 //!
-//! Local capture stays gated on the existing `crash_reporting.json` flag, off
-//! by default, exactly as it was. That flag is about writing files on this
-//! machine; NETWORK consent is a separate, later decision (E5) and this flag
-//! must never be read as granting it.
+//! E3 kept the old `crash_reporting.json` opt-in, off by default. E5 retires it:
+//! **the ring is the boundary.** These files never leave the machine, so they
+//! need no more permission than the log file beside them — and the old default
+//! meant the ring was empty on essentially every machine, so the first thing a
+//! support conversation could ask for was the one thing nobody had.
+//!
+//! What needs consent is TRANSMISSION, which is now a separate three-state
+//! record ([`crate::telemetry::consent`]). Retiring this flag does NOT grant it:
+//! a machine that captures crashes locally and has never been asked about
+//! sending is exactly the state every install is in after this stage.
+//! See [`RETIRED_FLAG_FILE`].
 
 use std::panic::{AssertUnwindSafe, PanicHookInfo};
 use std::path::{Path, PathBuf};
@@ -79,9 +86,25 @@ pub const RING_MAX: usize = 20;
 /// crash — it is a quality signal (see [`crate::telemetry::quality`]).
 const PREFIX: &str = "crash-";
 
-/// The opt-in flag file, unchanged from `services::crash` so an existing
-/// install keeps its choice across the upgrade.
-const FLAG_FILE: &str = "crash_reporting.json";
+/// The RETIRED opt-in flag file (E5).
+///
+/// Up to E3 this decided whether crash records were written at all. It is gone,
+/// and the reason is that it was answering the wrong question: **the ring never
+/// leaves the machine.** A crash file under `<app-data>/crashes/` is a diagnostic
+/// the operator owns, exactly like the log file beside it — and the log file was
+/// never opt-in. What needs consent is TRANSMISSION, and that is now a separate,
+/// three-state record ([`crate::telemetry::consent`]) which this flag must never
+/// be confused with or silently upgraded into.
+///
+/// The practical cost of the old default was severe: capture defaulted to OFF,
+/// so the ring was empty on essentially every machine, and the first thing a
+/// support conversation could ask for was the one thing nobody had. Now the
+/// records exist; whether any of them are ever offered up is a question E6 asks
+/// out loud.
+///
+/// The file itself is deleted on startup — see [`retire_flag_file`] — so an
+/// upgraded install does not keep a stale setting nothing reads.
+const RETIRED_FLAG_FILE: &str = "crash_reporting.json";
 
 /// Directory name under the app-data dir, unchanged for the same reason.
 const CRASH_DIR: &str = "crashes";
@@ -162,8 +185,16 @@ pub struct CrashEntry {
 /// exists. A panic in that window logs but writes no file — the honest
 /// degradation, and the alternative (mirroring Tauri's path computation by
 /// hand) is a second source of truth that can silently drift.
+///
+/// Also cleans up the E3-era opt-in flag — see [`retire_flag_file`].
 pub fn arm(data_dir: &Path) {
     let _ = DIR.set(data_dir.join(CRASH_DIR));
+    if retire_flag_file(data_dir) {
+        tracing::info!(
+            "telemetry: removed the retired crash_reporting.json — local crash capture is always \
+             on (the records never leave this machine), and SENDING is a separate question"
+        );
+    }
 }
 
 /// The crash directory, if one was resolved.
@@ -204,7 +235,7 @@ fn persist_panic(info: &PanicHookInfo<'_>) {
         "PANIC: {}",
         entry.message
     );
-    write_if_enabled(&entry);
+    write_if_armed(&entry);
 }
 
 /// Build the record for a panic. Pure given its inputs (the hook supplies the
@@ -286,7 +317,7 @@ pub fn record(kind: CrashKind, message: &str, location: Option<&str>, task: Opti
 ///
 /// The route for anything that already holds `AppState` — a command has the
 /// directory in hand and should not have to trust a process-global to have been
-/// armed. Same opt-in gate, same scrubbing, same caps.
+/// armed. Same scrubbing, same caps.
 pub fn record_in(
     data_dir: &Path,
     kind: CrashKind,
@@ -294,9 +325,6 @@ pub fn record_in(
     location: Option<&str>,
     task: Option<&str>,
 ) {
-    if !is_enabled(data_dir) {
-        return;
-    }
     let entry = build_entry(
         kind,
         message,
@@ -308,23 +336,20 @@ pub fn record_in(
     let _ = write_entry(&crash_dir(data_dir), &entry);
 }
 
-/// Write `entry` into the armed directory when local capture is enabled.
-fn write_if_enabled(entry: &CrashEntry) {
+/// Write `entry` into the armed directory.
+///
+/// Unconditional since E5: local capture is always on, because a file that never
+/// leaves the machine needs no permission — see [`RETIRED_FLAG_FILE`]. Whether
+/// any of these records is ever TRANSMITTED is the consent machine's question,
+/// asked separately and out loud.
+fn write_if_armed(entry: &CrashEntry) {
     let Some(dir) = DIR.get() else { return };
-    let Some(data_dir) = dir.parent() else { return };
-    if !is_enabled(data_dir) {
-        return;
-    }
     let _ = write_entry(dir, entry);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//   The opt-in flag (unchanged semantics, new home)
+//   The ring's directory, and the retired flag
 // ─────────────────────────────────────────────────────────────────────────────
-
-fn flag_path(data_dir: &Path) -> PathBuf {
-    data_dir.join(FLAG_FILE)
-}
 
 /// The crash directory inside an app-data dir. Public so the commands can read
 /// a ring without the `OnceLock` being armed (tests, and the Settings card).
@@ -332,24 +357,17 @@ pub fn crash_dir(data_dir: &Path) -> PathBuf {
     data_dir.join(CRASH_DIR)
 }
 
-/// Whether the user has opted in to LOCAL crash capture (default off).
+/// Delete the retired opt-in flag file, best-effort. Called once from `arm`.
 ///
-/// This is not, and must never be treated as, consent to send anything. E5's
-/// consent machine is a separate three-state record; this flag only decides
-/// whether files are written on this machine at all.
-pub fn is_enabled(data_dir: &Path) -> bool {
-    std::fs::read_to_string(flag_path(data_dir))
-        .ok()
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-        .and_then(|v| v.get("enabled").and_then(|e| e.as_bool()))
-        .unwrap_or(false)
-}
-
-/// Persist the opt-in choice.
-pub fn set_enabled(data_dir: &Path, enabled: bool) -> std::io::Result<()> {
-    std::fs::create_dir_all(data_dir)?;
-    let body = serde_json::json!({ "enabled": enabled }).to_string();
-    std::fs::write(flag_path(data_dir), body)
+/// Leaving it would be worse than untidy: a file called `crash_reporting.json`
+/// containing `{"enabled": false}` on a machine that IS capturing crashes reads,
+/// to anyone who finds it, as the app ignoring a preference. Removing it makes
+/// the filesystem agree with the behaviour.
+///
+/// Returns whether a file was actually removed, so the caller can say so once.
+pub fn retire_flag_file(data_dir: &Path) -> bool {
+    let path = data_dir.join(RETIRED_FLAG_FILE);
+    path.exists() && std::fs::remove_file(&path).is_ok()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -445,24 +463,48 @@ mod tests {
     }
 
     fn enabled_dir() -> tempfile::TempDir {
-        let dir = tempfile::tempdir().expect("tempdir");
-        set_enabled(dir.path(), true).expect("flag");
-        dir
+        // Capture needs no flag since E5 — a plain directory IS an enabled one.
+        tempfile::tempdir().expect("tempdir")
     }
 
-    // ── the opt-in flag ──────────────────────────────────────────────────────
+    // ── the retired opt-in flag ──────────────────────────────────────────────
 
     #[test]
-    fn the_flag_defaults_off_and_round_trips() {
+    fn capture_needs_no_flag_and_the_old_one_is_deleted() {
         let dir = tempfile::tempdir().expect("tempdir");
-        assert!(!is_enabled(dir.path()), "local capture is off by default");
-        set_enabled(dir.path(), true).expect("set");
-        assert!(is_enabled(dir.path()));
-        set_enabled(dir.path(), false).expect("set");
-        assert!(!is_enabled(dir.path()));
-        // A hand-mangled flag file reads as off, never as on.
-        std::fs::write(dir.path().join(FLAG_FILE), "not json").expect("write");
-        assert!(!is_enabled(dir.path()));
+        // A machine upgrading from E3 with capture explicitly turned OFF.
+        std::fs::write(dir.path().join(RETIRED_FLAG_FILE), "{\"enabled\":false}").expect("write");
+
+        // The record is written anyway: the flag governed a file that never
+        // leaves the machine, which is not a thing that needs permission.
+        record_in(dir.path(), CrashKind::Panic, "boom", None, None);
+        assert_eq!(count(&crash_dir(dir.path())), 1);
+
+        // …and the stale file is removed, so nothing on disk claims otherwise.
+        assert!(retire_flag_file(dir.path()));
+        assert!(!dir.path().join(RETIRED_FLAG_FILE).exists());
+        // Idempotent: nothing to remove is not a failure.
+        assert!(!retire_flag_file(dir.path()));
+        assert!(!retire_flag_file(
+            &dir.path().join("a-directory-that-does-not-exist")
+        ));
+    }
+
+    #[test]
+    fn retiring_the_flag_grants_no_consent() {
+        // The confusion this whole change has to avoid: "we capture crashes
+        // locally now" must not become "we send them". A fresh state bag has no
+        // consent record, and a retired flag file does not create one.
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join(RETIRED_FLAG_FILE), "{\"enabled\":true}").expect("write");
+        assert!(retire_flag_file(dir.path()));
+        let c = crate::telemetry::consent::evaluate(None);
+        assert!(!c.active, "local capture is not permission to transmit");
+        assert_eq!(
+            c.status,
+            crate::telemetry::consent::ConsentStatus::NeverAsked,
+            "even an operator who had crash capture ON has not been asked"
+        );
     }
 
     // ── the record ───────────────────────────────────────────────────────────
@@ -632,23 +674,20 @@ mod tests {
         assert!(dir.path().join("notes.txt").exists());
     }
 
-    // ── the opt-in gate on the write path ────────────────────────────────────
+    // ── the write path ───────────────────────────────────────────────────────
 
     #[test]
-    fn writing_is_gated_on_the_opt_in_flag() {
-        // `write_if_enabled` reads the flag beside the crash directory. Drive
-        // the same decision explicitly rather than arming the process-global
-        // OnceLock, which other tests share.
+    fn every_record_offered_is_written() {
+        // Since E5 there is no gate here at all. Drive the explicit-directory
+        // route rather than arming the process-global OnceLock, which other
+        // tests share.
         let dir = enabled_dir();
         let ring = crash_dir(dir.path());
-        assert!(is_enabled(dir.path()));
-        write_entry(&ring, &sample(CrashKind::Panic, "kept", 1)).expect("write");
-        assert_eq!(count(&ring), 1);
-
-        set_enabled(dir.path(), false).expect("flag off");
-        assert!(!is_enabled(dir.path()));
-        // With the flag off `write_if_enabled` returns before `write_entry`.
-        assert_eq!(count(&ring), 1, "no new record while opted out");
+        record_in(dir.path(), CrashKind::Panic, "one", None, None);
+        record_in(dir.path(), CrashKind::WebviewError, "two", None, None);
+        assert_eq!(count(&ring), 2);
+        write_entry(&ring, &sample(CrashKind::TaskPanic, "three", 1)).expect("write");
+        assert_eq!(count(&ring), 3);
     }
 
     #[test]

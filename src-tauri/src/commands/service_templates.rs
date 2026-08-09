@@ -10,6 +10,7 @@ use tauri::State;
 use crate::db::models::{ServiceItem, ServiceTemplate, ServiceTemplateInput};
 use crate::db::repositories::{ServiceRepo, ServiceTemplateRepo};
 use crate::error::{AppError, AppResult};
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -77,6 +78,12 @@ pub async fn svc_template_apply(
 
         added.push(item);
     }
+
+    // E5 — one application, not one item: the counter answers "do templates get
+    // used", and a ten-item template is still one decision by one operator.
+    state
+        .telemetry
+        .note_counter(crate::telemetry::counters::CounterName::TemplateApplied);
 
     Ok(added)
 }

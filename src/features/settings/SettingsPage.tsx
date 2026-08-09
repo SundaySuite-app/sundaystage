@@ -622,20 +622,22 @@ function UpdateChannelCard() {
   );
 }
 
+/**
+ * Local crash records (E3 ring, E5 semantics).
+ *
+ * There is no on/off switch any more. The ring is the boundary: these records
+ * are written to this machine and never leave it, so they need no more
+ * permission than the log file beside them — and the old opt-in defaulted to
+ * OFF, which meant the records did not exist on precisely the machines that
+ * needed them. Sending is a separate question, and E6 replaces this card with
+ * the privacy card that asks it.
+ */
 function CrashReportingCard() {
   const t = useT();
   const qc = useQueryClient();
-  const crashStatus = useQuery({
-    queryKey: ["crashStatus"],
-    queryFn: () => ipc.crash.status(),
-  });
   const crashCount = useQuery({
     queryKey: ["crashCount"],
     queryFn: () => ipc.crash.count(),
-  });
-  const setCrash = useMutation({
-    mutationFn: (enabled: boolean) => ipc.crash.set(enabled),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["crashStatus"] }),
   });
   const clearCrashes = useMutation({
     mutationFn: () => ipc.crash.clear(),
@@ -651,35 +653,20 @@ function CrashReportingCard() {
       <CardContent className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-[var(--color-fg-muted)]">{t("setStatus")}</span>
-          {crashStatus.data ? (
-            <Badge variant="success">{t("setOn")}</Badge>
-          ) : (
-            <Badge variant="neutral">{t("setOff")}</Badge>
-          )}
-          {(crashCount.data ?? 0) > 0 && (
-            <span className="text-xs text-[var(--color-fg-muted)]">
-              {t("setCrashCount", { n: crashCount.data ?? 0 })}
-            </span>
-          )}
+          <Badge variant="neutral">{t("setCrashLocalOnly")}</Badge>
+          <span className="text-xs text-[var(--color-fg-muted)]">
+            {t("setCrashCount", { n: crashCount.data ?? 0 })}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          {(crashCount.data ?? 0) > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => clearCrashes.mutate()}
-            >
-              {t("actionClear")}
-            </Button>
-          )}
+        {(crashCount.data ?? 0) > 0 && (
           <Button
-            variant={crashStatus.data ? "outline" : "primary"}
+            variant="outline"
             size="sm"
-            onClick={() => setCrash.mutate(!crashStatus.data)}
+            onClick={() => clearCrashes.mutate()}
           >
-            {crashStatus.data ? t("setTurnOff") : t("setTurnOn")}
+            {t("actionClear")}
           </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

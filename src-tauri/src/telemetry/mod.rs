@@ -1,13 +1,13 @@
-//! E3 — the local observation ground floor.
+//! E3/E5 — local observation, and the client that can offer it up.
 //!
-//! Everything that will later go on the wire (E4/E5) exists here FIRST: already
-//! scrubbed, already ring-bounded, and provably unable to touch the live path.
-//! Nothing in this module family sends anything anywhere — there is no network
-//! code in it at all, by design. A stage that cannot be observed cannot be
-//! trusted; a stage whose observation can freeze the projector is worse than
-//! one that is not observed.
+//! Everything that goes on the wire exists here FIRST: already scrubbed, already
+//! ring-bounded, and provably unable to touch the live path. A stage that cannot
+//! be observed cannot be trusted; a stage whose observation can freeze the
+//! projector is worse than one that is not observed.
 //!
 //! ## Module map
+//!
+//! **E3 — the local ground floor. None of this sends anything, ever.**
 //!
 //! * [`scrub`] — the path scrubber. Law 2 ("content never leaves the machine")
 //!   in code, applied BEFORE anything reaches disk and again when it is read
@@ -17,11 +17,33 @@
 //!   renderer's `window.onerror` / `unhandledrejection` handlers.
 //! * [`logfile`] — a size-capped rotating file log, because a shipped app has
 //!   no console, plus the `log_tail` reader that scrubs a second time.
-//! * [`counters`] — a closed set of ~19 counter names, incremented atomically
+//! * [`counters`] — a closed set of 19 counter names, incremented atomically
 //!   and folded into SQLite when nothing is live.
 //! * [`quality`] — one health row per live session, collected through an API
 //!   that is non-blocking BY TYPE and drained only when `AppState.live` is
 //!   `None`. This is the module law 1 is about.
+//!
+//! **E5 — the client half. Present, tested, and INERT in this stage.**
+//!
+//! * [`consent`] — the three-state machine. `NeverAsked` is not `Denied`.
+//! * [`client`] — its shell: the record, the lazily minted install id, the
+//!   parked deletions, the drain and the preview.
+//! * [`payload`] — the one builder that serves the wire, the preview and (from
+//!   E6) the report dialog.
+//! * [`outbox`] — the bounded queue, its backoff ladder, and the consent gate
+//!   as a pure function.
+//! * [`config`] — where the endpoint would be, if this build had one.
+//! * [`http_sender`] — the socket. **NETWORK-UNVERIFIED.**
+//! * [`sender`] — the supervised pump, and the live gate at the top of its beat.
+//!
+//! ## Why E5 ships inert, and why that is the point
+//!
+//! There is no consent UI until E6. With no way to answer the question the
+//! record stays absent, `evaluate(None)` is `NeverAsked`, no install id is ever
+//! minted, `client::drain` returns on its first line and no pump is spawned. On
+//! top of that, [`config::TelemetryEndpoint::resolve`] returns `None` in every
+//! build without the two build-time variables — which is every build here. Two
+//! independent reasons nothing is sent, either of which would be sufficient.
 //!
 //! ## The one exception to law 1
 //!
@@ -30,11 +52,18 @@
 //! as its own process holding the last frame (see `output::process`). Every
 //! OTHER write in this family is gated on "no live session".
 
+pub mod client;
+pub mod config;
+pub mod consent;
 pub mod counters;
 pub mod crash_ring;
+pub mod http_sender;
 pub mod logfile;
+pub mod outbox;
+pub mod payload;
 pub mod quality;
 pub mod scrub;
+pub mod sender;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -88,6 +117,34 @@ impl TelemetryOs {
     }
 }
 
+/// The CPU architecture, as a CLOSED set — same reasoning as [`TelemetryOs`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/TelemetryArch.ts")]
+pub enum TelemetryArch {
+    #[serde(rename = "x86_64")]
+    X86_64,
+    #[serde(rename = "aarch64")]
+    Aarch64,
+    #[serde(rename = "other")]
+    Other,
+}
+
+impl TelemetryArch {
+    /// This build's architecture.
+    pub fn current() -> Self {
+        Self::from_consts(std::env::consts::ARCH)
+    }
+
+    /// Map a `std::env::consts::ARCH` string onto the closed set.
+    pub fn from_consts(arch: &str) -> Self {
+        match arch {
+            "x86_64" => Self::X86_64,
+            "aarch64" | "arm64" => Self::Aarch64,
+            _ => Self::Other,
+        }
+    }
+}
+
 /// Wall-clock milliseconds since the epoch.
 ///
 /// Deliberately NOT [`crate::db::now_ms`], which `expect`s on a pre-epoch clock:
@@ -128,6 +185,28 @@ mod tests {
     fn os_serialises_snake_case_for_the_wire() {
         let json = serde_json::to_string(&TelemetryOs::Macos).expect("serialises");
         assert_eq!(json, "\"macos\"");
+    }
+
+    #[test]
+    fn arch_maps_onto_the_closed_set() {
+        assert_eq!(TelemetryArch::from_consts("x86_64"), TelemetryArch::X86_64);
+        assert_eq!(
+            TelemetryArch::from_consts("aarch64"),
+            TelemetryArch::Aarch64
+        );
+        // Tauri's own target triples say `aarch64`, but `arm64` is what several
+        // toolchains call the same silicon; both must be one value on the wire.
+        assert_eq!(TelemetryArch::from_consts("arm64"), TelemetryArch::Aarch64);
+        assert_eq!(TelemetryArch::from_consts("riscv64"), TelemetryArch::Other);
+        assert_eq!(TelemetryArch::from_consts(""), TelemetryArch::Other);
+        assert!(matches!(
+            TelemetryArch::current(),
+            TelemetryArch::X86_64 | TelemetryArch::Aarch64 | TelemetryArch::Other
+        ));
+        assert_eq!(
+            serde_json::to_string(&TelemetryArch::X86_64).expect("serialises"),
+            "\"x86_64\""
+        );
     }
 
     #[test]

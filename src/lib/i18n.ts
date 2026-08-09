@@ -554,7 +554,8 @@ const en: Catalog = {
     "Beta builds arrive earlier and may have rough edges — not recommended on the machine that runs the service. You can switch back to stable at any time.",
   setCrashReporting: "Crash reporting",
   setCrashDesc:
-    "Store crash reports locally on the machine — nothing is sent automatically. Off by default.",
+    "Crash reports are stored on this machine so a problem can be looked at afterwards. They are never sent anywhere on their own.",
+  setCrashLocalOnly: "Local only",
   setOn: "On",
   setOff: "Off",
   setCrashCount: "{n} report(s) stored",
@@ -1232,7 +1233,8 @@ const no: Catalog = {
     "Beta-versjoner kommer tidligere og kan ha skarpe kanter — ikke anbefalt på maskinen som kjører gudstjenesten. Du kan bytte tilbake til stabil når som helst.",
   setCrashReporting: "Feilrapportering",
   setCrashDesc:
-    "Lagre krasj-rapporter lokalt på maskinen — ingenting sendes automatisk. Av som standard.",
+    "Krasj-rapporter lagres på denne maskinen slik at et problem kan undersøkes etterpå. De sendes aldri noe sted av seg selv.",
+  setCrashLocalOnly: "Kun lokalt",
   setOn: "På",
   setOff: "Av",
   setCrashCount: "{n} rapport(er) lagret",
@@ -1842,7 +1844,8 @@ const sv: Catalog = {
     "Betaversioner kommer tidigare och kan ha skarpa kanter — rekommenderas inte på maskinen som kör gudstjänsten. Du kan byta tillbaka till stabil när som helst.",
   setCrashReporting: "Kraschrapportering",
   setCrashDesc:
-    "Lagra kraschrapporter lokalt på maskinen — ingenting skickas automatiskt. Av som standard.",
+    "Kraschrapporter lagras på den här maskinen så att ett problem kan undersökas efteråt. De skickas aldrig någonstans av sig själva.",
+  setCrashLocalOnly: "Endast lokalt",
   setOn: "På",
   setOff: "Av",
   setCrashCount: "{n} rapport(er) lagrade",
@@ -2467,7 +2470,8 @@ const da: Catalog = {
     "Betaversioner kommer tidligere og kan have skarpe kanter — anbefales ikke på maskinen, der kører gudstjenesten. Du kan skifte tilbage til stabil når som helst.",
   setCrashReporting: "Fejlrapportering",
   setCrashDesc:
-    "Gem nedbrudsrapporter lokalt på maskinen — intet sendes automatisk. Slået fra som standard.",
+    "Nedbrudsrapporter gemmes på denne maskine, så et problem kan undersøges bagefter. De sendes aldrig nogen steder af sig selv.",
+  setCrashLocalOnly: "Kun lokalt",
   setOn: "Til",
   setOff: "Fra",
   setCrashCount: "{n} rapport(er) gemt",
@@ -3100,7 +3104,8 @@ const de: Catalog = {
     "Beta-Versionen kommen früher und können Ecken und Kanten haben — nicht empfohlen auf dem Gerät, das den Gottesdienst fährt. Du kannst jederzeit zu Stabil zurückwechseln.",
   setCrashReporting: "Absturzberichte",
   setCrashDesc:
-    "Absturzberichte lokal auf dem Gerät speichern — nichts wird automatisch gesendet. Standardmäßig aus.",
+    "Absturzberichte werden auf diesem Gerät gespeichert, damit ein Problem später untersucht werden kann. Sie werden von sich aus nirgendwohin gesendet.",
+  setCrashLocalOnly: "Nur lokal",
   setOn: "An",
   setOff: "Aus",
   setCrashCount: "{n} Bericht(e) gespeichert",
@@ -3742,7 +3747,8 @@ const fr: Catalog = {
     "Les versions bêta arrivent plus tôt et peuvent comporter des aspérités — déconseillé sur la machine qui anime le culte. Vous pouvez revenir au canal stable à tout moment.",
   setCrashReporting: "Rapports d'incident",
   setCrashDesc:
-    "Stocker les rapports d'incident localement sur la machine — rien n'est envoyé automatiquement. Désactivé par défaut.",
+    "Les rapports d'incident sont conservés sur cette machine afin qu'un problème puisse être examiné ensuite. Ils ne sont jamais envoyés d'eux-mêmes.",
+  setCrashLocalOnly: "Local uniquement",
   setOn: "Activé",
   setOff: "Désactivé",
   setCrashCount: "{n} rapport(s) stocké(s)",
@@ -4369,7 +4375,8 @@ const pl: Catalog = {
     "Wersje beta pojawiają się wcześniej i mogą mieć niedociągnięcia — niezalecane na komputerze prowadzącym nabożeństwo. W każdej chwili możesz wrócić do kanału stabilnego.",
   setCrashReporting: "Raportowanie awarii",
   setCrashDesc:
-    "Przechowuj raporty awarii lokalnie na komputerze — nic nie jest wysyłane automatycznie. Domyślnie wyłączone.",
+    "Raporty awarii są przechowywane na tym komputerze, aby problem można było zbadać później. Nigdy nie są nigdzie wysyłane samoczynnie.",
+  setCrashLocalOnly: "Tylko lokalnie",
   setOn: "Wł.",
   setOff: "Wył.",
   setCrashCount: "{n} zapisanych raportów",

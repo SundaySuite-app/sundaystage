@@ -5,11 +5,16 @@ use tauri::State;
 use crate::db::models::{SearchResult, Song, SongInput, SongSection};
 use crate::db::repositories::SongRepo;
 use crate::error::AppResult;
+use crate::telemetry::counters::CounterName;
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 #[tauri::command]
 pub async fn song_create(state: State<'_, AppState>, input: SongInput) -> AppResult<Song> {
-    SongRepo::new(&state.db.pool).create(input).await
+    let song = SongRepo::new(&state.db.pool).create(input).await?;
+    // E5 — on success only. A rejected title is not a song.
+    state.telemetry.note_counter(CounterName::EditorSongCreated);
+    Ok(song)
 }
 
 #[tauri::command]

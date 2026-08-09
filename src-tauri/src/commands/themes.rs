@@ -9,6 +9,8 @@ use crate::db::repositories::{DeckRepo, ThemeRepo};
 use crate::error::AppResult;
 use crate::services::slide_doc::SlideDoc;
 use crate::services::theme::ThemeTokens;
+use crate::telemetry::counters::CounterName;
+use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
 #[tauri::command]
@@ -35,9 +37,14 @@ pub async fn theme_create(
     name: String,
     tokens: ThemeTokens,
 ) -> AppResult<Theme> {
-    ThemeRepo::new(&state.db.pool)
+    let theme = ThemeRepo::new(&state.db.pool)
         .create_theme(&library_id, &name, &tokens)
-        .await
+        .await?;
+    // E5 — a theme the operator made themselves. `theme_duplicate` deliberately
+    // does NOT count: duplicating is how you START editing one, and counting it
+    // would make "themes created" mean "buttons pressed".
+    state.telemetry.note_counter(CounterName::ThemeCreated);
+    Ok(theme)
 }
 
 #[tauri::command]

@@ -17,8 +17,12 @@ use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
+/// The saved role assignments. Named so [`saved_config`] and [`config_path`]
+/// cannot drift apart.
+const CONFIG_FILE: &str = "output_config.json";
+
 fn config_path(state: &AppState) -> PathBuf {
-    state.data_dir.join("output_config.json")
+    state.data_dir.join(CONFIG_FILE)
 }
 
 fn appearance_path(state: &AppState) -> PathBuf {
@@ -30,7 +34,19 @@ fn display_config_path(state: &AppState) -> PathBuf {
 }
 
 fn load_config(state: &AppState) -> OutputConfig {
-    std::fs::read_to_string(config_path(state))
+    saved_config(&state.data_dir)
+}
+
+/// The saved output configuration in `data_dir`, or the default when there is
+/// none / it cannot be read.
+///
+/// Takes a directory rather than `AppState` so the telemetry payload builder can
+/// read the same file the outputs are opened from (E5's `settings` block), and
+/// so both can be tested without a Tauri state. An unreadable config is a
+/// machine with nothing set up, never an error: neither opening an output nor
+/// building a payload may fail because a JSON file was truncated.
+pub fn saved_config(data_dir: &std::path::Path) -> OutputConfig {
+    std::fs::read_to_string(data_dir.join(CONFIG_FILE))
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()

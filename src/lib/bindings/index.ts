@@ -101,6 +101,28 @@ export type { QualityVerdict }    from "./QualityVerdict";
 export type { TelemetryFlush }    from "./TelemetryFlush";
 export type { TelemetryOs }       from "./TelemetryOs";
 
+// ── The telemetry client (E5) ────────────────────────────────────────────────
+// The machinery that COULD send, and does not: there is no UI to answer the
+// consent question until E6, so the record stays absent and every path below it
+// is inert. See src-tauri/src/telemetry/{consent,client,payload,outbox}.rs.
+export type { ConsentStatus }     from "./ConsentStatus";
+export type { TelemetryConsent }  from "./TelemetryConsent";
+export type { TelemetryPreview }  from "./TelemetryPreview";
+export type { TelemetryQueueStatus } from "./TelemetryQueueStatus";
+export type { TelemetryStatus }   from "./TelemetryStatus";
+// The wire shape itself — what a payload would contain, field for field.
+export type { StagePayload }      from "./StagePayload";
+export type { WireSettings }      from "./WireSettings";
+export type { CounterReport }     from "./CounterReport";
+export type { CrashReport }       from "./CrashReport";
+export type { QualityReport }     from "./QualityReport";
+export type { ProblemReport }     from "./ProblemReport";
+export type { ReportContext }     from "./ReportContext";
+export type { DisplayBucket }     from "./DisplayBucket";
+export type { LibraryBucket }     from "./LibraryBucket";
+export type { ThemeBucket }       from "./ThemeBucket";
+export type { TelemetryArch }     from "./TelemetryArch";
+
 /** Error shape returned by every Tauri command (see error.rs). */
 export interface AppError {
   code:
