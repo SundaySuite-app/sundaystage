@@ -7,12 +7,17 @@
  * the format and creates the song. Supported: plain text, ChordPro, OpenSong
  * and OpenLyrics (OpenLP). Shows a per-file result with the detected format,
  * section count and any parser warnings.
+ *
+ * A second section imports a whole EasyWorship library (Spor B2). EasyWorship
+ * stores songs in SQLite files the renderer cannot read, so it takes a folder
+ * path and the `import_easyworship_library` command reads them natively,
+ * returning an {imported, skipped, total, errors} summary.
  */
 
 import { useRef, useState } from "react";
-import { Download, FileText, X } from "lucide-react";
+import { Database, Download, FileText, X } from "lucide-react";
 
-import type { ImportFormat } from "@/lib/bindings";
+import type { EasyWorshipImportResult, ImportFormat } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { useT } from "@/lib/i18n";
 
@@ -60,6 +65,31 @@ export function ImportModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<FileResult[]>([]);
+
+  // EasyWorship library import (native SQLite read, folder path not file content).
+  const [ewFolder, setEwFolder] = useState("");
+  const [ewBusy, setEwBusy] = useState(false);
+  const [ewResult, setEwResult] = useState<EasyWorshipImportResult | null>(
+    null,
+  );
+  const [ewError, setEwError] = useState<string | null>(null);
+
+  async function handleEasyWorship() {
+    const folder = ewFolder.trim();
+    if (!folder) return;
+    setEwBusy(true);
+    setEwError(null);
+    setEwResult(null);
+    try {
+      const res = await ipc.song.importEasyWorship(libraryId, folder);
+      setEwResult(res);
+      if (res.imported > 0) onImported();
+    } catch (e) {
+      setEwError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEwBusy(false);
+    }
+  }
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -140,6 +170,62 @@ export function ImportModal({
             <FileText size={14} aria-hidden />
             {busy ? t("importBusy") : t("importChoose")}
           </button>
+
+          <section className="flex flex-col gap-2 border-t border-[var(--color-border)] pt-4">
+            <div className="flex items-center gap-2">
+              <Database size={15} className="text-[var(--color-accent)]" />
+              <h3 className="text-sm font-semibold">{t("ewImportHeading")}</h3>
+            </div>
+            <p className="text-sm text-[var(--color-fg-muted)]">
+              {t("ewImportIntro")}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={ewFolder}
+                onChange={(e) => setEwFolder(e.target.value)}
+                placeholder={t("ewImportPathPlaceholder")}
+                className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                disabled={ewBusy || ewFolder.trim().length === 0}
+                onClick={() => void handleEasyWorship()}
+                className="inline-flex w-fit shrink-0 items-center gap-2 rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+              >
+                <Database size={14} aria-hidden />
+                {ewBusy ? t("ewImportBusy") : t("ewImportButton")}
+              </button>
+            </div>
+            {ewError && (
+              <p className="text-xs text-[var(--color-warning)]">
+                {t("ewImportFailed", { error: ewError })}
+              </p>
+            )}
+            {ewResult && (
+              <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm">
+                <p>
+                  {t("ewImportSummary", {
+                    imported: ewResult.imported,
+                    skipped: ewResult.skipped,
+                    total: ewResult.total,
+                  })}
+                </p>
+                {ewResult.errors.length > 0 && (
+                  <>
+                    <p className="mt-1 text-xs text-[var(--color-warning)]">
+                      {t("ewImportErrorCount", { n: ewResult.errors.length })}
+                    </p>
+                    <ul className="mt-1 ml-4 list-disc text-xs text-[var(--color-fg-muted)]">
+                      {ewResult.errors.map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+          </section>
 
           {results.length > 0 && (
             <ul className="flex flex-col gap-1.5">

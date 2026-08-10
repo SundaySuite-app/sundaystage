@@ -257,6 +257,7 @@ pub fn run() {
             commands::ai::ai_format_lyrics,
             commands::ai::ai_apply_format,
             commands::import::import_song_file,
+            commands::import::import_easyworship_library,
             commands::ai::ai_plan_service,
             commands::ai::ai_apply_plan,
             commands::ai::ai_translate,

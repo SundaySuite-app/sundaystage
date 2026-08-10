@@ -33,6 +33,7 @@ export type { CustomDeck }        from "./CustomDeck";
 export type { DemoSummary }       from "./DemoSummary";
 export type { DisplayAssignment } from "./DisplayAssignment";
 export type { DisplayRole }       from "./DisplayRole";
+export type { EasyWorshipImportResult } from "./EasyWorshipImportResult";
 export type { FormattedSection }  from "./FormattedSection";
 export type { FormattedSong }     from "./FormattedSong";
 export type { HAlign }            from "./HAlign";
