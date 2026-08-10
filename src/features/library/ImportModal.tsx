@@ -22,7 +22,7 @@ import { ipc } from "@/lib/ipc";
 import { useT } from "@/lib/i18n";
 
 const ACCEPT =
-  ".txt,.cho,.crd,.chopro,.chordpro,.xml,.opensong,.pro_,.show,.pro6";
+  ".txt,.cho,.crd,.chopro,.chordpro,.xml,.opensong,.pro_,.show,.pro6,.usr";
 
 const FORMAT_LABEL: Record<ImportFormat, string> = {
   plain_text: "Tekst",
@@ -31,6 +31,7 @@ const FORMAT_LABEL: Record<ImportFormat, string> = {
   open_lyrics: "OpenLyrics",
   free_show: "FreeShow",
   pro6: "ProPresenter",
+  song_select: "SongSelect",
 };
 
 interface FileResult {

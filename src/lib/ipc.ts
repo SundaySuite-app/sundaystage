@@ -155,6 +155,11 @@ export const song = {
     call<SongSection[]>("song_reorder_sections", { songId, orderedIds }),
   importFile: (libraryId: string, filename: string, content: string) =>
     call<ImportResult>("import_song_file", { libraryId, filename, content }),
+  /** Export a song to an open interchange format (Spor B5, the lock-in fix).
+   *  Returns the serialised OpenLyrics XML / ChordPro text for the frontend to
+   *  preview, copy or download. */
+  export: (songId: string, format: "openlyrics" | "chordpro") =>
+    call<string>("export_song", { songId, format }),
   /** Import a whole EasyWorship library from its `Databases/Data` folder path.
    *  Reads the SQLite files natively (the renderer can't), so it takes a folder
    *  path rather than file content. */

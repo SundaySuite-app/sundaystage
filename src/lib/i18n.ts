@@ -362,6 +362,12 @@ const en: Catalog = {
   actionCopy: "Copy",
   exCopied: "Copied",
   exGenerating: "Generating…",
+  exportSongTitle: "Export song",
+  exportSongIntro:
+    "Save this song in an open format so you can take it to another app.",
+  exportSongButton: "Export",
+  exportDownload: "Download",
+  exportEmpty: "Nothing to export yet.",
   exNoSlidesShown: "No slides shown yet.",
   exFooterNote:
     "Generated from the live session log. File saving + automatic hand-off to SundayRec is coming via the bridge (Phase 10.1).",
@@ -1113,6 +1119,12 @@ const no: Catalog = {
   actionCopy: "Kopier",
   exCopied: "Kopiert",
   exGenerating: "Genererer…",
+  exportSongTitle: "Eksporter sang",
+  exportSongIntro:
+    "Lagre sangen i et åpent format så du kan ta den med til en annen app.",
+  exportSongButton: "Eksporter",
+  exportDownload: "Last ned",
+  exportEmpty: "Ingenting å eksportere ennå.",
   exNoSlidesShown: "Ingen lysbilder vist enda.",
   exFooterNote:
     "Genereres fra live-sesjonens logg. Fillagring + automatisk overlevering til SundayRec kommer via broen (Phase 10.1).",
@@ -1816,6 +1828,12 @@ const sv: Catalog = {
   actionCopy: "Kopiera",
   exCopied: "Kopierad",
   exGenerating: "Genererar…",
+  exportSongTitle: "Exportera sång",
+  exportSongIntro:
+    "Spara sången i ett öppet format så att du kan ta den till en annan app.",
+  exportSongButton: "Exportera",
+  exportDownload: "Ladda ner",
+  exportEmpty: "Inget att exportera ännu.",
   exNoSlidesShown: "Inga bilder visade än.",
   exFooterNote:
     "Genereras från live-sessionens logg. Filsparande + automatisk överlämning till SundayRec kommer via bryggan (Phase 10.1).",
@@ -2516,6 +2534,12 @@ const da: Catalog = {
   actionCopy: "Kopiér",
   exCopied: "Kopieret",
   exGenerating: "Genererer…",
+  exportSongTitle: "Eksportér sang",
+  exportSongIntro:
+    "Gem sangen i et åbent format, så du kan tage den med til en anden app.",
+  exportSongButton: "Eksportér",
+  exportDownload: "Download",
+  exportEmpty: "Intet at eksportere endnu.",
   exNoSlidesShown: "Ingen dias vist endnu.",
   exFooterNote:
     "Genereres fra live-sessionens log. Filgemning + automatisk overdragelse til SundayRec kommer via broen (Phase 10.1).",
@@ -3220,6 +3244,12 @@ const de: Catalog = {
   actionCopy: "Kopieren",
   exCopied: "Kopiert",
   exGenerating: "Wird generiert…",
+  exportSongTitle: "Lied exportieren",
+  exportSongIntro:
+    "Speichere das Lied in einem offenen Format, um es in eine andere App mitzunehmen.",
+  exportSongButton: "Exportieren",
+  exportDownload: "Herunterladen",
+  exportEmpty: "Noch nichts zu exportieren.",
   exNoSlidesShown: "Noch keine Folien angezeigt.",
   exFooterNote:
     "Wird aus dem Protokoll der Live-Sitzung generiert. Das Speichern von Dateien + die automatische Übergabe an SundayRec kommt über die Brücke (Phase 10.1).",
@@ -3938,6 +3968,12 @@ const fr: Catalog = {
   actionCopy: "Copier",
   exCopied: "Copié",
   exGenerating: "Génération…",
+  exportSongTitle: "Exporter le chant",
+  exportSongIntro:
+    "Enregistrez le chant dans un format ouvert pour l'emporter vers une autre application.",
+  exportSongButton: "Exporter",
+  exportDownload: "Télécharger",
+  exportEmpty: "Rien à exporter pour l'instant.",
   exNoSlidesShown: "Aucune diapositive affichée pour le moment.",
   exFooterNote:
     "Généré à partir du journal de la session en direct. L'enregistrement du fichier + le transfert automatique vers SundayRec arrivera via le pont (Phase 10.1).",
@@ -4651,6 +4687,12 @@ const pl: Catalog = {
   actionCopy: "Kopiuj",
   exCopied: "Skopiowano",
   exGenerating: "Generowanie…",
+  exportSongTitle: "Eksportuj pieśń",
+  exportSongIntro:
+    "Zapisz pieśń w otwartym formacie, aby przenieść ją do innej aplikacji.",
+  exportSongButton: "Eksportuj",
+  exportDownload: "Pobierz",
+  exportEmpty: "Nie ma jeszcze nic do wyeksportowania.",
   exNoSlidesShown: "Nie wyświetlono jeszcze żadnych slajdów.",
   exFooterNote:
     "Generowane z dziennika sesji na żywo. Zapis pliku + automatyczne przekazanie do SundayRec pojawi się przez most (Phase 10.1).",

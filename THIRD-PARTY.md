@@ -32,6 +32,22 @@ field), so it is the public-domain 1769 text, not the GPL annotated edition.
 Underlying-text public domain does **not** imply every edition is public domain —
 only the specific files listed here were verified.
 
+## Song interchange formats — Praisenter (format reference)
+
+- **Used by:** the CCLI SongSelect importer (Spor B5) —
+  `src-tauri/src/services/import_songselect.rs` — and the OpenLyrics + ChordPro
+  EXPORT writers (the lock-in fix) — `src-tauri/src/services/song_export.rs`.
+- **Repository:** https://github.com/praisenter/praisenter
+- **License:** BSD-3-Clause (verified in the repository's `LICENSE`).
+- **What was adopted:** the _format knowledge_ only. Praisenter has reference
+  implementations for these documented, observable formats
+  (`SongSelectSongFormatProvider` for CCLI `.usr`/`.txt`,
+  `OpenLyricsSongFormatProvider`, `ChordProSongFormatProvider`). The Rust here
+  was reimplemented idiomatically from the format structure — no Java was copied
+  verbatim. The `.usr`/`.txt`, OpenLyrics 0.9 and ChordPro layouts are public,
+  documented interchange formats; Praisenter is credited as the reference that
+  confirmed their shapes and round-trip semantics.
+
 ## Rust crates
 
 `sha2` and `hex` (both MIT/Apache-2.0, already present transitively) are used to

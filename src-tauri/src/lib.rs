@@ -242,6 +242,7 @@ pub fn run() {
             commands::songs::song_update_section,
             commands::songs::song_delete_section,
             commands::songs::song_reorder_sections,
+            commands::songs::export_song,
             // Arrangements (Phase 3.3)
             commands::arrangements::arrangement_create,
             commands::arrangements::arrangement_list,

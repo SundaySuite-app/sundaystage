@@ -15,7 +15,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  FileDown,
+  Plus,
+  Sparkles,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import type {
   ArrangementItem,
@@ -29,6 +38,7 @@ import { useT } from "@/lib/i18n";
 import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { SlideCanvas } from "@/features/decks/SlideCanvas";
 import { PasteFormatModal } from "./PasteFormatModal";
+import { ExportSongModal } from "./ExportSongModal";
 
 const LINES_PER_SLIDE = 4;
 const SECTION_LABELS = [
@@ -89,6 +99,7 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
 
   const [activeArrId, setActiveArrId] = useState<string | null>(null);
   const [showPaste, setShowPaste] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   useEffect(() => {
     if (arrangements.length === 0) {
       setActiveArrId(null);
@@ -115,6 +126,13 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
         <div className="flex-1" />
         <button
           type="button"
+          onClick={() => setShowExport(true)}
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-fg)]"
+        >
+          <FileDown size={14} /> {t("exportSongButton")}
+        </button>
+        <button
+          type="button"
           onClick={() => setShowPaste(true)}
           className="flex items-center gap-1.5 rounded-md bg-[var(--color-brand)] px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
         >
@@ -131,6 +149,14 @@ export function SongEditor({ songId, title, onBack }: SongEditorProps) {
             void qc.invalidateQueries({ queryKey: arrangementsKey });
             setActiveArrId(arrId);
           }}
+        />
+      )}
+
+      {showExport && (
+        <ExportSongModal
+          songId={songId}
+          songTitle={title}
+          onClose={() => setShowExport(false)}
         />
       )}
 

@@ -3,8 +3,9 @@
 use tauri::State;
 
 use crate::db::models::{SearchResult, Song, SongInput, SongSection};
-use crate::db::repositories::SongRepo;
-use crate::error::AppResult;
+use crate::db::repositories::{ArrangementRepo, SongRepo};
+use crate::error::{AppError, AppResult};
+use crate::services::song_export::{to_chordpro, to_openlyrics};
 use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
@@ -97,4 +98,43 @@ pub async fn song_reorder_sections(
     SongRepo::new(&state.db.pool)
         .reorder_sections(&song_id, &ordered_ids)
         .await
+}
+
+/// Export a song to an open interchange format (Spor B5 — the lock-in fix).
+///
+/// `format` is `"openlyrics"` or `"chordpro"`. The song's sections and its
+/// default arrangement (the play order) are serialised by the pure
+/// [`crate::services::song_export`] writers; the string is returned for the
+/// frontend to show/copy/save, mirroring how `bridge_export_srt` surfaces.
+#[tauri::command]
+pub async fn export_song(
+    state: State<'_, AppState>,
+    song_id: String,
+    format: String,
+) -> AppResult<String> {
+    let pool = &state.db.pool;
+    let song_repo = SongRepo::new(pool);
+    let song = song_repo.get(&song_id).await?;
+    let sections = song_repo.sections(&song_id).await?;
+
+    // `ArrangementRepo::list` sorts default-first, so the first arrangement is
+    // the play order to export; a song with none exports its sections in order.
+    let arr_repo = ArrangementRepo::new(pool);
+    let arrangement: Vec<String> = match arr_repo.list(&song_id).await?.first() {
+        Some(a) => arr_repo
+            .resolved_sections(&a.id)
+            .await?
+            .into_iter()
+            .map(|s| s.label)
+            .collect(),
+        None => Vec::new(),
+    };
+
+    match format.as_str() {
+        "openlyrics" => Ok(to_openlyrics(&song, &sections, &arrangement)),
+        "chordpro" => Ok(to_chordpro(&song, &sections, &arrangement)),
+        other => Err(AppError::Validation(format!(
+            "ukjent eksportformat «{other}»"
+        ))),
+    }
 }
