@@ -14,6 +14,7 @@ pub mod display;
 pub mod library_publish;
 pub mod live_session;
 pub mod media;
+pub mod rtf;
 pub mod scripture_break;
 pub mod session_store;
 pub mod slide_doc;
