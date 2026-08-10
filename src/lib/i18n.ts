@@ -219,12 +219,12 @@ const en: Catalog = {
   libraryNoLyricsYet: "No lyrics yet. Press «Edit» to add sections.",
   libraryEmptyTitle: "Empty library — let's get started",
   libraryEmptyBody:
-    "Add your first song manually — or import existing songs (plain text, ChordPro, OpenSong, OpenLyrics).",
+    "Add your first song manually — or import existing songs (plain text, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Create your first song",
   libraryImport: "Import",
   importTitle: "Import songs",
   importIntro:
-    "Choose song files exported from other apps. Supported: plain text, ChordPro, OpenSong and OpenLyrics (OpenLP).",
+    "Choose song files exported from other apps. Supported: plain text, ChordPro, OpenSong and OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Choose files…",
   importBusy: "Importing…",
   importSections: "{n} sections",
@@ -973,12 +973,12 @@ const no: Catalog = {
     "Ingen tekst enda. Trykk «Rediger» for å legge til seksjoner.",
   libraryEmptyTitle: "Tomt bibliotek — la oss starte",
   libraryEmptyBody:
-    "Legg til din første sang manuelt — eller importer eksisterende sanger (ren tekst, ChordPro, OpenSong, OpenLyrics).",
+    "Legg til din første sang manuelt — eller importer eksisterende sanger (ren tekst, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Lag din første sang",
   libraryImport: "Importer",
   importTitle: "Importer sanger",
   importIntro:
-    "Velg sangfiler eksportert fra andre apper. Støttet: ren tekst, ChordPro, OpenSong og OpenLyrics (OpenLP).",
+    "Velg sangfiler eksportert fra andre apper. Støttet: ren tekst, ChordPro, OpenSong og OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Velg filer …",
   importBusy: "Importerer …",
   importSections: "{n} seksjoner",
@@ -1691,12 +1691,12 @@ const sv: Catalog = {
     "Ingen sångtext än. Tryck «Redigera» för att lägga till sektioner.",
   libraryEmptyTitle: "Tomt bibliotek — nu sätter vi igång",
   libraryEmptyBody:
-    "Lägg till din första sång manuellt — eller importera befintliga sånger (ren text, ChordPro, OpenSong, OpenLyrics).",
+    "Lägg till din första sång manuellt — eller importera befintliga sånger (ren text, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Skapa din första sång",
   libraryImport: "Importera",
   importTitle: "Importera sånger",
   importIntro:
-    "Välj sångfiler exporterade från andra appar. Stöds: ren text, ChordPro, OpenSong och OpenLyrics (OpenLP).",
+    "Välj sångfiler exporterade från andra appar. Stöds: ren text, ChordPro, OpenSong och OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Välj filer …",
   importBusy: "Importerar …",
   importSections: "{n} sektioner",
@@ -2399,12 +2399,12 @@ const da: Catalog = {
     "Ingen tekst endnu. Tryk «Redigér» for at tilføje sektioner.",
   libraryEmptyTitle: "Tomt bibliotek — lad os komme i gang",
   libraryEmptyBody:
-    "Tilføj din første sang manuelt — eller importér eksisterende sange (ren tekst, ChordPro, OpenSong, OpenLyrics).",
+    "Tilføj din første sang manuelt — eller importér eksisterende sange (ren tekst, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Opret din første sang",
   libraryImport: "Importér",
   importTitle: "Importér sange",
   importIntro:
-    "Vælg sangfiler eksporteret fra andre apps. Understøttet: ren tekst, ChordPro, OpenSong og OpenLyrics (OpenLP).",
+    "Vælg sangfiler eksporteret fra andre apps. Understøttet: ren tekst, ChordPro, OpenSong og OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Vælg filer …",
   importBusy: "Importerer …",
   importSections: "{n} sektioner",
@@ -3106,12 +3106,12 @@ const de: Catalog = {
     "Noch kein Liedtext. Drücke «Bearbeiten», um Abschnitte hinzuzufügen.",
   libraryEmptyTitle: "Leere Bibliothek — lass uns loslegen",
   libraryEmptyBody:
-    "Füge dein erstes Lied manuell hinzu — oder importiere vorhandene Lieder (reiner Text, ChordPro, OpenSong, OpenLyrics).",
+    "Füge dein erstes Lied manuell hinzu — oder importiere vorhandene Lieder (reiner Text, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Erstelle dein erstes Lied",
   libraryImport: "Importieren",
   importTitle: "Lieder importieren",
   importIntro:
-    "Wähle aus anderen Apps exportierte Lieddateien. Unterstützt: reiner Text, ChordPro, OpenSong und OpenLyrics (OpenLP).",
+    "Wähle aus anderen Apps exportierte Lieddateien. Unterstützt: reiner Text, ChordPro, OpenSong und OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Dateien wählen …",
   importBusy: "Wird importiert …",
   importSections: "{n} Abschnitte",
@@ -3829,12 +3829,12 @@ const fr: Catalog = {
     "Pas encore de paroles. Appuyez sur «Modifier» pour ajouter des sections.",
   libraryEmptyTitle: "Bibliothèque vide — c'est parti",
   libraryEmptyBody:
-    "Ajoutez votre premier chant manuellement — ou importez des chants existants (texte brut, ChordPro, OpenSong, OpenLyrics).",
+    "Ajoutez votre premier chant manuellement — ou importez des chants existants (texte brut, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Créez votre premier chant",
   libraryImport: "Importer",
   importTitle: "Importer des chants",
   importIntro:
-    "Choisissez des fichiers de chants exportés depuis d'autres applis. Pris en charge : texte brut, ChordPro, OpenSong et OpenLyrics (OpenLP).",
+    "Choisissez des fichiers de chants exportés depuis d'autres applis. Pris en charge : texte brut, ChordPro, OpenSong et OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Choisir des fichiers …",
   importBusy: "Importation …",
   importSections: "{n} sections",
@@ -4553,12 +4553,12 @@ const pl: Catalog = {
   libraryNoLyricsYet: "Brak tekstu. Naciśnij «Edytuj», aby dodać sekcje.",
   libraryEmptyTitle: "Pusta biblioteka — zacznijmy",
   libraryEmptyBody:
-    "Dodaj swoją pierwszą pieśń ręcznie — lub zaimportuj istniejące pieśni (zwykły tekst, ChordPro, OpenSong, OpenLyrics).",
+    "Dodaj swoją pierwszą pieśń ręcznie — lub zaimportuj istniejące pieśni (zwykły tekst, ChordPro, OpenSong, OpenLyrics, FreeShow, ProPresenter, SongSelect).",
   libraryCreateFirst: "Utwórz swoją pierwszą pieśń",
   libraryImport: "Importuj",
   importTitle: "Importuj pieśni",
   importIntro:
-    "Wybierz pliki pieśni wyeksportowane z innych aplikacji. Obsługiwane: zwykły tekst, ChordPro, OpenSong i OpenLyrics (OpenLP).",
+    "Wybierz pliki pieśni wyeksportowane z innych aplikacji. Obsługiwane: zwykły tekst, ChordPro, OpenSong i OpenLyrics (OpenLP), FreeShow, ProPresenter, SongSelect.",
   importChoose: "Wybierz pliki …",
   importBusy: "Importowanie …",
   importSections: "{n} sekcji",
