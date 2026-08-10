@@ -32,6 +32,7 @@ import type {
   CueSummary,
   CustomDeck,
   DemoSummary,
+  EasyWorshipImportResult,
   FormattedSong,
   ImportResult,
   LocaleInfo,
@@ -154,6 +155,14 @@ export const song = {
     call<SongSection[]>("song_reorder_sections", { songId, orderedIds }),
   importFile: (libraryId: string, filename: string, content: string) =>
     call<ImportResult>("import_song_file", { libraryId, filename, content }),
+  /** Import a whole EasyWorship library from its `Databases/Data` folder path.
+   *  Reads the SQLite files natively (the renderer can't), so it takes a folder
+   *  path rather than file content. */
+  importEasyWorship: (libraryId: string, folderPath: string) =>
+    call<EasyWorshipImportResult>("import_easyworship_library", {
+      libraryId,
+      folderPath,
+    }),
 };
 
 // ── Arrangements (Phase 3.3) ───────────────────────────────────────────────────

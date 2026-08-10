@@ -12,6 +12,7 @@ pub mod companion;
 pub mod cue_list;
 pub mod demo;
 pub mod display;
+pub mod import_easyworship;
 pub mod library_publish;
 pub mod live_session;
 pub mod media;
