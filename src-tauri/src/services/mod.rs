@@ -13,6 +13,7 @@ pub mod cue_list;
 pub mod demo;
 pub mod display;
 pub mod import_easyworship;
+pub mod import_propresenter;
 pub mod library_publish;
 pub mod live_session;
 pub mod media;
