@@ -4429,6 +4429,7 @@ dependencies = [
  "hex",
  "keyring",
  "parking_lot",
+ "quick-xml",
  "reqwest 0.12.28",
  "semver",
  "serde",

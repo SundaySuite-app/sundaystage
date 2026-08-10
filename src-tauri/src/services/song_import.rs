@@ -17,8 +17,12 @@
 //!     carries `slides` (text) and `layouts` (slide order). Plain text in JSON,
 //!     so no binary/RTF decoding is needed.
 //!
-//! Binary / proprietary formats (ProPresenter `.pro`, EasyWorship) need
-//! format-specific decoders and are intentionally out of scope.
+//! **ProPresenter 6** (`.pro6`, Spor B4) is also a single-file XML import routed
+//! through here, but its (quick-xml) walk and base64-RTF decoding live in the
+//! sibling [`import_propresenter`](crate::services::import_propresenter) module;
+//! this file only dispatches to it and exposes the shared [`finalize`] assembly.
+//! The binary `.pro`/`.pro7` and folder-based EasyWorship formats need their own
+//! decoders and are handled elsewhere (EasyWorship in `import_easyworship`).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -39,6 +43,8 @@ pub enum ImportFormat {
     OpenSong,
     OpenLyrics,
     FreeShow,
+    /// ProPresenter 6 `.pro6` (XML, base64-RTF slides). See `import_propresenter`.
+    Pro6,
 }
 
 /// Best-effort format detection from a filename and the content itself. Content
@@ -79,6 +85,12 @@ pub fn detect_format(filename: &str, content: &str) -> ImportFormat {
     if name.ends_with(".xml") && content.contains("<verse") {
         return ImportFormat::OpenLyrics;
     }
+    // ProPresenter 6 — XML rooted at `<RVPresentationDocument>`; CCLI metadata in
+    // attributes and slide text as base64 RTF. Content signature wins; the
+    // `.pro6` extension is the fallback. (`.pro` stays a binary format we skip.)
+    if head.starts_with("<RVPresentationDocument") || name.ends_with(".pro6") {
+        return ImportFormat::Pro6;
+    }
     ImportFormat::PlainText
 }
 
@@ -90,6 +102,27 @@ pub fn parse_song(content: &str, format: ImportFormat) -> FormattedSong {
         ImportFormat::OpenSong => parse_opensong(content),
         ImportFormat::OpenLyrics => parse_openlyrics(content),
         ImportFormat::FreeShow => parse_freeshow(content),
+        ImportFormat::Pro6 => crate::services::import_propresenter::parse_pro6(content),
+    }
+}
+
+/// Metadata a format may carry that [`FormattedSong`] has no field for —
+/// currently only ProPresenter's CCLI attributes. It is applied to the song row
+/// by the import command; the pure text formats contribute nothing.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ImportMetadata {
+    pub ccli_song_id: Option<String>,
+    pub copyright_notice: Option<String>,
+}
+
+/// Extract the format-specific metadata that lives outside [`FormattedSong`]
+/// (CCLI id + copyright). A cheap, additive companion to [`parse_song`]: only
+/// ProPresenter carries such metadata today, so every other format returns the
+/// default (all `None`). Kept separate so `import_song`'s signature is unchanged.
+pub fn extra_metadata(format: ImportFormat, content: &str) -> ImportMetadata {
+    match format {
+        ImportFormat::Pro6 => crate::services::import_propresenter::extract_metadata(content),
+        _ => ImportMetadata::default(),
     }
 }
 
@@ -102,12 +135,14 @@ pub fn import_song(filename: &str, content: &str) -> (ImportFormat, FormattedSon
 // ── Shared assembly ─────────────────────────────────────────────────────────────
 
 /// A parsed block before label numbering/dedup: an optional explicit label and
-/// its lyric lines.
-type Block = (Option<String>, Vec<String>);
+/// its lyric lines. `pub(crate)` so sibling importers (e.g. `import_propresenter`)
+/// can feed the shared [`finalize`] assembly.
+pub(crate) type Block = (Option<String>, Vec<String>);
 
 /// Resolve labels (auto-numbering verses), dedup identical lyric blocks into one
 /// section referenced multiple times in the arrangement, and package the result.
-fn finalize(title: Option<String>, raw_text: &str, blocks: Vec<Block>) -> FormattedSong {
+/// `pub(crate)` so sibling importers reuse the exact same section assembly.
+pub(crate) fn finalize(title: Option<String>, raw_text: &str, blocks: Vec<Block>) -> FormattedSong {
     let mut verse_n = 0usize;
     let mut ordered: Vec<(String, String)> = Vec::new();
 

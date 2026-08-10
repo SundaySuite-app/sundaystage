@@ -82,6 +82,14 @@ ts-rs = { version = "12", features = ["serde-compat", "chrono-impl", "uuid-impl"
 # cloud) both use it. Core (non-optional) since publish ships in the default build.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
+# ProPresenter 6 `.pro6` song import (Spor B4) — the file is XML. `quick-xml`
+# (MIT) is already compiled into the tree transitively: `plist` (pulled by the
+# Tauri macOS bundler) depends on it, so declaring it direct adds NO new compiled
+# crate — the same house rule as parking_lot/sha2/hex/semver below. It is a pure
+# pull parser, matching the read-only streaming walk in `import_propresenter`;
+# `roxmltree` would have added a brand-new crate (plus `xmlparser`) for no gain.
+quick-xml = "0.39"
+
 # Checksum verification for the Bible corpus downloader (Spor C, C1/C2). A
 # downloaded corpus is verified against a pinned SHA-256 before it is parsed, so
 # a moving upstream ref or a corrupted transfer is rejected rather than seeded.

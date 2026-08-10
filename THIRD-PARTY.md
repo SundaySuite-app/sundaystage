@@ -35,5 +35,12 @@ only the specific files listed here were verified.
 ## Rust crates
 
 `sha2` and `hex` (both MIT/Apache-2.0, already present transitively) are used to
-checksum-verify each corpus download. All other dependencies are declared in
-`src-tauri/Cargo.toml`.
+checksum-verify each corpus download.
+
+`quick-xml` (**MIT**, verified in the crate's own `Cargo.toml`, v0.39) parses the
+ProPresenter 6 `.pro6` XML for the song importer (Spor B4) —
+`src-tauri/src/services/import_propresenter.rs`. It is already present
+transitively (pulled by `plist` via the Tauri macOS bundler), so it adds no new
+compiled crate; it is declared direct only to depend on it explicitly.
+
+All other dependencies are declared in `src-tauri/Cargo.toml`.

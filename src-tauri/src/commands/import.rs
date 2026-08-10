@@ -18,7 +18,7 @@ use crate::db::repositories::SongRepo;
 use crate::error::AppResult;
 use crate::services::ai::lyric_format::apply_formatted_song;
 use crate::services::import_easyworship::{convert_song, locate_databases, read_songs};
-use crate::services::song_import::{import_song, ImportFormat};
+use crate::services::song_import::{extra_metadata, import_song, ImportFormat};
 use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
@@ -47,6 +47,10 @@ pub async fn import_song_file(
         .clone()
         .unwrap_or_else(|| filename_stem(&filename));
 
+    // Format-specific metadata FormattedSong can't carry (ProPresenter CCLI
+    // attributes); default (all None) for the pure text formats.
+    let meta = extra_metadata(format, &content);
+
     let song = SongRepo::new(&state.db.pool)
         .create(SongInput {
             library_id,
@@ -54,9 +58,9 @@ pub async fn import_song_file(
             language: Some(formatted.language.clone()),
             default_key: None,
             tempo_bpm: None,
-            ccli_song_id: None,
+            ccli_song_id: meta.ccli_song_id,
             tono_work_id: None,
-            copyright_notice: None,
+            copyright_notice: meta.copyright_notice,
         })
         .await?;
 
