@@ -53,6 +53,7 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { OutputSettingsPanel } from "./OutputSettingsPanel";
 import { PrivacyCard } from "./PrivacyCard";
+import { BibleTranslationsCard } from "./BibleTranslationsCard";
 import { ToggleRow } from "./ToggleRow";
 import { cn } from "@/lib/cn";
 import { useT, type TKey } from "@/lib/i18n";
@@ -531,6 +532,9 @@ function AdvancedSettings() {
   return (
     <div className="space-y-6">
       <UpdateChannelCard />
+      {/* Spor C (C1/C2) — download full public-domain Bibles on demand. Kept in
+          Advanced next to the other network-touching, one-off actions. */}
+      <BibleTranslationsCard />
       {/* E6 — replaces the old crash-reporting card. Local capture is still
           always on; it lives in this card's footer, where the question it
           belongs to (may any of it be SENT?) is answered right above it. */}

@@ -760,6 +760,19 @@ const en: Catalog = {
   reportOutcomeNoEndpoint:
     "The report is saved on this machine. This build has no recipient compiled in, so nothing is sent from here.",
   reportFailed: "Could not save the report. Please try again.",
+
+  // ── Bible corpus downloader (Spor C, C1/C2) ─────────────────────────────
+  bibleDlTitle: "Bible translations",
+  bibleDlDesc:
+    "Download complete public-domain Bibles for offline browsing and search. Your bundled starter verses stay put — this adds the full text.",
+  bibleDlInstalled: "Installed",
+  bibleDlDownload: "Download",
+  bibleDlRedownload: "Download again",
+  bibleDlDownloading: "Downloading …",
+  bibleDlVerifying: "Verifying …",
+  bibleDlInstalling: "Installing …",
+  bibleDlSizeMb: "≈{mb} MB",
+  bibleDlFailed: "Download failed: {error}",
 };
 
 const no: Catalog = {
@@ -1492,6 +1505,19 @@ const no: Catalog = {
   reportOutcomeNoEndpoint:
     "Rapporten er lagret på maskinen. Denne utgaven har ingen mottaker bygget inn, så ingenting sendes herfra.",
   reportFailed: "Kunne ikke lagre rapporten. Prøv igjen.",
+
+  // ── Bibelkorpus-nedlaster (Spor C, C1/C2) ───────────────────────────────
+  bibleDlTitle: "Bibeloversettelser",
+  bibleDlDesc:
+    "Last ned komplette bibeloversettelser (offentlig eiendom) for søk og lesing uten nett. Startversene som følger med blir stående — dette legger til hele teksten.",
+  bibleDlInstalled: "Installert",
+  bibleDlDownload: "Last ned",
+  bibleDlRedownload: "Last ned på nytt",
+  bibleDlDownloading: "Laster ned …",
+  bibleDlVerifying: "Kontrollerer …",
+  bibleDlInstalling: "Installerer …",
+  bibleDlSizeMb: "≈{mb} MB",
+  bibleDlFailed: "Nedlasting mislyktes: {error}",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -2175,6 +2201,19 @@ const sv: Catalog = {
   reportOutcomeNoEndpoint:
     "Rapporten är sparad på maskinen. Den här versionen har ingen mottagare inbyggd, så inget skickas härifrån.",
   reportFailed: "Kunde inte spara rapporten. Försök igen.",
+
+  // ── Bibelkorpus-nedladdning (Spor C, C1/C2) ─────────────────────────────
+  bibleDlTitle: "Bibelöversättningar",
+  bibleDlDesc:
+    "Ladda ner kompletta bibelöversättningar (fri rättighet) för sökning och läsning utan nät. Startverserna som följer med blir kvar — det här lägger till hela texten.",
+  bibleDlInstalled: "Installerad",
+  bibleDlDownload: "Ladda ner",
+  bibleDlRedownload: "Ladda ner igen",
+  bibleDlDownloading: "Laddar ner …",
+  bibleDlVerifying: "Kontrollerar …",
+  bibleDlInstalling: "Installerar …",
+  bibleDlSizeMb: "≈{mb} MB",
+  bibleDlFailed: "Nedladdningen misslyckades: {error}",
 };
 const da: Catalog = {
   navLibrary: "Bibliotek",
@@ -2852,6 +2891,19 @@ const da: Catalog = {
   reportOutcomeNoEndpoint:
     "Rapporten er gemt på maskinen. Denne udgave har ingen modtager indbygget, så der sendes intet herfra.",
   reportFailed: "Kunne ikke gemme rapporten. Prøv igen.",
+
+  // ── Bibelkorpus-download (Spor C, C1/C2) ────────────────────────────────
+  bibleDlTitle: "Bibeloversættelser",
+  bibleDlDesc:
+    "Hent komplette bibeloversættelser (offentligt eje) til søgning og læsning uden net. Startversene, der følger med, bliver stående — dette tilføjer hele teksten.",
+  bibleDlInstalled: "Installeret",
+  bibleDlDownload: "Hent",
+  bibleDlRedownload: "Hent igen",
+  bibleDlDownloading: "Henter …",
+  bibleDlVerifying: "Kontrollerer …",
+  bibleDlInstalling: "Installerer …",
+  bibleDlSizeMb: "≈{mb} MB",
+  bibleDlFailed: "Download mislykkedes: {error}",
 };
 const de: Catalog = {
   navLibrary: "Bibliothek",
@@ -3546,6 +3598,19 @@ const de: Catalog = {
     "Der Bericht ist auf dem Gerät gespeichert. In dieser Ausgabe ist kein Empfänger einkompiliert, es wird von hier nichts gesendet.",
   reportFailed:
     "Der Bericht konnte nicht gespeichert werden. Bitte versuche es erneut.",
+
+  // ── Bibelkorpus-Download (Spor C, C1/C2) ────────────────────────────────
+  bibleDlTitle: "Bibelübersetzungen",
+  bibleDlDesc:
+    "Vollständige gemeinfreie Bibeln zum Suchen und Lesen ohne Netz herunterladen. Die mitgelieferten Startverse bleiben erhalten — dies fügt den vollständigen Text hinzu.",
+  bibleDlInstalled: "Installiert",
+  bibleDlDownload: "Herunterladen",
+  bibleDlRedownload: "Erneut herunterladen",
+  bibleDlDownloading: "Wird heruntergeladen …",
+  bibleDlVerifying: "Wird geprüft …",
+  bibleDlInstalling: "Wird installiert …",
+  bibleDlSizeMb: "≈{mb} MB",
+  bibleDlFailed: "Download fehlgeschlagen: {error}",
 };
 const fr: Catalog = {
   navLibrary: "Bibliothèque",
@@ -4242,6 +4307,19 @@ const fr: Catalog = {
   reportOutcomeNoEndpoint:
     "Le signalement est enregistré sur la machine. Cette version n'a aucun destinataire intégré : rien n'est envoyé d'ici.",
   reportFailed: "Impossible d'enregistrer le signalement. Veuillez réessayer.",
+
+  // ── Téléchargement du corpus biblique (Spor C, C1/C2) ───────────────────
+  bibleDlTitle: "Traductions de la Bible",
+  bibleDlDesc:
+    "Téléchargez des Bibles complètes du domaine public pour la recherche et la lecture hors ligne. Les versets de départ fournis restent en place — ceci ajoute le texte intégral.",
+  bibleDlInstalled: "Installée",
+  bibleDlDownload: "Télécharger",
+  bibleDlRedownload: "Télécharger à nouveau",
+  bibleDlDownloading: "Téléchargement …",
+  bibleDlVerifying: "Vérification …",
+  bibleDlInstalling: "Installation …",
+  bibleDlSizeMb: "≈{mb} Mo",
+  bibleDlFailed: "Échec du téléchargement : {error}",
 };
 const pl: Catalog = {
   navLibrary: "Biblioteka",
@@ -4921,6 +4999,19 @@ const pl: Catalog = {
   reportOutcomeNoEndpoint:
     "Zgłoszenie zapisano na komputerze. To wydanie nie ma wbudowanego odbiorcy, więc nic stąd nie jest wysyłane.",
   reportFailed: "Nie udało się zapisać zgłoszenia. Spróbuj ponownie.",
+
+  // ── Pobieranie korpusu biblijnego (Spor C, C1/C2) ───────────────────────
+  bibleDlTitle: "Przekłady Biblii",
+  bibleDlDesc:
+    "Pobierz pełne przekłady Biblii z domeny publicznej do przeglądania i wyszukiwania offline. Dołączone wersety startowe pozostają — to dodaje pełny tekst.",
+  bibleDlInstalled: "Zainstalowano",
+  bibleDlDownload: "Pobierz",
+  bibleDlRedownload: "Pobierz ponownie",
+  bibleDlDownloading: "Pobieranie …",
+  bibleDlVerifying: "Weryfikacja …",
+  bibleDlInstalling: "Instalowanie …",
+  bibleDlSizeMb: "≈{mb} MB",
+  bibleDlFailed: "Pobieranie nie powiodło się: {error}",
 };
 
 /** The full per-language catalog. Exported for parity tests. */

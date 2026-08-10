@@ -30,49 +30,135 @@ pub struct ParsedBibleRef {
     pub verse_end: Option<u32>,
 }
 
-/// Books of the Bible — minimal alias table for the 7 UI languages we support.
+/// One book of the 66-book Protestant canon: the single source of truth for its
+/// canonical name, ordering, localized display and every spelling we accept —
+/// including the exact `books[].name` the scrollmapper corpora use (their
+/// numbered books are roman-numeralled — "I Corinthians" — and Revelation is
+/// "Revelation of John"), which the corpus downloader maps back to
+/// `canonical`/`order`.
 ///
-/// This is intentionally hand-curated. A more complete table for the
-/// 66-book canon (+ deuterocanonical for Catholic use) lives in
-/// `sql/0002_bible_books.sql` once Phase 7.1 ships the translation
-/// downloader.
-const BOOK_ALIASES: &[(&str, &[&str])] = &[
-    // ── Old Testament (most-used in liturgical reading) ─────
-    (
-        "Genesis",
-        &["Gen", "1 Mos", "1. Mosebok", "1. Mos", "1 Mosebok"],
-    ),
-    ("Exodus", &["Exo", "Ex", "2 Mos", "2. Mosebok"]),
-    ("Psalms", &["Ps", "Psalm", "Sal", "Salm", "Salmenes"]),
-    ("Proverbs", &["Prov", "Ord", "Ordsp"]),
-    ("Isaiah", &["Isa", "Jes", "Jesaja"]),
-    // ── New Testament (most-used in worship) ─────────────────
-    ("Matthew", &["Matt", "Mat", "Mt"]),
-    ("Mark", &["Mark", "Mk", "Mrk"]),
-    ("Luke", &["Luke", "Luk", "Lk"]),
-    ("John", &["John", "Joh", "Jn", "Johannes"]),
-    ("Acts", &["Acts", "Apg", "Apostlene"]),
-    ("Romans", &["Rom", "Rm"]),
-    ("1 Corinthians", &["1 Cor", "1 Kor", "1.Kor", "1Kor"]),
-    ("2 Corinthians", &["2 Cor", "2 Kor", "2.Kor", "2Kor"]),
-    ("Galatians", &["Gal"]),
-    ("Ephesians", &["Eph", "Ef", "Efeser"]),
-    ("Philippians", &["Phil", "Fil"]),
-    ("Colossians", &["Col", "Kol"]),
-    ("1 Thessalonians", &["1 Thess", "1 Tess"]),
-    ("2 Thessalonians", &["2 Thess", "2 Tess"]),
-    ("1 Timothy", &["1 Tim"]),
-    ("2 Timothy", &["2 Tim"]),
-    ("Titus", &["Tit"]),
-    ("Hebrews", &["Heb", "Hebr"]),
-    ("James", &["Jas", "Jak", "Jakob"]),
-    ("1 Peter", &["1 Pet", "1 Pt"]),
-    ("2 Peter", &["2 Pet", "2 Pt"]),
-    ("1 John", &["1 Jn", "1 Joh"]),
-    ("2 John", &["2 Jn", "2 Joh"]),
-    ("3 John", &["3 Jn", "3 Joh"]),
-    ("Revelation", &["Rev", "Åp", "Åpenbaring"]),
+/// This is the table the old comment promised would live in a
+/// `sql/0002_bible_books.sql` migration. It never needed to be relational: the
+/// `bible_verse` rows already carry `book`/`book_order`, so a book-metadata
+/// table would be dead weight that could only drift out of sync with the
+/// resolver. The canon lives here, in Rust, as the one place that turns a
+/// spelling into a canonical book — the same shape the parser always used, now
+/// complete.
+pub struct BookCanon {
+    /// Canonical English name stored in `bible_verse.book` (e.g. "Revelation").
+    pub canonical: &'static str,
+    /// Canonical 1..=66 ordering stored in `bible_verse.book_order`.
+    pub order: i64,
+    /// Norwegian display name (Bibelen 1930 spelling).
+    pub no: &'static str,
+    /// Exact `books[].name` spellings the scrollmapper corpora use, when they
+    /// differ from `canonical` (roman-numeral numbered books, "Revelation of
+    /// John"). Empty when the source spelling already equals `canonical`.
+    pub source_names: &'static [&'static str],
+    /// Abbreviations and multilingual spellings accepted by the reference parser
+    /// (English + Norwegian at minimum; the seven-language set is kept for the
+    /// books that already had it).
+    pub aliases: &'static [&'static str],
+}
+
+/// The full 66-book canon. Order is the canonical Protestant ordering (1..=66).
+/// Kept as a one-line-per-book table (rustfmt would explode each literal across
+/// seven lines and destroy the alignment that makes it reviewable).
+#[rustfmt::skip]
+const CANON: &[BookCanon] = &[
+    // ── Old Testament ────────────────────────────────────────────────────────
+    BookCanon { canonical: "Genesis", order: 1, no: "1. Mosebok", source_names: &[], aliases: &["Gen", "1 Mos", "1. Mosebok", "1. Mos", "1 Mosebok"] },
+    BookCanon { canonical: "Exodus", order: 2, no: "2. Mosebok", source_names: &[], aliases: &["Exo", "Ex", "2 Mos", "2. Mosebok"] },
+    BookCanon { canonical: "Leviticus", order: 3, no: "3. Mosebok", source_names: &[], aliases: &["Lev", "3 Mos", "3. Mosebok"] },
+    BookCanon { canonical: "Numbers", order: 4, no: "4. Mosebok", source_names: &[], aliases: &["Num", "4 Mos", "4. Mosebok"] },
+    BookCanon { canonical: "Deuteronomy", order: 5, no: "5. Mosebok", source_names: &[], aliases: &["Deut", "Dt", "5 Mos", "5. Mosebok"] },
+    BookCanon { canonical: "Joshua", order: 6, no: "Josva", source_names: &[], aliases: &["Josh", "Jos", "Josva"] },
+    BookCanon { canonical: "Judges", order: 7, no: "Dommerne", source_names: &[], aliases: &["Judg", "Dom", "Dommerne"] },
+    BookCanon { canonical: "Ruth", order: 8, no: "Rut", source_names: &[], aliases: &["Rut"] },
+    BookCanon { canonical: "1 Samuel", order: 9, no: "1. Samuelsbok", source_names: &["I Samuel"], aliases: &["1 Sam", "1 Sm", "1. Samuel", "1 Samuelsbok"] },
+    BookCanon { canonical: "2 Samuel", order: 10, no: "2. Samuelsbok", source_names: &["II Samuel"], aliases: &["2 Sam", "2 Sm", "2. Samuel", "2 Samuelsbok"] },
+    BookCanon { canonical: "1 Kings", order: 11, no: "1. Kongebok", source_names: &["I Kings"], aliases: &["1 Kgs", "1 Kong", "1. Kong", "1 Kongebok"] },
+    BookCanon { canonical: "2 Kings", order: 12, no: "2. Kongebok", source_names: &["II Kings"], aliases: &["2 Kgs", "2 Kong", "2. Kong", "2 Kongebok"] },
+    BookCanon { canonical: "1 Chronicles", order: 13, no: "1. Krønikebok", source_names: &["I Chronicles"], aliases: &["1 Chr", "1 Krøn", "1. Krøn", "1 Krønikebok"] },
+    BookCanon { canonical: "2 Chronicles", order: 14, no: "2. Krønikebok", source_names: &["II Chronicles"], aliases: &["2 Chr", "2 Krøn", "2. Krøn", "2 Krønikebok"] },
+    BookCanon { canonical: "Ezra", order: 15, no: "Esra", source_names: &[], aliases: &["Esra"] },
+    BookCanon { canonical: "Nehemiah", order: 16, no: "Nehemja", source_names: &[], aliases: &["Neh", "Nehemja"] },
+    BookCanon { canonical: "Esther", order: 17, no: "Ester", source_names: &[], aliases: &["Est", "Ester"] },
+    BookCanon { canonical: "Job", order: 18, no: "Job", source_names: &[], aliases: &[] },
+    BookCanon { canonical: "Psalms", order: 19, no: "Salmenes bok", source_names: &[], aliases: &["Ps", "Psalm", "Sal", "Salm", "Salmenes"] },
+    BookCanon { canonical: "Proverbs", order: 20, no: "Ordspråkene", source_names: &[], aliases: &["Prov", "Ord", "Ordsp", "Ordspråkene"] },
+    BookCanon { canonical: "Ecclesiastes", order: 21, no: "Forkynneren", source_names: &[], aliases: &["Eccl", "Fork", "Pred", "Forkynneren"] },
+    BookCanon { canonical: "Song of Solomon", order: 22, no: "Høisangen", source_names: &[], aliases: &["Song", "Song of Songs", "Høys", "Høisangen", "Høysangen"] },
+    BookCanon { canonical: "Isaiah", order: 23, no: "Jesaja", source_names: &[], aliases: &["Isa", "Jes", "Jesaja"] },
+    BookCanon { canonical: "Jeremiah", order: 24, no: "Jeremia", source_names: &[], aliases: &["Jer", "Jeremia"] },
+    BookCanon { canonical: "Lamentations", order: 25, no: "Klagesangene", source_names: &[], aliases: &["Lam", "Klag", "Klagesangene"] },
+    BookCanon { canonical: "Ezekiel", order: 26, no: "Esekiel", source_names: &[], aliases: &["Ezek", "Esek", "Esekiel"] },
+    BookCanon { canonical: "Daniel", order: 27, no: "Daniel", source_names: &[], aliases: &["Dan"] },
+    BookCanon { canonical: "Hosea", order: 28, no: "Hosea", source_names: &[], aliases: &["Hos"] },
+    BookCanon { canonical: "Joel", order: 29, no: "Joel", source_names: &[], aliases: &[] },
+    BookCanon { canonical: "Amos", order: 30, no: "Amos", source_names: &[], aliases: &[] },
+    BookCanon { canonical: "Obadiah", order: 31, no: "Obadja", source_names: &[], aliases: &["Obad", "Ob", "Obadja"] },
+    BookCanon { canonical: "Jonah", order: 32, no: "Jonas", source_names: &[], aliases: &["Jona", "Jonas"] },
+    BookCanon { canonical: "Micah", order: 33, no: "Mika", source_names: &[], aliases: &["Mic", "Mika"] },
+    BookCanon { canonical: "Nahum", order: 34, no: "Nahum", source_names: &[], aliases: &["Nah"] },
+    BookCanon { canonical: "Habakkuk", order: 35, no: "Habakkuk", source_names: &[], aliases: &["Hab"] },
+    BookCanon { canonical: "Zephaniah", order: 36, no: "Sefanja", source_names: &[], aliases: &["Zeph", "Sef", "Sefanja"] },
+    BookCanon { canonical: "Haggai", order: 37, no: "Haggai", source_names: &[], aliases: &["Hag"] },
+    BookCanon { canonical: "Zechariah", order: 38, no: "Sakarja", source_names: &[], aliases: &["Zech", "Sak", "Sakarja"] },
+    BookCanon { canonical: "Malachi", order: 39, no: "Malaki", source_names: &[], aliases: &["Mal", "Malaki"] },
+    // ── New Testament ────────────────────────────────────────────────────────
+    BookCanon { canonical: "Matthew", order: 40, no: "Matteus", source_names: &[], aliases: &["Matt", "Mat", "Mt", "Matteus"] },
+    BookCanon { canonical: "Mark", order: 41, no: "Markus", source_names: &[], aliases: &["Mk", "Mrk", "Markus"] },
+    BookCanon { canonical: "Luke", order: 42, no: "Lukas", source_names: &[], aliases: &["Luk", "Lk", "Lukas"] },
+    BookCanon { canonical: "John", order: 43, no: "Johannes", source_names: &[], aliases: &["Joh", "Jn", "Johannes"] },
+    BookCanon { canonical: "Acts", order: 44, no: "Apostlenes gjerninger", source_names: &[], aliases: &["Apg", "Apostlene", "Apostlenes gjerninger"] },
+    BookCanon { canonical: "Romans", order: 45, no: "Romerne", source_names: &[], aliases: &["Rom", "Rm", "Romerne"] },
+    BookCanon { canonical: "1 Corinthians", order: 46, no: "1. Korinterbrev", source_names: &["I Corinthians"], aliases: &["1 Cor", "1 Kor", "1.Kor", "1Kor", "1. Korinterbrev"] },
+    BookCanon { canonical: "2 Corinthians", order: 47, no: "2. Korinterbrev", source_names: &["II Corinthians"], aliases: &["2 Cor", "2 Kor", "2.Kor", "2Kor", "2. Korinterbrev"] },
+    BookCanon { canonical: "Galatians", order: 48, no: "Galaterne", source_names: &[], aliases: &["Gal", "Galaterne"] },
+    BookCanon { canonical: "Ephesians", order: 49, no: "Efeserne", source_names: &[], aliases: &["Eph", "Ef", "Efeser", "Efeserne"] },
+    BookCanon { canonical: "Philippians", order: 50, no: "Filipperne", source_names: &[], aliases: &["Phil", "Fil", "Filipperne"] },
+    BookCanon { canonical: "Colossians", order: 51, no: "Kolosserne", source_names: &[], aliases: &["Col", "Kol", "Kolosserne"] },
+    BookCanon { canonical: "1 Thessalonians", order: 52, no: "1. Tessalonikerbrev", source_names: &["I Thessalonians"], aliases: &["1 Thess", "1 Tess", "1. Tess"] },
+    BookCanon { canonical: "2 Thessalonians", order: 53, no: "2. Tessalonikerbrev", source_names: &["II Thessalonians"], aliases: &["2 Thess", "2 Tess", "2. Tess"] },
+    BookCanon { canonical: "1 Timothy", order: 54, no: "1. Timoteus", source_names: &["I Timothy"], aliases: &["1 Tim", "1. Tim"] },
+    BookCanon { canonical: "2 Timothy", order: 55, no: "2. Timoteus", source_names: &["II Timothy"], aliases: &["2 Tim", "2. Tim"] },
+    BookCanon { canonical: "Titus", order: 56, no: "Titus", source_names: &[], aliases: &["Tit"] },
+    BookCanon { canonical: "Philemon", order: 57, no: "Filemon", source_names: &[], aliases: &["Phlm", "Filem", "Filemon"] },
+    BookCanon { canonical: "Hebrews", order: 58, no: "Hebreerne", source_names: &[], aliases: &["Heb", "Hebr", "Hebreerne"] },
+    BookCanon { canonical: "James", order: 59, no: "Jakob", source_names: &[], aliases: &["Jas", "Jak", "Jakob"] },
+    BookCanon { canonical: "1 Peter", order: 60, no: "1. Peter", source_names: &["I Peter"], aliases: &["1 Pet", "1 Pt", "1. Pet"] },
+    BookCanon { canonical: "2 Peter", order: 61, no: "2. Peter", source_names: &["II Peter"], aliases: &["2 Pet", "2 Pt", "2. Pet"] },
+    BookCanon { canonical: "1 John", order: 62, no: "1. Johannes", source_names: &["I John"], aliases: &["1 Jn", "1 Joh", "1. Joh"] },
+    BookCanon { canonical: "2 John", order: 63, no: "2. Johannes", source_names: &["II John"], aliases: &["2 Jn", "2 Joh", "2. Joh"] },
+    BookCanon { canonical: "3 John", order: 64, no: "3. Johannes", source_names: &["III John"], aliases: &["3 Jn", "3 Joh", "3. Joh"] },
+    BookCanon { canonical: "Jude", order: 65, no: "Judas", source_names: &[], aliases: &["Jud", "Judas"] },
+    BookCanon { canonical: "Revelation", order: 66, no: "Åpenbaringen", source_names: &["Revelation of John"], aliases: &["Rev", "Åp", "Åpenbaring", "Åpenbaringen"] },
 ];
+
+/// Find the canon entry for any accepted spelling of a book — canonical name,
+/// Norwegian display name, a scrollmapper source spelling, or an alias.
+fn lookup(input: &str) -> Option<&'static BookCanon> {
+    let needle = normalize(input);
+    CANON.iter().find(|b| {
+        normalize(b.canonical) == needle
+            || normalize(b.no) == needle
+            || b.source_names.iter().any(|s| normalize(s) == needle)
+            || b.aliases.iter().any(|a| normalize(a) == needle)
+    })
+}
+
+/// Map a scrollmapper `books[].name` to our (canonical name, canonical order).
+/// Used by the corpus downloader. Falls through the general resolver, so any
+/// accepted spelling maps — not only the exact source spelling.
+pub fn canonical_for_source_name(name: &str) -> Option<(&'static str, i64)> {
+    lookup(name).map(|b| (b.canonical, b.order))
+}
+
+/// The canonical 1..=66 order for a canonical book name.
+pub fn book_order(canonical: &str) -> Option<i64> {
+    lookup(canonical).map(|b| b.order)
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum BibleParseError {
@@ -177,18 +263,7 @@ fn split_at_chapter_number(s: &str) -> Option<(&str, &str)> {
 
 /// Resolve any spelling/abbreviation to a canonical English book name.
 pub fn resolve_book(input: &str) -> Option<String> {
-    let needle = normalize(input);
-    for (canonical, aliases) in BOOK_ALIASES {
-        if normalize(canonical) == needle {
-            return Some((*canonical).to_string());
-        }
-        for alias in *aliases {
-            if normalize(alias) == needle {
-                return Some((*canonical).to_string());
-            }
-        }
-    }
-    None
+    lookup(input).map(|b| b.canonical.to_string())
 }
 
 /// Lowercase + strip whitespace + strip dots for tolerant comparison.
@@ -212,35 +287,15 @@ pub fn render_reference(r: &ParsedBibleRef) -> String {
 // ── Book display names (localized) ──────────────────────────────────────────
 
 /// Norwegian display name for a canonical English book name. Falls back to the
-/// canonical name for books not in the table.
+/// canonical name for anything not in the canon (and for non-Norwegian locales,
+/// which display the canonical English name).
 pub fn book_display(canonical: &str, lang: &str) -> String {
-    if lang != "no" {
-        return canonical.to_string();
+    if lang == "no" {
+        if let Some(b) = lookup(canonical) {
+            return b.no.to_string();
+        }
     }
-    let no = match canonical {
-        "Genesis" => "1. Mosebok",
-        "Exodus" => "2. Mosebok",
-        "Psalms" => "Salmenes bok",
-        "Proverbs" => "Ordspråkene",
-        "Isaiah" => "Jesaja",
-        "Matthew" => "Matteus",
-        "Mark" => "Markus",
-        "Luke" => "Lukas",
-        "John" => "Johannes",
-        "Acts" => "Apostlenes gjerninger",
-        "Romans" => "Romerne",
-        "1 Corinthians" => "1. Korinterbrev",
-        "2 Corinthians" => "2. Korinterbrev",
-        "Galatians" => "Galaterne",
-        "Ephesians" => "Efeserne",
-        "Philippians" => "Filipperne",
-        "Colossians" => "Kolosserne",
-        "Hebrews" => "Hebreerne",
-        "James" => "Jakob",
-        "Revelation" => "Åpenbaringen",
-        other => other,
-    };
-    no.to_string()
+    canonical.to_string()
 }
 
 // ── Bundled public-domain text (curated starter set) ─────────────────────────
@@ -462,5 +517,82 @@ mod tests {
             parse_reference("   "),
             Err(BibleParseError::Empty)
         ));
+    }
+
+    // ── Full canon (C1) ─────────────────────────────────────────────────────
+
+    #[test]
+    fn canon_is_the_whole_66_book_protestant_bible() {
+        assert_eq!(CANON.len(), 66, "the canon must be complete");
+        // Orders are exactly 1..=66, each used once — no gap, no duplicate.
+        let mut orders: Vec<i64> = CANON.iter().map(|b| b.order).collect();
+        orders.sort_unstable();
+        assert_eq!(orders, (1..=66).collect::<Vec<_>>());
+        // Canonical names are unique.
+        let mut names: Vec<&str> = CANON.iter().map(|b| b.canonical).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), 66, "canonical names must be unique");
+    }
+
+    #[test]
+    fn scrollmapper_source_names_map_to_our_canon() {
+        // The three shapes the downloader must survive: roman-numeral numbered
+        // books, "Revelation of John", and a plain name that already matches.
+        assert_eq!(
+            canonical_for_source_name("Revelation of John"),
+            Some(("Revelation", 66))
+        );
+        assert_eq!(
+            canonical_for_source_name("I Corinthians"),
+            Some(("1 Corinthians", 46))
+        );
+        assert_eq!(canonical_for_source_name("III John"), Some(("3 John", 64)));
+        assert_eq!(canonical_for_source_name("Psalms"), Some(("Psalms", 19)));
+        assert_eq!(canonical_for_source_name("Genesis"), Some(("Genesis", 1)));
+        // A book name outside the canon is refused, not silently dropped.
+        assert_eq!(canonical_for_source_name("Tobit"), None);
+    }
+
+    #[test]
+    fn every_scrollmapper_source_name_resolves() {
+        // Whatever a book's declared source spelling is, the resolver must find
+        // it — this is the exact call `parse_corpus` makes for each book.
+        for b in CANON {
+            for s in b.source_names {
+                assert_eq!(
+                    canonical_for_source_name(s),
+                    Some((b.canonical, b.order)),
+                    "source name {s:?} must map to {}",
+                    b.canonical
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn book_order_matches_the_bundled_seed_orders() {
+        // The bundled curated verses hard-code book_order; the canon must agree,
+        // or a downloaded corpus would sort differently from the starter set.
+        for t in bundled_translations() {
+            for v in t.verses {
+                assert_eq!(
+                    book_order(v.book),
+                    Some(v.book_order),
+                    "{} order disagrees between seed and canon",
+                    v.book
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn new_books_localize_and_resolve() {
+        // A book that only exists in the canon after the C1 extension.
+        assert_eq!(resolve_book("Josva"), Some("Joshua".into()));
+        assert_eq!(book_display("Joshua", "no"), "Josva");
+        assert_eq!(book_display("Joshua", "en"), "Joshua");
+        assert_eq!(resolve_book("1 Sam"), Some("1 Samuel".into()));
+        assert_eq!(resolve_book("Åpenbaringen"), Some("Revelation".into()));
     }
 }
