@@ -3,4 +3,4 @@
 /**
  * The file formats the importer recognises.
  */
-export type ImportFormat = "plain_text" | "chord_pro" | "open_song" | "open_lyrics";
+export type ImportFormat = "plain_text" | "chord_pro" | "open_song" | "open_lyrics" | "free_show";
