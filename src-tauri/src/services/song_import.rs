@@ -7,17 +7,21 @@
 //! Tauri command that reads file content and creates the song lives in
 //! `commands::import`.
 //!
-//! Supported, dependency-free text/XML formats:
+//! Supported, dependency-free text/XML/JSON formats:
 //!   * **Plain text** — delegates to the heuristic formatter.
 //!   * **ChordPro** (`.cho`/`.crd`/`.chopro`/`.chordpro`) — `{directives}`
 //!     plus inline `[chords]`.
 //!   * **OpenSong** — `<song><lyrics>` with the `.`/` `/`[V1]` mini-format.
 //!   * **OpenLyrics** (OpenLP `.xml`) — `<verse name="v1"><lines>…</lines>`.
+//!   * **FreeShow** (`.show`) — a JSON `["<id>", {show}]` pair whose show object
+//!     carries `slides` (text) and `layouts` (slide order). Plain text in JSON,
+//!     so no binary/RTF decoding is needed.
 //!
-//! Binary / proprietary formats (ProPresenter `.pro`, EasyWorship, FreeShow
-//! `.show`) need format-specific decoders and are intentionally out of scope.
+//! Binary / proprietary formats (ProPresenter `.pro`, EasyWorship) need
+//! format-specific decoders and are intentionally out of scope.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use ts_rs::TS;
 
 use crate::services::ai::lyric_format::{
@@ -34,6 +38,7 @@ pub enum ImportFormat {
     ChordPro,
     OpenSong,
     OpenLyrics,
+    FreeShow,
 }
 
 /// Best-effort format detection from a filename and the content itself. Content
@@ -51,6 +56,14 @@ pub fn detect_format(filename: &str, content: &str) -> ImportFormat {
     // OpenSong: an XML document carrying a <lyrics> element.
     if head.starts_with('<') && content.contains("<lyrics") {
         return ImportFormat::OpenSong;
+    }
+    // FreeShow: a JSON document `["<id>", {show}]` whose show object carries both
+    // `slides` and `layouts`. The `.show` extension is a hint, but the structural
+    // signature is authoritative — a `.show` that is not valid FreeShow JSON falls
+    // through to plain text rather than being mis-parsed. The signature (a JSON
+    // array) cannot collide with the XML / ChordPro branches above.
+    if (name.ends_with(".show") || head.starts_with('[')) && looks_like_freeshow(content) {
+        return ImportFormat::FreeShow;
     }
     // ChordPro: extension or a tell-tale directive. `.pro` is deliberately NOT
     // mapped here — ProPresenter uses it for a binary format.
@@ -76,6 +89,7 @@ pub fn parse_song(content: &str, format: ImportFormat) -> FormattedSong {
         ImportFormat::ChordPro => parse_chordpro(content),
         ImportFormat::OpenSong => parse_opensong(content),
         ImportFormat::OpenLyrics => parse_openlyrics(content),
+        ImportFormat::FreeShow => parse_freeshow(content),
     }
 }
 
@@ -504,6 +518,157 @@ fn openlyrics_lines_text(inner: &str) -> String {
         .to_string()
 }
 
+// ── FreeShow (.show JSON) ───────────────────────────────────────────────────────
+
+/// Locate the FreeShow "show" object and confirm the format signature: it is
+/// element `[1]` of the `["<id>", {…}]` pair (a bare show object is tolerated
+/// too), and must carry both `slides` and `layouts`. Used by detection so a
+/// `.show` file that is not real FreeShow JSON is never routed here.
+fn freeshow_show_object(value: &Value) -> Option<&Value> {
+    let show = match value.as_array() {
+        Some(arr) => arr.get(1)?,
+        None => value,
+    };
+    (show.is_object() && show.get("slides").is_some() && show.get("layouts").is_some())
+        .then_some(show)
+}
+
+/// Cheap-gated content signature: valid FreeShow JSON with a show object.
+fn looks_like_freeshow(content: &str) -> bool {
+    if !content.trim_start().starts_with('[') {
+        return false;
+    }
+    serde_json::from_str::<Value>(content)
+        .ok()
+        .as_ref()
+        .and_then(freeshow_show_object)
+        .is_some()
+}
+
+/// Parse a FreeShow `.show` document into a [`FormattedSong`].
+///
+/// Slide order comes from the active layout's ordered `slides` array
+/// (`settings.activeLayout`, falling back to any layout, then to the slide map
+/// itself if a show has no usable layout). Each layout entry maps to one slide
+/// in the `slides` map; that slide becomes one section. Section text is every
+/// `items[].lines[].text[].value` run joined into lines. The slide `group`
+/// (e.g. "Verse 1", "Refreng"), or `globalGroup` as a fallback, is fed through
+/// the shared label canonicalisation; an empty group auto-numbers as a verse.
+///
+/// FreeShow's `category` (`song` vs `presentation`) is not branched on — both
+/// are just ordered slides, so both import through the same path.
+fn parse_freeshow(content: &str) -> FormattedSong {
+    let value: Value = match serde_json::from_str(content) {
+        Ok(v) => v,
+        Err(_) => return freeshow_empty(content),
+    };
+    // Locate the show object leniently for the parse path (detection already
+    // enforced the strict signature): element [1], else a bare object.
+    let show = value.as_array().and_then(|a| a.get(1)).unwrap_or(&value);
+    let slides = match show.get("slides").and_then(Value::as_object) {
+        Some(s) if !s.is_empty() => s,
+        _ => return freeshow_empty(content),
+    };
+
+    let title = show.get("name").and_then(Value::as_str).map(str::to_string);
+
+    let order = freeshow_slide_order(show, slides);
+
+    let mut blocks: Vec<Block> = Vec::new();
+    let mut raw_text = String::new();
+    for slide_id in &order {
+        let Some(slide) = slides.get(slide_id) else {
+            continue;
+        };
+        let text = freeshow_slide_text(slide);
+        if text.trim().is_empty() {
+            continue;
+        }
+        raw_text.push_str(&text);
+        raw_text.push('\n');
+        // Prefer the user-facing group; fall back to FreeShow's canonical
+        // `globalGroup` key; empty → None so `finalize` auto-numbers a verse.
+        let label = [slide.get("group"), slide.get("globalGroup")]
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .find(|g| !g.is_empty())
+            .map(str::to_string);
+        let lines: Vec<String> = text.lines().map(str::to_string).collect();
+        blocks.push((label, lines));
+    }
+
+    finalize(title, &raw_text, blocks)
+}
+
+/// The ordered slide ids to render. Prefers the layout named by
+/// `settings.activeLayout`, else the first layout present; if no layout yields
+/// an order (a layout-less or malformed show), every slide in the map is used so
+/// no content is silently dropped.
+fn freeshow_slide_order(show: &Value, slides: &serde_json::Map<String, Value>) -> Vec<String> {
+    let from_layout = show
+        .get("layouts")
+        .and_then(Value::as_object)
+        .filter(|l| !l.is_empty())
+        .and_then(|layouts| {
+            let active = show
+                .get("settings")
+                .and_then(|s| s.get("activeLayout"))
+                .and_then(Value::as_str);
+            active
+                .and_then(|id| layouts.get(id))
+                .or_else(|| layouts.values().next())
+        })
+        .and_then(|layout| layout.get("slides"))
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|entry| entry.get("id").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_default();
+
+    if from_layout.is_empty() {
+        // Deterministic fallback (serde_json maps are sorted) when there is no
+        // usable layout: keep every slide rather than lose the whole show.
+        slides.keys().cloned().collect()
+    } else {
+        from_layout
+    }
+}
+
+/// Concatenate a slide's text: each `lines[]` entry is one line, and its
+/// `text[]` runs (style fragments of that line) are joined without a separator.
+fn freeshow_slide_text(slide: &Value) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    if let Some(items) = slide.get("items").and_then(Value::as_array) {
+        for item in items {
+            let Some(item_lines) = item.get("lines").and_then(Value::as_array) else {
+                continue;
+            };
+            for line in item_lines {
+                let mut buf = String::new();
+                if let Some(runs) = line.get("text").and_then(Value::as_array) {
+                    for run in runs {
+                        if let Some(s) = run.get("value").and_then(Value::as_str) {
+                            buf.push_str(s);
+                        }
+                    }
+                }
+                lines.push(buf);
+            }
+        }
+    }
+    lines.join("\n").trim().to_string()
+}
+
+/// A FreeShow file we could not read as a show: a clean warned stub, never a panic.
+fn freeshow_empty(raw: &str) -> FormattedSong {
+    assemble(None, detect_language(raw), Vec::new())
+}
+
 // ── Tiny XML helpers (dependency-free, scoped to these well-known schemas) ──────
 
 /// Inner text of the first `<tag>…</tag>` element, matched on a tag-name
@@ -778,6 +943,169 @@ mod tests {
         assert_eq!(song.sections[0].lyrics, "Amazing grace");
     }
 
+    // ── FreeShow ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn detects_freeshow_by_signature_and_extension() {
+        let show = r#"["default",{"name":"X","slides":{"a":{"group":"","items":[]}},"layouts":{"d":{"slides":[{"id":"a"}]}}}]"#;
+        // Structural signature wins even with a neutral extension.
+        assert_eq!(detect_format("x.txt", show), ImportFormat::FreeShow);
+        // …and the .show extension routes here too.
+        assert_eq!(
+            detect_format("Velkommen.show", show),
+            ImportFormat::FreeShow
+        );
+        // A .show that is not valid FreeShow JSON falls through, never mis-parsed.
+        assert_eq!(
+            detect_format("broken.show", "not json at all"),
+            ImportFormat::PlainText
+        );
+        // A JSON array without slides+layouts is not FreeShow.
+        assert_eq!(
+            detect_format("list.json", r#"["a","b"]"#),
+            ImportFormat::PlainText
+        );
+    }
+
+    #[test]
+    fn freeshow_multi_slide_grouped_sections() {
+        // Two style runs on one line must join without a separator; each `lines`
+        // entry is its own line; groups map to canonical section labels.
+        let src = r#"["default",{
+            "name":"Test Song",
+            "category":"song",
+            "settings":{"activeLayout":"lay1"},
+            "slides":{
+                "s1":{"group":"Verse 1","items":[{"lines":[
+                    {"text":[{"value":"Line one"}]},
+                    {"text":[{"value":"Line two"}]}
+                ]}]},
+                "s2":{"group":"Chorus","items":[{"lines":[
+                    {"text":[{"value":"Sing "},{"value":"praise"}]}
+                ]}]},
+                "s3":{"group":"Verse 2","items":[{"lines":[
+                    {"text":[{"value":"Third verse"}]}
+                ]}]}
+            },
+            "layouts":{"lay1":{"name":"Standard","slides":[{"id":"s1"},{"id":"s2"},{"id":"s3"}]}}
+        }]"#;
+        let song = parse_freeshow(src);
+        assert_eq!(song.title_suggestion.as_deref(), Some("Test Song"));
+        assert_eq!(labels(&song), vec!["verse_1", "chorus", "verse_2"]);
+        assert_eq!(song.arrangement, vec!["verse_1", "chorus", "verse_2"]);
+        assert_eq!(song.sections[0].lyrics, "Line one\nLine two");
+        assert_eq!(song.sections[1].lyrics, "Sing praise");
+    }
+
+    #[test]
+    fn freeshow_uses_active_layout_for_ordering() {
+        // Slide map is s1,s2 and layout "a" would order s1→s2, but the active
+        // layout "b" reverses it. Arrangement must follow the ACTIVE layout.
+        let src = r#"["default",{
+            "name":"Ordered",
+            "settings":{"activeLayout":"b"},
+            "slides":{
+                "s1":{"group":"Verse 1","items":[{"lines":[{"text":[{"value":"First"}]}]}]},
+                "s2":{"group":"Chorus","items":[{"lines":[{"text":[{"value":"Hook"}]}]}]}
+            },
+            "layouts":{
+                "a":{"name":"A","slides":[{"id":"s1"},{"id":"s2"}]},
+                "b":{"name":"B","slides":[{"id":"s2"},{"id":"s1"}]}
+            }
+        }]"#;
+        let song = parse_freeshow(src);
+        assert_eq!(song.arrangement, vec!["chorus", "verse_1"]);
+        assert_eq!(labels(&song), vec!["chorus", "verse_1"]);
+    }
+
+    #[test]
+    fn freeshow_presentation_category_without_groups_auto_numbers() {
+        // A presentation (no section groups) still imports: every slide becomes
+        // an auto-numbered verse, in layout order.
+        let src = r#"["default",{
+            "name":"Velkommen",
+            "category":"presentation",
+            "settings":{"activeLayout":"default"},
+            "slides":{
+                "one":{"group":"","items":[{"lines":[{"text":[{"value":"Slide A"}]}]}]},
+                "two":{"group":"","items":[{"lines":[{"text":[{"value":"Slide B"}]}]}]}
+            },
+            "layouts":{"default":{"name":"Standard","slides":[{"id":"one"},{"id":"two"}]}}
+        }]"#;
+        let song = parse_freeshow(src);
+        assert_eq!(song.title_suggestion.as_deref(), Some("Velkommen"));
+        assert_eq!(labels(&song), vec!["verse_1", "verse_2"]);
+        assert_eq!(song.sections[0].lyrics, "Slide A");
+        assert_eq!(song.sections[1].lyrics, "Slide B");
+    }
+
+    #[test]
+    fn freeshow_global_group_is_label_fallback() {
+        // Norwegian display group maps via shared canonicalisation, and a null
+        // `group` falls back to the canonical `globalGroup` key.
+        let src = r#"["default",{
+            "name":"NB",
+            "slides":{
+                "s1":{"group":"Refreng","items":[{"lines":[{"text":[{"value":"Kor"}]}]}]},
+                "s2":{"group":null,"globalGroup":"bridge","items":[{"lines":[{"text":[{"value":"Bro"}]}]}]}
+            },
+            "layouts":{"d":{"slides":[{"id":"s1"},{"id":"s2"}]}}
+        }]"#;
+        let song = parse_freeshow(src);
+        assert_eq!(labels(&song), vec!["chorus", "bridge"]);
+    }
+
+    #[test]
+    fn freeshow_falls_back_to_slide_map_when_no_usable_layout() {
+        // Empty layouts map: rather than lose the whole show, every slide is kept
+        // (deterministic sorted order from the JSON map).
+        let src = r#"["default",{
+            "name":"NoLayout",
+            "slides":{"a":{"group":"Verse 1","items":[{"lines":[{"text":[{"value":"Only"}]}]}]}},
+            "layouts":{}
+        }]"#;
+        let song = parse_freeshow(src);
+        assert_eq!(labels(&song), vec!["verse_1"]);
+        assert_eq!(song.sections[0].lyrics, "Only");
+    }
+
+    #[test]
+    fn freeshow_malformed_and_empty_shapes_degrade_gracefully() {
+        for src in [
+            "",                                     // empty file
+            "not json",                             // not JSON at all
+            "[]",                                   // empty array — no show object
+            r#"["id"]"#,                            // one-element array
+            r#"["id",{}]"#,                         // show object with no slides
+            r#"["id",{"slides":{},"layouts":{}}]"#, // present but empty slides
+        ] {
+            let song = parse_song(src, ImportFormat::FreeShow);
+            assert!(
+                song.sections.is_empty(),
+                "{src:?} unexpectedly produced sections"
+            );
+            assert!(!song.warnings.is_empty(), "{src:?} should warn");
+        }
+    }
+
+    #[test]
+    fn freeshow_repeated_slides_dedup_into_one_section() {
+        // A layout that shows the same chorus slide twice → one section, played
+        // twice (the shared dedup seam, exercised via FreeShow ordering).
+        let src = r#"["default",{
+            "name":"Repeat",
+            "settings":{"activeLayout":"d"},
+            "slides":{
+                "v":{"group":"Verse 1","items":[{"lines":[{"text":[{"value":"Verse words"}]}]}]},
+                "c":{"group":"Chorus","items":[{"lines":[{"text":[{"value":"Chorus words"}]}]}]}
+            },
+            "layouts":{"d":{"slides":[{"id":"v"},{"id":"c"},{"id":"v"}]}}
+        }]"#;
+        let song = parse_freeshow(src);
+        assert_eq!(labels(&song), vec!["verse_1", "chorus"]);
+        assert_eq!(song.arrangement, vec!["verse_1", "chorus", "verse_1"]);
+    }
+
     // ── empty / fallback ─────────────────────────────────────────────────────────
 
     #[test]
@@ -805,6 +1133,7 @@ mod tests {
             ImportFormat::ChordPro,
             ImportFormat::OpenSong,
             ImportFormat::OpenLyrics,
+            ImportFormat::FreeShow,
         ] {
             let song = parse_song("", fmt);
             assert!(song.sections.is_empty(), "{fmt:?} produced no sections");
@@ -968,6 +1297,20 @@ mod prop_tests {
         "chorus",
         "verse",
         "x2",
+        // FreeShow JSON fragments so the fuzzer sometimes forms parseable shapes.
+        "[\"default\",{",
+        "\"slides\":{",
+        "\"layouts\":{",
+        "\"items\":[",
+        "\"lines\":[",
+        "\"text\":[",
+        "\"value\":",
+        "\"group\":",
+        "\"id\":",
+        "{",
+        "}",
+        ",",
+        ":",
     ];
 
     fn random_input(rng: &mut Lcg) -> String {
@@ -995,6 +1338,7 @@ mod prop_tests {
             ImportFormat::ChordPro,
             ImportFormat::OpenSong,
             ImportFormat::OpenLyrics,
+            ImportFormat::FreeShow,
         ];
         for _ in 0..500 {
             let input = random_input(&mut rng);

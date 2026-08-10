@@ -4,9 +4,9 @@
  * Reads song files with a plain `<input type="file">` + `FileReader` (so no
  * native file-dialog plugin is needed — it works in the Tauri webview today),
  * then sends each file's text to the `import_song_file` command, which detects
- * the format and creates the song. Supported: plain text, ChordPro, OpenSong
- * and OpenLyrics (OpenLP). Shows a per-file result with the detected format,
- * section count and any parser warnings.
+ * the format and creates the song. Supported: plain text, ChordPro, OpenSong,
+ * OpenLyrics (OpenLP) and FreeShow (`.show` JSON). Shows a per-file result with
+ * the detected format, section count and any parser warnings.
  *
  * A second section imports a whole EasyWorship library (Spor B2). EasyWorship
  * stores songs in SQLite files the renderer cannot read, so it takes a folder
@@ -21,13 +21,14 @@ import type { EasyWorshipImportResult, ImportFormat } from "@/lib/bindings";
 import { ipc } from "@/lib/ipc";
 import { useT } from "@/lib/i18n";
 
-const ACCEPT = ".txt,.cho,.crd,.chopro,.chordpro,.xml,.opensong,.pro_";
+const ACCEPT = ".txt,.cho,.crd,.chopro,.chordpro,.xml,.opensong,.pro_,.show";
 
 const FORMAT_LABEL: Record<ImportFormat, string> = {
   plain_text: "Tekst",
   chord_pro: "ChordPro",
   open_song: "OpenSong",
   open_lyrics: "OpenLyrics",
+  free_show: "FreeShow",
 };
 
 interface FileResult {
