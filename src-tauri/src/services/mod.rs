@@ -7,6 +7,7 @@
 
 pub mod ai;
 pub mod bible;
+pub mod bible_download;
 pub mod companion;
 pub mod cue_list;
 pub mod demo;

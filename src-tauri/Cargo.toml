@@ -82,6 +82,14 @@ ts-rs = { version = "12", features = ["serde-compat", "chrono-impl", "uuid-impl"
 # cloud) both use it. Core (non-optional) since publish ships in the default build.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
+# Checksum verification for the Bible corpus downloader (Spor C, C1/C2). A
+# downloaded corpus is verified against a pinned SHA-256 before it is parsed, so
+# a moving upstream ref or a corrupted transfer is rejected rather than seeded.
+# Both crates are already in the tree transitively (via the TLS/updater stacks),
+# so declaring them direct adds no new compiled crate.
+sha2 = "0.10"
+hex = "0.4"
+
 [dev-dependencies]
 tempfile = "3"
 # Update-direction pin (E2). `tauri-plugin-updater` compares releases with

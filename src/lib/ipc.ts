@@ -20,6 +20,7 @@ import type {
   CounterTotal,
   CrashKind,
   ArrangementItem,
+  AvailableTranslation,
   BibleBook,
   BiblePassage,
   BibleTranslation,
@@ -483,7 +484,18 @@ export const bible = {
       verseStart,
       verseEnd,
     }),
+  // Full-corpus downloader (Spor C, C1/C2). `download` resolves with the
+  // installed translation; watch progress via the `bible://download-progress`
+  // event (payload: BibleDownloadProgress).
+  availableTranslations: () =>
+    call<AvailableTranslation[]>("bible_available_translations"),
+  download: (code: string) =>
+    call<BibleTranslation>("bible_download_translation", { code }),
 };
+
+/** The event a running Bible download emits progress on (BibleDownloadProgress
+ *  payloads). Mirrors `services::bible_download::PROGRESS_EVENT` in Rust. */
+export const BIBLE_DOWNLOAD_PROGRESS_EVENT = "bible://download-progress";
 
 // ── Crash reporting (Phase 6.1) ─────────────────────────────────────────────────
 //

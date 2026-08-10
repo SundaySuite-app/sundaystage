@@ -250,6 +250,41 @@ describe("problem-report outcome i18n parity", () => {
   }
 });
 
+// The Bible-download card (Spor C) is operator-facing in every locale, and the
+// two placeholder-bearing strings must keep their tokens or the size label and
+// error message break. Full parity, not the English fall-back.
+const BIBLE_DOWNLOAD_KEYS = [
+  "bibleDlTitle",
+  "bibleDlDesc",
+  "bibleDlInstalled",
+  "bibleDlDownload",
+  "bibleDlRedownload",
+  "bibleDlDownloading",
+  "bibleDlVerifying",
+  "bibleDlInstalling",
+  "bibleDlSizeMb",
+  "bibleDlFailed",
+] as const;
+
+describe("bible-download i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries every bible-download key`, () => {
+      const cat = CATALOG[lang];
+      for (const key of BIBLE_DOWNLOAD_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        expect(cat[key].trim().length, `${lang}.${key}`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it("keeps the {mb} and {error} placeholders in every locale", () => {
+    for (const lang of LANGS) {
+      expect(CATALOG[lang].bibleDlSizeMb, lang).toContain("{mb}");
+      expect(CATALOG[lang].bibleDlFailed, lang).toContain("{error}");
+    }
+  });
+});
+
 // ── Whole-catalog parity ──────────────────────────────────────────────────────
 //
 // The targeted suites above guard individual feature areas. This suite enforces

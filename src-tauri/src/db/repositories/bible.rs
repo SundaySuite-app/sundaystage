@@ -8,6 +8,7 @@ use crate::db::models::{BibleReference, BibleTranslation, BibleVerse};
 use crate::db::{new_id, now_ms};
 use crate::error::AppResult;
 use crate::services::bible::bundled_translations;
+use crate::services::bible_download::ParsedVerse;
 
 pub struct BibleRepo<'a> {
     pool: &'a SqlitePool,
@@ -64,6 +65,115 @@ impl<'a> BibleRepo<'a> {
             }
         }
         Ok(())
+    }
+
+    /// How many verses of a translation (by `code`) are currently installed.
+    /// 0 = absent, a handful = the bundled starter set, ~31k = a full corpus.
+    pub async fn verse_count_by_code(&self, code: &str) -> AppResult<i64> {
+        Ok(sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*) FROM bible_verse v
+               JOIN bible_translation t ON t.id = v.translation_id
+               WHERE t.code = ?1"#,
+        )
+        .bind(code)
+        .fetch_one(self.pool)
+        .await?)
+    }
+
+    /// Install a full downloaded corpus, replacing any existing text for the same
+    /// `code`. Used by the C1/C2 downloader; the whole thing is one transaction,
+    /// so a failed re-download can never leave a half-populated translation.
+    ///
+    /// The translation row's **id is preserved** across a re-download (only its
+    /// name/language are refreshed), so a `bible_reference` cached against it
+    /// keeps pointing at live text.
+    ///
+    /// FTS consistency does NOT lean on `ON DELETE CASCADE`: whether a cascade
+    /// delete fires the `AFTER DELETE` trigger that prunes `bible_verse_search`
+    /// depends on the `recursive_triggers` pragma (off by default). So the old
+    /// verses are deleted with an **explicit** `DELETE`, which always fires the
+    /// trigger — no stale rows survive in the search index after a re-download.
+    pub async fn replace_translation(
+        &self,
+        code: &str,
+        name: &str,
+        language: &str,
+        verses: &[ParsedVerse],
+    ) -> AppResult<BibleTranslation> {
+        let now = now_ms();
+        let mut tx = self.pool.begin().await?;
+
+        let existing: Option<(String, i64)> =
+            sqlx::query_as("SELECT id, created_at FROM bible_translation WHERE code = ?1")
+                .bind(code)
+                .fetch_optional(&mut *tx)
+                .await?;
+
+        let (tid, created_at) = match existing {
+            Some((id, created)) => {
+                sqlx::query(
+                    r#"UPDATE bible_translation
+                       SET name = ?2, language = ?3, public_domain = 1
+                       WHERE id = ?1"#,
+                )
+                .bind(&id)
+                .bind(name)
+                .bind(language)
+                .execute(&mut *tx)
+                .await?;
+                // Explicit delete → fires trg_bible_verse_after_delete → FTS pruned.
+                sqlx::query("DELETE FROM bible_verse WHERE translation_id = ?1")
+                    .bind(&id)
+                    .execute(&mut *tx)
+                    .await?;
+                (id, created)
+            }
+            None => {
+                let id = new_id();
+                sqlx::query(
+                    r#"INSERT INTO bible_translation
+                       (id, code, name, language, public_domain, created_at)
+                       VALUES (?1, ?2, ?3, ?4, 1, ?5)"#,
+                )
+                .bind(&id)
+                .bind(code)
+                .bind(name)
+                .bind(language)
+                .bind(now)
+                .execute(&mut *tx)
+                .await?;
+                (id, now)
+            }
+        };
+
+        for v in verses {
+            sqlx::query(
+                r#"INSERT INTO bible_verse
+                   (id, translation_id, book, book_order, chapter, verse, text, created_at)
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"#,
+            )
+            .bind(new_id())
+            .bind(&tid)
+            .bind(v.book)
+            .bind(v.book_order)
+            .bind(v.chapter)
+            .bind(v.verse)
+            .bind(&v.text)
+            .bind(now)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(BibleTranslation {
+            id: tid,
+            code: code.into(),
+            name: name.into(),
+            language: language.into(),
+            public_domain: 1,
+            created_at,
+        })
     }
 
     pub async fn list_translations(&self) -> AppResult<Vec<BibleTranslation>> {
@@ -293,5 +403,138 @@ mod tests {
         assert!(hits.iter().any(|v| v.book == "Psalms" && v.chapter == 23));
         // Punctuation must not blow up the MATCH query.
         assert!(repo.search("shepherd; want!", None, 20).await.is_ok());
+    }
+
+    // ── Full-corpus install (C1) ─────────────────────────────────────────────
+
+    fn verse(book: &'static str, order: i64, ch: i64, vs: i64, text: &str) -> ParsedVerse {
+        ParsedVerse {
+            book,
+            book_order: order,
+            chapter: ch,
+            verse: vs,
+            text: text.into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn replace_translation_installs_and_is_searchable() {
+        let db = Database::open_in_memory().await.unwrap();
+        let repo = BibleRepo::new(&db.pool);
+        let t = repo
+            .replace_translation(
+                "ASV",
+                "American Standard Version",
+                "en",
+                &[
+                    verse("John", 43, 3, 16, "For God so loved the world"),
+                    verse(
+                        "Psalms",
+                        19,
+                        23,
+                        1,
+                        "Jehovah is my shepherd; I shall not want.",
+                    ),
+                ],
+            )
+            .await
+            .unwrap();
+        assert_eq!(repo.verse_count_by_code("ASV").await.unwrap(), 2);
+        // The FTS trigger fired on insert, so the new text is searchable.
+        let hits = repo.search("shepherd", Some(&t.id), 20).await.unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].book, "Psalms");
+    }
+
+    #[tokio::test]
+    async fn re_download_replaces_cleanly_and_keeps_fts_consistent() {
+        let db = Database::open_in_memory().await.unwrap();
+        let repo = BibleRepo::new(&db.pool);
+
+        let first = repo
+            .replace_translation(
+                "ASV",
+                "American Standard Version",
+                "en",
+                &[verse("John", 43, 3, 16, "a distinctive_oldtoken verse")],
+            )
+            .await
+            .unwrap();
+
+        // Re-install the SAME code with different text (a re-download).
+        let second = repo
+            .replace_translation(
+                "ASV",
+                "American Standard Version",
+                "en",
+                &[
+                    verse("John", 43, 3, 16, "a distinctive_newtoken verse"),
+                    verse("John", 43, 3, 17, "another verse"),
+                ],
+            )
+            .await
+            .unwrap();
+
+        // Idempotent identity: the translation id is preserved across re-download.
+        assert_eq!(first.id, second.id);
+        // No duplicate rows — the old verses were replaced, not appended.
+        assert_eq!(repo.verse_count_by_code("ASV").await.unwrap(), 2);
+        // FTS is consistent: the stale token is gone, the fresh one is found.
+        assert!(repo
+            .search("distinctive_oldtoken", None, 20)
+            .await
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            repo.search("distinctive_newtoken", None, 20)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn download_upgrades_the_bundled_starter_set_in_place() {
+        // Seed the curated starter set, then "download" the full KJV over it.
+        let db = db().await;
+        let repo = BibleRepo::new(&db.pool);
+        let starter = repo.verse_count_by_code("KJV").await.unwrap();
+        assert!(starter > 0 && starter < 100, "starter set is small");
+        let bundled_kjv_id = repo
+            .list_translations()
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|t| t.code == "KJV")
+            .unwrap()
+            .id;
+
+        let full = repo
+            .replace_translation(
+                "KJV",
+                "King James Version",
+                "en",
+                &[
+                    verse("Genesis", 1, 1, 1, "In the beginning"),
+                    verse("Genesis", 1, 1, 2, "And the earth was without form"),
+                    verse("Revelation", 66, 22, 21, "Amen."),
+                ],
+            )
+            .await
+            .unwrap();
+
+        // Same translation row (id preserved), now carrying the full text.
+        assert_eq!(full.id, bundled_kjv_id);
+        assert_eq!(repo.verse_count_by_code("KJV").await.unwrap(), 3);
+        // No second KJV row was created.
+        let kjv_rows = repo
+            .list_translations()
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|t| t.code == "KJV")
+            .count();
+        assert_eq!(kjv_rows, 1);
     }
 }

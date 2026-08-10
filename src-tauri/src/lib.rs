@@ -308,7 +308,7 @@ pub fn run() {
             commands::updater::update_install,
             // Universal search (Phase 2.3)
             commands::search::search_all,
-            // Bible (Phase 7.1)
+            // Bible (Phase 7.1) + full-corpus downloader (Spor C, C1/C2)
             commands::bible::bible_translations,
             commands::bible::bible_books,
             commands::bible::bible_chapters,
@@ -316,6 +316,8 @@ pub fn run() {
             commands::bible::bible_lookup,
             commands::bible::bible_search,
             commands::bible::bible_add_to_service,
+            commands::bible::bible_available_translations,
+            commands::bible::bible_download_translation,
             // Output displays (Phase 5.2)
             commands::output::output_monitors,
             commands::output::output_config,

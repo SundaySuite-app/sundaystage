@@ -1,13 +1,14 @@
 //! Phase 7.1 — Bible commands: browse, look up, search, compare, add-to-service.
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use ts_rs::TS;
 
 use crate::db::models::{BibleTranslation, BibleVerse, ServiceItem};
 use crate::db::repositories::{BibleRepo, ServiceRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::bible::{book_display, parse_reference, render_reference};
+use crate::services::bible_download::{self, AvailableTranslation};
 use crate::telemetry::quality::LiveSafe;
 use crate::AppState;
 
@@ -104,6 +105,46 @@ pub async fn bible_lookup(
         reference: render_reference(&parsed),
         verses,
     })
+}
+
+/// The full public-domain corpora the operator can download, each annotated
+/// with how much of it is already installed (0 = none, small = the bundled
+/// starter set, ~31k = the full text). Drives the Settings download list.
+#[tauri::command]
+pub async fn bible_available_translations(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<AvailableTranslation>> {
+    let repo = BibleRepo::new(&state.db.pool);
+    let mut out = Vec::with_capacity(bible_download::CATALOG.len());
+    for s in bible_download::CATALOG {
+        out.push(AvailableTranslation {
+            code: s.code.into(),
+            name: s.name.into(),
+            language: s.language.into(),
+            approx_bytes: s.bytes,
+            installed_verses: repo.verse_count_by_code(s.code).await?,
+        });
+    }
+    Ok(out)
+}
+
+/// Download + install a full corpus from the pinned scrollmapper ref, verifying
+/// its checksum before seeding. Emits [`bible_download::PROGRESS_EVENT`] ticks so
+/// the UI can show a progress bar, and returns the installed translation.
+#[tauri::command]
+pub async fn bible_download_translation(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    code: String,
+) -> AppResult<BibleTranslation> {
+    let source = bible_download::source_for_code(&code)
+        .ok_or_else(|| AppError::Validation(format!("Ukjent oversettelse: {code}")))?;
+    let app_for_emit = app.clone();
+    bible_download::download_and_install(&state.db.pool, source, move |p| {
+        // Best-effort: a dropped progress event never fails the download.
+        let _ = app_for_emit.emit(bible_download::PROGRESS_EVENT, p);
+    })
+    .await
 }
 
 #[tauri::command]
