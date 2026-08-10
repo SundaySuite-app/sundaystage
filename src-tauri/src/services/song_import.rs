@@ -23,6 +23,10 @@
 //! this file only dispatches to it and exposes the shared [`finalize`] assembly.
 //! The binary `.pro`/`.pro7` and folder-based EasyWorship formats need their own
 //! decoders and are handled elsewhere (EasyWorship in `import_easyworship`).
+//!
+//! **CCLI SongSelect** (`.usr` / `.txt`, Spor B5) is likewise a single-file
+//! import routed through here; its INI/plain-text parse lives in the sibling
+//! [`import_songselect`](crate::services::import_songselect) module.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -45,6 +49,9 @@ pub enum ImportFormat {
     FreeShow,
     /// ProPresenter 6 `.pro6` (XML, base64-RTF slides). See `import_propresenter`.
     Pro6,
+    /// CCLI SongSelect export — the `.usr` (INI-like) or `.txt` (labelled
+    /// stanzas + CCLI footer) download. See `import_songselect`.
+    SongSelect,
 }
 
 /// Best-effort format detection from a filename and the content itself. Content
@@ -70,6 +77,18 @@ pub fn detect_format(filename: &str, content: &str) -> ImportFormat {
     // array) cannot collide with the XML / ChordPro branches above.
     if (name.ends_with(".show") || head.starts_with('[')) && looks_like_freeshow(content) {
         return ImportFormat::FreeShow;
+    }
+    // CCLI SongSelect: the `.usr` export (INI-like `Key=Value` + `[S <ccli>]`
+    // section) or a plain-text `.txt` whose footer carries the CCLI signature.
+    // The `.txt` case REQUIRES the signature so ordinary plain text is never
+    // mis-detected as SongSelect. Checked before ChordPro because neither the
+    // `.usr` nor a CCLI-signed export contains ChordPro directives, while a
+    // stray brace in a lyric must not steal a genuine SongSelect file.
+    if name.ends_with(".usr")
+        || content.contains("CCLI Song #")
+        || content.contains("CCLI License #")
+    {
+        return ImportFormat::SongSelect;
     }
     // ChordPro: extension or a tell-tale directive. `.pro` is deliberately NOT
     // mapped here — ProPresenter uses it for a binary format.
@@ -103,6 +122,7 @@ pub fn parse_song(content: &str, format: ImportFormat) -> FormattedSong {
         ImportFormat::OpenLyrics => parse_openlyrics(content),
         ImportFormat::FreeShow => parse_freeshow(content),
         ImportFormat::Pro6 => crate::services::import_propresenter::parse_pro6(content),
+        ImportFormat::SongSelect => crate::services::import_songselect::parse_songselect(content),
     }
 }
 
@@ -122,6 +142,7 @@ pub struct ImportMetadata {
 pub fn extra_metadata(format: ImportFormat, content: &str) -> ImportMetadata {
     match format {
         ImportFormat::Pro6 => crate::services::import_propresenter::extract_metadata(content),
+        ImportFormat::SongSelect => crate::services::import_songselect::extract_metadata(content),
         _ => ImportMetadata::default(),
     }
 }
@@ -821,6 +842,29 @@ mod tests {
         assert_eq!(detect_format("song.cho", "Line"), ImportFormat::ChordPro);
         assert_eq!(
             detect_format("notes.txt", "Verse 1\nHello"),
+            ImportFormat::PlainText
+        );
+    }
+
+    #[test]
+    fn detects_songselect_by_extension_and_ccli_signature() {
+        // `.usr` extension is authoritative.
+        assert_eq!(
+            detect_format("Amazing.usr", "[S A22025]\nTitle=Amazing Grace\nWords=x"),
+            ImportFormat::SongSelect
+        );
+        // A `.txt` with the CCLI footer signature detects even without the ext.
+        assert_eq!(
+            detect_format(
+                "amazing.txt",
+                "Amazing Grace\n\nVerse 1\nHello\n\nCCLI Song # 22025\nCCLI License # 12345"
+            ),
+            ImportFormat::SongSelect
+        );
+        // NEGATIVE: ordinary plain text with no CCLI signature must NOT detect
+        // as SongSelect — it stays plain text.
+        assert_eq!(
+            detect_format("notes.txt", "Verse 1\nHello\n\nVerse 2\nWorld"),
             ImportFormat::PlainText
         );
     }
