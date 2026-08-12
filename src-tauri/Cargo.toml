@@ -95,7 +95,7 @@ quick-xml = "0.39"
 # a moving upstream ref or a corrupted transfer is rejected rather than seeded.
 # Both crates are already in the tree transitively (via the TLS/updater stacks),
 # so declaring them direct adds no new compiled crate.
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 
 [dev-dependencies]
