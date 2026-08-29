@@ -14,7 +14,10 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use super::{FaultAddress, NativeCrash, NativeSignal, Site, ThreadRole};
+// `ThreadRole` is deliberately absent: the role is produced by
+// `super::thread_role`, never named here. Importing it would be an unused
+// import, and CI runs `clippy -D warnings` on exactly this platform.
+use super::{FaultAddress, NativeCrash, NativeSignal, Site};
 
 // HANDLER-SAFE-BEGIN
 pub(super) fn observe(cc: &crash_context::CrashContext) -> NativeCrash {
