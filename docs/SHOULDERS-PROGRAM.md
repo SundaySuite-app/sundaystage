@@ -240,7 +240,9 @@ umiddelbart at Esc-lukker-biblioteket aldri hadde stått på lista.
 begynner på B ikke kan tastes: «Bro»/«Bridge» nås av ⌘J, ikke av en bokstav.
 Sier eier at bar `B` skal bli blackout, blir det slik; sier eier at broen er
 viktigere, faller `B` inn i sekvensene med én linje. Begge deler er én linje i
-`consoleKeys.ts`.
+`consoleKeys.ts`. Samme gjelder `G` (Go) og `L` (logo): de var bundet fra før og
+er det fortsatt, så en seksjon som begynner på G eller L går òg via ⌘J. Alle tre
+er bevisst prioritert som transport foran hopp.
 
 **Utsatt, med vilje:** hintlinja over slide-gridet («Klikk = på skjermen ·
 piltaster blar · V2 hopper til Vers 2») er _ikke_ lagt inn. Den er layout, og
