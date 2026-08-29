@@ -20,6 +20,37 @@ body,
   border-radius: var(--radius-xs);
 }
 
+/* Refusal shake — the output lock swallowing an action. A short physical
+   "no" next to the control that said no, so the operator looks at the lock
+   rather than at the projector. Motion-sensitive users get the toast and the
+   gold LOCKED state instead; the feedback never depends on the animation. */
+@keyframes ss-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+.ss-shake {
+  animation: ss-shake 260ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-shake {
+    animation: none;
+  }
+}
+
 /* Scrollbars — minimal, dark-friendly */
 ::-webkit-scrollbar {
   width: 10px;

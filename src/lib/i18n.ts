@@ -579,6 +579,33 @@ const en: Catalog = {
   kbPalette: "Command palette",
   kbBrowse: "Open / close the library panel",
   kbShortcutsHelp: "Show this help",
+  kbLock: "Lock / unlock the output",
+  kbUndoClear: "Restore what you just cleared",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Output lock",
+  lockLocked: "LOCKED",
+  lockOpen: "Lock",
+  lockTitleOpen:
+    "Lock the output ({key}) — clicks and keys stop reaching the screen",
+  lockTitleLocked: "Output locked ({key}) — press to unlock",
+  lockBlocked:
+    "The output is locked — nothing was sent to the screen. Unlock with {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "The text layer was cleared.",
+  undoClearedLogo: "The logo was cleared.",
+  undoClearedBlackout: "The blackout was cleared.",
+  undoRestore: "Restore",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Stage screen",
+  setStageScreenDesc: "What the band and the worship leader see on stage.",
+  setStageFollowsBlackout: "Blackout darkens the stage screen too",
+  setStageFollowsBlackoutDesc:
+    "Off (default): the band keeps the words when you black out the room. On: the stage screen goes dark at the same moment.",
+  sdRoomBlackedOut: "The room is blacked out",
 
   // ── Bible verse deep-open ───────────────────────────────────────────────
   wsOpenVerse: "Open verse in Bible browser",
@@ -1337,6 +1364,32 @@ const no: Catalog = {
   kbPalette: "Kommandopalett",
   kbBrowse: "Åpne/lukk bibliotekpanelet",
   kbShortcutsHelp: "Vis denne hjelpen",
+  kbLock: "Lås / lås opp utgangen",
+  kbUndoClear: "Gjenopprett det du nettopp tømte",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Output-lås",
+  lockLocked: "LÅST",
+  lockOpen: "Lås",
+  lockTitleOpen: "Lås utgangen ({key}) — klikk og taster når ikke skjermen",
+  lockTitleLocked: "Utgangen er låst ({key}) — trykk for å låse opp",
+  lockBlocked:
+    "Utgangen er låst — ingenting ble sendt til skjermen. Lås opp med {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "Tekstlaget ble tømt.",
+  undoClearedLogo: "Logoen ble tømt.",
+  undoClearedBlackout: "Blackouten ble tømt.",
+  undoRestore: "Gjenopprett",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Sceneskjerm",
+  setStageScreenDesc: "Det bandet og lovsangslederen ser på scenen.",
+  setStageFollowsBlackout: "Blackout svartlegger også sceneskjermen",
+  setStageFollowsBlackoutDesc:
+    "Av (standard): bandet beholder teksten når du svartlegger salen. På: sceneskjermen blir svart i samme øyeblikk.",
+  sdRoomBlackedOut: "Salen er svartlagt",
 
   // ── Bibel-vers deep-open ────────────────────────────────────────────────
   wsOpenVerse: "Åpne vers i Bibel-panelet",
@@ -2072,6 +2125,32 @@ const sv: Catalog = {
   kbPalette: "Kommandopalett",
   kbBrowse: "Öppna/stäng bibliotekspanelen",
   kbShortcutsHelp: "Visa denna hjälp",
+  kbLock: "Lås / lås upp utgången",
+  kbUndoClear: "Återställ det du nyss rensade",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Utgångslås",
+  lockLocked: "LÅST",
+  lockOpen: "Lås",
+  lockTitleOpen: "Lås utgången ({key}) — klick och tangenter når inte skärmen",
+  lockTitleLocked: "Utgången är låst ({key}) — tryck för att låsa upp",
+  lockBlocked:
+    "Utgången är låst — ingenting skickades till skärmen. Lås upp med {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "Textlagret rensades.",
+  undoClearedLogo: "Logotypen rensades.",
+  undoClearedBlackout: "Blackouten rensades.",
+  undoRestore: "Återställ",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Scenskärm",
+  setStageScreenDesc: "Det bandet och lovsångsledaren ser på scenen.",
+  setStageFollowsBlackout: "Blackout svärtar även scenskärmen",
+  setStageFollowsBlackoutDesc:
+    "Av (standard): bandet behåller texten när du svärtar salen. På: scenskärmen blir svart i samma ögonblick.",
+  sdRoomBlackedOut: "Salen är svärtad",
 
   // ── Gudstjänstmallar ─────────────────────────────────────────────────────
   tmplPageTitle: "Gudstjänstmallar",
@@ -2778,6 +2857,32 @@ const da: Catalog = {
   kbPalette: "Kommandopalet",
   kbBrowse: "Åbn/luk bibliotekspanelet",
   kbShortcutsHelp: "Vis denne hjælp",
+  kbLock: "Lås / lås op for udgangen",
+  kbUndoClear: "Gendan det, du lige ryddede",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Udgangslås",
+  lockLocked: "LÅST",
+  lockOpen: "Lås",
+  lockTitleOpen: "Lås udgangen ({key}) — klik og taster når ikke skærmen",
+  lockTitleLocked: "Udgangen er låst ({key}) — tryk for at låse op",
+  lockBlocked:
+    "Udgangen er låst — intet blev sendt til skærmen. Lås op med {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "Tekstlaget blev ryddet.",
+  undoClearedLogo: "Logoet blev ryddet.",
+  undoClearedBlackout: "Blackouten blev ryddet.",
+  undoRestore: "Gendan",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Sceneskærm",
+  setStageScreenDesc: "Det, bandet og lovsangslederen ser på scenen.",
+  setStageFollowsBlackout: "Blackout gør også sceneskærmen sort",
+  setStageFollowsBlackoutDesc:
+    "Fra (standard): bandet beholder teksten, når du gør salen sort. Til: sceneskærmen bliver sort i samme øjeblik.",
+  sdRoomBlackedOut: "Salen er sort",
 
   // ── Gudstjenesteskabeloner ───────────────────────────────────────────────
   tmplPageTitle: "Gudstjenesteskabeloner",
@@ -3495,6 +3600,33 @@ const de: Catalog = {
   kbPalette: "Befehlspalette",
   kbBrowse: "Bibliothekspanel öffnen/schließen",
   kbShortcutsHelp: "Diese Hilfe anzeigen",
+  kbLock: "Ausgabe sperren / entsperren",
+  kbUndoClear: "Zuletzt Geleertes wiederherstellen",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Ausgabesperre",
+  lockLocked: "GESPERRT",
+  lockOpen: "Sperren",
+  lockTitleOpen:
+    "Ausgabe sperren ({key}) — Klicks und Tasten erreichen den Bildschirm nicht mehr",
+  lockTitleLocked: "Ausgabe gesperrt ({key}) — zum Entsperren drücken",
+  lockBlocked:
+    "Die Ausgabe ist gesperrt — es wurde nichts an den Bildschirm gesendet. Entsperren mit {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "Die Textebene wurde geleert.",
+  undoClearedLogo: "Das Logo wurde geleert.",
+  undoClearedBlackout: "Der Blackout wurde aufgehoben.",
+  undoRestore: "Wiederherstellen",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Bühnenbildschirm",
+  setStageScreenDesc: "Was Band und Lobpreisleitung auf der Bühne sehen.",
+  setStageFollowsBlackout: "Blackout verdunkelt auch den Bühnenbildschirm",
+  setStageFollowsBlackoutDesc:
+    "Aus (Standard): Die Band behält den Text, wenn Sie den Saal verdunkeln. An: Der Bühnenbildschirm wird im selben Moment schwarz.",
+  sdRoomBlackedOut: "Der Saal ist verdunkelt",
 
   // ── Gottesdienst-Vorlagen ────────────────────────────────────────────────
   tmplPageTitle: "Gottesdienst-Vorlagen",
@@ -4219,6 +4351,34 @@ const fr: Catalog = {
   kbPalette: "Palette de commandes",
   kbBrowse: "Ouvrir/fermer le panneau bibliothèque",
   kbShortcutsHelp: "Afficher cette aide",
+  kbLock: "Verrouiller / déverrouiller la sortie",
+  kbUndoClear: "Restaurer ce que vous venez d'effacer",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Verrou de sortie",
+  lockLocked: "VERROUILLÉ",
+  lockOpen: "Verrouiller",
+  lockTitleOpen:
+    "Verrouiller la sortie ({key}) — les clics et les touches n'atteignent plus l'écran",
+  lockTitleLocked: "Sortie verrouillée ({key}) — appuyez pour déverrouiller",
+  lockBlocked:
+    "La sortie est verrouillée — rien n'a été envoyé à l'écran. Déverrouillez avec {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "Le calque de texte a été effacé.",
+  undoClearedLogo: "Le logo a été effacé.",
+  undoClearedBlackout: "Le blackout a été effacé.",
+  undoRestore: "Restaurer",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Écran de scène",
+  setStageScreenDesc:
+    "Ce que le groupe et le responsable de louange voient sur scène.",
+  setStageFollowsBlackout: "Le blackout assombrit aussi l'écran de scène",
+  setStageFollowsBlackoutDesc:
+    "Désactivé (par défaut) : le groupe garde le texte quand vous assombrissez la salle. Activé : l'écran de scène devient noir au même instant.",
+  sdRoomBlackedOut: "La salle est en noir",
 
   // ── Modèles de service ───────────────────────────────────────────────────
   tmplPageTitle: "Modèles de service",
@@ -4931,6 +5091,33 @@ const pl: Catalog = {
   kbPalette: "Paleta poleceń",
   kbBrowse: "Otwórz/zamknij panel biblioteki",
   kbShortcutsHelp: "Pokaż tę pomoc",
+  kbLock: "Zablokuj / odblokuj wyjście",
+  kbUndoClear: "Przywróć to, co przed chwilą wyczyszczono",
+
+  // ── Output lock (Spor A) ──────────────────────────────────────────────
+  lockAria: "Blokada wyjścia",
+  lockLocked: "ZABLOKOWANE",
+  lockOpen: "Zablokuj",
+  lockTitleOpen:
+    "Zablokuj wyjście ({key}) — kliknięcia i klawisze nie docierają do ekranu",
+  lockTitleLocked: "Wyjście zablokowane ({key}) — naciśnij, aby odblokować",
+  lockBlocked:
+    "Wyjście jest zablokowane — nic nie zostało wysłane na ekran. Odblokuj: {key}.",
+
+  // ── Restore after Clear (Spor A) ──────────────────────────────────────
+  undoClearedMessage: "Warstwa tekstu została wyczyszczona.",
+  undoClearedLogo: "Logo zostało wyczyszczone.",
+  undoClearedBlackout: "Blackout został wyczyszczony.",
+  undoRestore: "Przywróć",
+  undoCountdown: "{key} · {seconds} s",
+
+  // ── Stage screen (Spor A5) ────────────────────────────────────────────
+  setStageScreenTitle: "Ekran sceniczny",
+  setStageScreenDesc: "To, co zespół i prowadzący uwielbienie widzą na scenie.",
+  setStageFollowsBlackout: "Blackout wygasza także ekran sceniczny",
+  setStageFollowsBlackoutDesc:
+    "Wyłączone (domyślnie): zespół zachowuje tekst, gdy wygaszasz salę. Włączone: ekran sceniczny gaśnie w tym samym momencie.",
+  sdRoomBlackedOut: "Sala jest wygaszona",
 
   // ── Szablony nabożeństw ──────────────────────────────────────────────────
   tmplPageTitle: "Szablony nabożeństw",

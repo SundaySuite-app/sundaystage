@@ -78,7 +78,42 @@ describe("useOutputBridge — render broadcast", () => {
       initialProps: { f: FRAME, a: true },
     });
     expect(renders()).toHaveLength(1);
-    expect(renders()[0].payload).toEqual({ frame: FRAME, seq: 1 });
+    expect(renders()[0].payload).toEqual({
+      frame: FRAME,
+      seq: 1,
+      // No stage frame given: every screen follows the main output, exactly as
+      // before A5 existed.
+      stageFrame: FRAME,
+    });
+  });
+
+  it("carries a diverging stage frame so the band keeps the words (A5)", () => {
+    const words: LiveFrame = { kind: "message", text: "Å store Gud" };
+    renderHook(({ f, a, s }) => useOutputBridge(f, a, s), {
+      initialProps: { f: FRAME, a: true, s: words },
+    });
+    expect(renders()[0].payload).toEqual({
+      frame: FRAME,
+      seq: 1,
+      stageFrame: words,
+    });
+  });
+
+  it("re-broadcasts when only the stage frame changes", () => {
+    const words: LiveFrame = { kind: "message", text: "Å store Gud" };
+    const { rerender } = renderHook(({ f, a, s }) => useOutputBridge(f, a, s), {
+      initialProps: { f: FRAME, a: true, s: FRAME as LiveFrame | null },
+    });
+    // The operator flipped "stage follows blackout" off mid-blackout: the main
+    // output is unchanged, but the stage screens must be told.
+    rerender({ f: FRAME, a: true, s: words });
+
+    expect(renders()).toHaveLength(2);
+    expect(renders()[1].payload).toEqual({
+      frame: FRAME,
+      seq: 2,
+      stageFrame: words,
+    });
   });
 
   it("stamps a strictly-monotonic seq across frame changes", () => {

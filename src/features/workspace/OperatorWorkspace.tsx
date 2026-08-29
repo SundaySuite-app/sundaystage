@@ -13,6 +13,13 @@
  * This component adds one frontend concept on top: `previewIndex` — the staged
  * slide. Clicking a slide stages it; "Go" promotes Preview → Live via the
  * existing `go_to` dispatch. Nothing reaches the projector without Go.
+ *
+ * Spor A adds the two guards around that model:
+ *   - the **output lock** (⌘L), checked inside `dispatch` and `startSession` —
+ *     the only two routes from this component to the projector, so a locked
+ *     output cannot be reached by inventing a new button;
+ *   - **restore after Clear** (⌘Z), a single in-memory capture of the override
+ *     Clear discarded, offered for a few seconds and then dropped.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +34,9 @@ import type {
   Service,
   ServiceItem,
 } from "@/lib/bindings";
-import { useT } from "@/lib/i18n";
+import { useT, type TKey } from "@/lib/i18n";
+import { modChord } from "@/lib/platform";
+import { useStageSettings, stageFrameFor } from "@/lib/stageSettings";
 import { useErrorToast } from "@/lib/useErrorToast";
 import { ErrorToast } from "@/components/ui";
 import { DEFAULT_OUTPUT_APPEARANCE, useOutputBridge } from "@/lib/outputBridge";
@@ -58,11 +67,26 @@ import { MessagePanel } from "./MessagePanel";
 import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
 import { ShortcutsModal } from "./ShortcutsModal";
-import { cueServiceItemId, parseBibleRef } from "./cueUtils";
-import { keyScope } from "./consoleKeys";
+import { UndoToast } from "./UndoToast";
+import { cueServiceItemId, frameFromCue, parseBibleRef } from "./cueUtils";
+import { keyScope, resolveConsoleKey, consumesKey } from "./consoleKeys";
+import { guardAction, guardGoLive } from "./outputGuard";
+import {
+  CLEAR_UNDO_WINDOW_MS,
+  captureOverride,
+  restoreAction,
+  type ClearedOverride,
+} from "./clearUndo";
 import { cn } from "@/lib/cn";
 import { SingleFlight } from "./singleFlight";
 import type { BibleDeepLink } from "@/features/bible/BiblePage";
+
+/** Which sentence the restore offer opens with, per override that Clear took. */
+const CLEARED_KEY: Record<ClearedOverride["output"], TKey> = {
+  message: "undoClearedMessage",
+  logo: "undoClearedLogo",
+  blackout: "undoClearedBlackout",
+};
 
 export function OperatorWorkspace({ library }: { library: Library }) {
   const t = useT();
@@ -79,7 +103,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     null,
   );
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [session, setSession] = useState<LiveSessionView | null>(null);
+  const [session, setSessionState] = useState<LiveSessionView | null>(null);
   const [recoverable, setRecoverable] = useState<LiveSessionView | null>(null);
   // Per-session bridge context (Stage → Rec/Song), assembled at "Go Live".
   const [bridgeContext, setBridgeContext] = useState<LiveBridgeContext | null>(
@@ -106,7 +130,26 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   const [stagePresetId, setStagePresetId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
 
+  // ── The two guards (Spor A) ─────────────────────────────────────────────
+  // The output lock. `lockNudge` counts refusals: the transport bar re-keys the
+  // lock button on it so the shake replays even for a run of blocked presses.
+  const [outputLocked, setOutputLocked] = useState(false);
+  const [lockNudge, setLockNudge] = useState(0);
+  // The restore offer left behind by Clear. In memory only — never disk, never
+  // telemetry: it is congregation-facing content.
+  const [pendingUndo, setPendingUndo] = useState<{
+    cleared: ClearedOverride;
+    messageKey: TKey;
+    at: number;
+  } | null>(null);
+  // `dispatch` has to read the session as it is at the moment of the keystroke,
+  // not as it was when the callback was built, and must not be rebuilt on every
+  // cue advance (that would re-bind the global keydown listener mid-service).
+  const sessionRef = useRef<LiveSessionView | null>(null);
+
   const isLive = !!session;
+
+  const stageFollowsBlackout = useStageSettings((s) => s.followsBlackout);
 
   // Single-flight guard for go-live. `go()` decides whether to start a session
   // from the `session` React state, which only updates after `ipc.live.start()`
@@ -204,8 +247,23 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     if (clampedPreview !== previewIndex) setPreviewIndex(clampedPreview);
   }, [clampedPreview, previewIndex]);
 
+  // A5 — what the stage/confidence screens should show. Identical to the main
+  // output except during a blackout the stage does not follow: the band is
+  // mid-song and still needs the words. `frameFromCue` gives the frame the
+  // running cue would render with no override on top of it.
+  const underlyingFrame = useMemo(() => {
+    if (!session) return null;
+    const cue = cues[session.index];
+    return cue ? frameFromCue(cue) : null;
+  }, [cues, session]);
+  const stageFrame = stageFrameFor(
+    session?.frame ?? null,
+    underlyingFrame,
+    stageFollowsBlackout,
+  );
+
   // Drive the projector windows from the live frame.
-  useOutputBridge(session?.frame ?? null, isLive);
+  useOutputBridge(session?.frame ?? null, isLive, stageFrame);
 
   // Crash recovery: detect a session that ended abnormally (Phase 6.1).
   useEffect(() => {
@@ -220,9 +278,70 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     ? cueServiceItemId(cues[clampedPreview])
     : null;
 
+  /**
+   * Every write to the session goes through here, and the ref is updated in the
+   * same statement as the state.
+   *
+   * Not a `useEffect` that mirrors `session`: an effect runs a commit later, so
+   * a Clear pressed one beat after showing a message would read the *previous*
+   * session and find nothing to offer back. That is precisely the flustered
+   * two-clicks-in-a-row case restore exists for.
+   */
+  const setSession = useCallback(
+    (
+      next:
+        | LiveSessionView
+        | null
+        | ((prev: LiveSessionView | null) => LiveSessionView | null),
+    ) => {
+      const value =
+        typeof next === "function" ? next(sessionRef.current) : next;
+      sessionRef.current = value;
+      setSessionState(value);
+    },
+    [],
+  );
+
   // ── Live actions ──────────────────────────────────────────────────────────
+  /** Register a refusal: shake the lock and say why, without touching output. */
+  const refuse = useCallback(() => {
+    setLockNudge((n) => n + 1);
+    showError(t("lockBlocked", { key: modChord("L") }));
+  }, [showError, t]);
+
+  /**
+   * The single route from this component to the projector.
+   *
+   * Everything funnels here — keyboard, the transport bar, the slide grid, the
+   * Jump modal, the message popover, the network remote, "show now" after
+   * adding a passage — so the lock check and the undo bookkeeping live here and
+   * nowhere else. The check itself is one tag comparison on an object already
+   * in hand: no allocation, no IO, nothing that can make the live path slower.
+   *
+   * `isRestore` marks the ⌘Z re-dispatch, which must not wipe the offer it is
+   * itself consuming; every other action drops the offer, because "restore"
+   * has to mean the screen the operator remembers.
+   */
   const dispatch = useCallback(
-    (action: LiveAction) => {
+    (action: LiveAction, opts?: { isRestore?: boolean }) => {
+      if (guardAction(outputLocked, action) === "blocked") {
+        refuse();
+        return;
+      }
+      if (action.type === "clear") {
+        const cleared = captureOverride(sessionRef.current);
+        setPendingUndo(
+          cleared
+            ? {
+                cleared,
+                messageKey: CLEARED_KEY[cleared.output],
+                at: Date.now(),
+              }
+            : null,
+        );
+      } else if (!opts?.isRestore) {
+        setPendingUndo(null);
+      }
       ipc.live
         .dispatch(action)
         .then((next) =>
@@ -238,8 +357,40 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         // know rather than press again into a void. Live output stays untouched.
         .catch(() => showError(t("dispatchError")));
     },
-    [bridge, showError, t],
+    [bridge, outputLocked, refuse, setSession, showError, t],
   );
+
+  /** ⌘Z within the window: put back exactly what Clear discarded. */
+  const undoClear = useCallback(() => {
+    const offer = pendingUndo;
+    if (!offer) return;
+    const action = restoreAction(offer.cleared);
+    // A locked output refuses the restore like any other content action — but
+    // the offer has to survive the refusal, or locking and then pressing ⌘Z
+    // would quietly eat the one chance to get the text back.
+    if (guardAction(outputLocked, action) === "blocked") {
+      refuse();
+      return;
+    }
+    setPendingUndo(null);
+    dispatch(action, { isRestore: true });
+  }, [pendingUndo, outputLocked, refuse, dispatch]);
+
+  // Let the offer lapse. A stale ⌘Z is worse than no ⌘Z: it would push an
+  // override the operator has long stopped thinking about back onto a screen.
+  useEffect(() => {
+    if (!pendingUndo) return;
+    const id = window.setTimeout(
+      () => setPendingUndo(null),
+      Math.max(0, pendingUndo.at + CLEAR_UNDO_WINDOW_MS - Date.now()),
+    );
+    return () => window.clearTimeout(id);
+  }, [pendingUndo]);
+
+  // Ending the service ends the offer with it.
+  useEffect(() => {
+    if (!isLive) setPendingUndo(null);
+  }, [isLive]);
 
   // ── Network share (stage.sundaysuite.app) ───────────────────────────────────
   // Forward each live frame to the web app so phones/extra screens follow, and
@@ -288,6 +439,12 @@ export function OperatorWorkspace({ library }: { library: Library }) {
 
   const startSession = useCallback((): Promise<LiveSessionView | null> => {
     if (!service) return Promise.resolve(null);
+    // Going live puts cue 1 on the projector without ever passing through
+    // `dispatch` — it is the second route to the screen, so it is guarded too.
+    if (guardGoLive(outputLocked) === "blocked") {
+      refuse();
+      return Promise.resolve(null);
+    }
     // Collapse concurrent go-live attempts into one live_start round-trip.
     return startFlight.current.run(
       async (): Promise<LiveSessionView | null> => {
@@ -336,24 +493,48 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         }
       },
     );
-  }, [service, qc, library.id, bridge, showError, t]);
+  }, [
+    service,
+    qc,
+    library.id,
+    bridge,
+    outputLocked,
+    refuse,
+    setSession,
+    showError,
+    t,
+  ]);
 
   const stopSession = useCallback(() => {
     bridge.end();
     setBridgeContext(null);
     void ipc.live.end().finally(() => setSession(null));
-  }, [bridge]);
+  }, [bridge, setSession]);
 
   // Promote the staged slide to live, then stage the next one (worship flow).
   const go = useCallback(async () => {
     if (cues.length === 0) return;
+    // Refuse up front rather than after `startSession` — a locked output must
+    // not even open a session, and one refusal reads better than two.
+    if (guardGoLive(outputLocked) === "blocked") {
+      refuse();
+      return;
+    }
     const target = clampedPreview;
     let s = session;
     if (!s) s = await startSession();
     if (!s) return;
     dispatch({ type: "go_to", index: target });
     setPreviewIndex(Math.min(target + 1, cues.length - 1));
-  }, [cues.length, clampedPreview, session, startSession, dispatch]);
+  }, [
+    cues.length,
+    clampedPreview,
+    session,
+    startSession,
+    dispatch,
+    outputLocked,
+    refuse,
+  ]);
 
   const resumeRecovered = useCallback(async () => {
     if (!recoverable) return;
@@ -364,7 +545,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     } finally {
       setRecoverable(null);
     }
-  }, [recoverable]);
+  }, [recoverable, setSession]);
 
   // ── Hotkeys ─────────────────────────────────────────────────────────────
   // True modals own the keyboard entirely. The docked browser does NOT — the
@@ -377,100 +558,64 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     shortcutsOpen ||
     stageOpen ||
     exportOpen;
+  // The key table itself lives in `consoleKeys.ts` and is tested there. This
+  // effect is only the wiring from a resolved action to the thing it does, so
+  // the table and the console can never drift apart into a seam.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const scope = keyScope(e.target);
-      // Never hijack typing in a form field.
-      if (scope === "text") return;
-      // A modal owns the keyboard — bail before every other case so console
-      // shortcuts can't fire behind it. ⌘K is left untouched here so cmdk
-      // still receives it.
-      if (modalOpen) return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
-        e.preventDefault();
-        if (isLive) setJumpOpen((o) => !o);
-        return;
-      }
-      // ⌘B toggles the resource browser (find a song → back, keyboard-only).
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        setBrowser((b) => (b ? null : { tab: "songs" }));
-        return;
-      }
-      if (e.metaKey || e.ctrlKey) return; // leave ⌘K etc. to their handlers
-      // Esc closes the docked browser first; blackout keeps B (and Esc when
-      // the browser is closed).
-      if (e.key === "Escape" && browser) {
-        e.preventDefault();
-        setBrowser(null);
-        return;
-      }
-      if (e.key === "?") {
-        e.preventDefault();
-        setShortcutsOpen((o) => !o);
-        return;
-      }
-      // Focus inside the docked browser: only the panic keys reach the
-      // console — Space/Enter/arrows keep doing browser navigation.
-      if (scope === "dock") {
-        switch (e.key) {
-          case "b":
-          case "B":
-            if (isLive) {
-              e.preventDefault();
-              dispatch({ type: "blackout" });
-            }
-            break;
-          case "l":
-          case "L":
-            if (isLive) dispatch({ type: "show_logo" });
-            break;
-        }
-        return;
-      }
-      switch (e.key) {
-        case "ArrowRight":
-        case "ArrowDown":
-        case "PageDown":
-          e.preventDefault();
+      const action = resolveConsoleKey(e, {
+        scope: keyScope(e.target),
+        isLive,
+        browserOpen: !!browser,
+        modalOpen,
+      });
+      if (action === "none") return;
+      if (consumesKey(action)) e.preventDefault();
+      switch (action) {
+        case "preview-next":
           setPreviewIndex((i) => Math.min(i + 1, cues.length - 1));
           break;
-        case "ArrowLeft":
-        case "ArrowUp":
-        case "PageUp":
-          e.preventDefault();
+        case "preview-prev":
           setPreviewIndex((i) => Math.max(i - 1, 0));
           break;
-        case " ":
-        case "Enter":
-        case "g":
-        case "G":
-          e.preventDefault();
-          void go();
-          break;
-        case "Escape":
-        case "b":
-        case "B":
-          if (isLive) {
-            e.preventDefault();
-            dispatch({ type: "blackout" });
-          }
-          break;
-        case "l":
-        case "L":
-          if (isLive) dispatch({ type: "show_logo" });
-          break;
-        case "Home":
+        case "preview-first":
           setPreviewIndex(0);
           break;
-        case "End":
+        case "preview-last":
           setPreviewIndex(Math.max(0, cues.length - 1));
+          break;
+        case "go":
+          void go();
+          break;
+        case "blackout":
+          dispatch({ type: "blackout" });
+          break;
+        case "logo":
+          dispatch({ type: "show_logo" });
+          break;
+        case "toggle-lock":
+          setOutputLocked((l) => !l);
+          break;
+        case "undo-clear":
+          undoClear();
+          break;
+        case "jump":
+          setJumpOpen((o) => !o);
+          break;
+        case "toggle-browser":
+          setBrowser((b) => (b ? null : { tab: "songs" }));
+          break;
+        case "close-browser":
+          setBrowser(null);
+          break;
+        case "shortcuts":
+          setShortcutsOpen((o) => !o);
           break;
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [modalOpen, browser, cues.length, go, dispatch, isLive]);
+  }, [modalOpen, browser, cues.length, go, dispatch, isLive, undoClear]);
 
   // ── Command palette routing ───────────────────────────────────────────────
   const onNavigate = useCallback((route: Route) => {
@@ -581,7 +726,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       }
       if (cueIndex >= 0) setPreviewIndex(cueIndex);
     },
-    [service, session, qc, dispatch, showError, t],
+    [service, session, qc, dispatch, setSession, showError, t],
   );
 
   /** Open the bible browser pre-navigated to the current preview cue's passage. */
@@ -621,6 +766,9 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         onExport={() => isLive && setExportOpen(true)}
         onSettings={() => setSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
+        outputLocked={outputLocked}
+        onToggleLock={() => setOutputLocked((l) => !l)}
+        lockNudge={lockNudge}
       />
 
       {/* Operator message popover — a light popover, never a modal: the
@@ -772,6 +920,8 @@ export function OperatorWorkspace({ library }: { library: Library }) {
       {stageOpen && session && stagePreset && (
         <StageDisplay
           session={session}
+          stageFrame={stageFrame ?? session.frame}
+          mainBlackedOut={session.output === "blackout"}
           cues={cues}
           serviceName={service?.name ?? ""}
           notes={service?.notes ?? null}
@@ -831,6 +981,17 @@ export function OperatorWorkspace({ library }: { library: Library }) {
           waits for the answer either way: resume makes it live, discard clears
           the offer. */}
       {recoverable === null && <TelemetryConsentCard isLive={isLive} />}
+
+      {/* The restore offer left by Clear. Rendered above the error toast slot so
+          a stray dispatch error never hides the one chance to get the text
+          back. */}
+      {pendingUndo && (
+        <UndoToast
+          message={t(pendingUndo.messageKey)}
+          startedAt={pendingUndo.at}
+          onRestore={undoClear}
+        />
+      )}
 
       <ErrorToast message={ipcError} onDismiss={dismissError} />
     </div>
