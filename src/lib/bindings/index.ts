@@ -75,6 +75,7 @@ export type { Song }              from "./Song";
 export type { SongArrangement }   from "./SongArrangement";
 export type { SongInput }         from "./SongInput";
 export type { SongSection }       from "./SongSection";
+export type { SongUsageRow }      from "./SongUsageRow";
 export type { SlotRole }          from "./SlotRole";
 export type { StageDisplayConfig } from "./StageDisplayConfig";
 export type { SyncStatus }        from "./SyncStatus";

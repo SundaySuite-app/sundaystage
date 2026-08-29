@@ -24,6 +24,7 @@ pub mod session_store;
 pub mod slide_doc;
 pub mod song_export;
 pub mod song_import;
+pub mod song_usage;
 pub mod stage_display;
 pub mod sundayplan;
 pub mod sundayrec_bridge;

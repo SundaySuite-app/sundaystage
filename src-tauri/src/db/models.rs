@@ -351,6 +351,56 @@ pub struct ServiceTemplateInput {
     pub cue_specs: Vec<CueSpec>,
 }
 
+/// A7 — one row of the song-usage log: a song that provably held the
+/// congregation output during one service, with the licensing metadata snapshot
+/// TONO/CCLI reporting needs.
+///
+/// The metadata is COPIED in rather than joined at read time, so a song deleted
+/// from the library in February doesn't erase the January report. See
+/// `sql/0010_song_usage.sql`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, FromRow, TS)]
+#[ts(export, export_to = "../../src/lib/bindings/SongUsageRow.ts")]
+pub struct SongUsageRow {
+    pub id: String,
+    pub service_id: String,
+    pub service_name: String,
+    /// Local civil date, `YYYY-MM-DD` — the date the report shows.
+    pub service_date: String,
+    pub song_id: String,
+    pub title: String,
+    pub author: Option<String>,
+    pub ccli_song_id: Option<String>,
+    pub tono_work_id: Option<String>,
+    pub copyright_notice: Option<String>,
+    pub first_shown_at: i64,
+    pub last_shown_at: i64,
+    /// Total time the song actually held the output, in ms.
+    pub visible_ms: i64,
+    /// Separate times it was on screen in this service (a reprise = 2).
+    pub show_count: i64,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// What the recorder hands the repository. The row's `id`/timestamps are the
+/// repository's business, and `visible_ms`/`show_count` accumulate on conflict.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SongUsageEntry {
+    pub service_id: String,
+    pub service_name: String,
+    pub service_date: String,
+    pub song_id: String,
+    pub title: String,
+    pub author: Option<String>,
+    pub ccli_song_id: Option<String>,
+    pub tono_work_id: Option<String>,
+    pub copyright_notice: Option<String>,
+    pub first_shown_at: i64,
+    pub last_shown_at: i64,
+    pub visible_ms: i64,
+    pub show_count: i64,
+}
+
 /// Helper for converting any `DateTime<Utc>` to unix-ms.
 #[allow(dead_code)]
 pub fn to_unix_ms(dt: DateTime<Utc>) -> i64 {

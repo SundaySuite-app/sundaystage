@@ -243,6 +243,13 @@ pub fn run() {
             commands::songs::song_delete_section,
             commands::songs::song_reorder_sections,
             commands::songs::export_song,
+            // Sangbrukslogg (A7) — grunnlaget for TONO/CCLI-rapportering.
+            // Rent lokalt: ingen av disse har en nettverksvei.
+            commands::song_usage::song_usage_list,
+            commands::song_usage::song_usage_count,
+            commands::song_usage::song_usage_export_csv,
+            commands::song_usage::song_usage_open_folder,
+            commands::song_usage::song_usage_clear,
             // Arrangements (Phase 3.3)
             commands::arrangements::arrangement_create,
             commands::arrangements::arrangement_list,
