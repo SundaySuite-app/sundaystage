@@ -20,6 +20,12 @@
  *     output cannot be reached by inventing a new button;
  *   - **restore after Clear** (⌘Z), a single in-memory capture of the override
  *     Clear discarded, offered for a few seconds and then dropped.
+ *
+ * A4 adds **section jump**: a typed sequence (`V2`, `R`) puts the first slide of
+ * that section of the running song on air. It is a route to the projector like
+ * every other one, so it goes through the same `dispatch` — and is therefore
+ * caught by the same lock. The sequence is echoed on screen while it is typed
+ * and lapses on its own; see `sectionJump.ts` for how the letters are derived.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,7 +40,14 @@ import type {
   Service,
   ServiceItem,
 } from "@/lib/bindings";
-import { useT, type TKey } from "@/lib/i18n";
+import {
+  translate,
+  useLocale,
+  useT,
+  type TKey,
+  type TParams,
+} from "@/lib/i18n";
+import { localizeSectionLabel } from "@/lib/sectionLabel";
 import { modChord } from "@/lib/platform";
 import { useStageSettings, stageFrameFor } from "@/lib/stageSettings";
 import { useErrorToast } from "@/lib/useErrorToast";
@@ -67,10 +80,17 @@ import { MessagePanel } from "./MessagePanel";
 import { MediaDrawer } from "./MediaDrawer";
 import { JumpModal } from "./JumpModal";
 import { ShortcutsModal } from "./ShortcutsModal";
+import { SectionSeqChip } from "./SectionSeqChip";
 import { UndoToast } from "./UndoToast";
 import { cueServiceItemId, frameFromCue, parseBibleRef } from "./cueUtils";
 import { keyScope, resolveConsoleKey, consumesKey } from "./consoleKeys";
 import { guardAction, guardGoLive } from "./outputGuard";
+import {
+  SECTION_SEQ_IDLE_MS,
+  buildSectionIndex,
+  matchSequence,
+  sectionsForCue,
+} from "./sectionJump";
 import {
   CLEAR_UNDO_WINDOW_MS,
   captureOverride,
@@ -147,6 +167,19 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   // cue advance (that would re-bind the global keydown listener mid-service).
   const sessionRef = useRef<LiveSessionView | null>(null);
 
+  // ── A4: the half-typed section sequence ──────────────────────────────────
+  // Mirrored into a ref for the same reason as the session: the global keydown
+  // listener must not be torn down and re-bound on every keystroke of a
+  // sequence the operator is in the middle of typing.
+  const [seq, setSeqState] = useState<{ buffer: string; at: number } | null>(
+    null,
+  );
+  const seqRef = useRef<{ buffer: string; at: number } | null>(null);
+  const setSeq = useCallback((next: { buffer: string; at: number } | null) => {
+    seqRef.current = next;
+    setSeqState(next);
+  }, []);
+
   const isLive = !!session;
 
   const stageFollowsBlackout = useStageSettings((s) => s.followsBlackout);
@@ -217,6 +250,17 @@ export function OperatorWorkspace({ library }: { library: Library }) {
     });
     return m;
   }, [cues]);
+
+  // A4 — the sections a typed sequence can reach, per song. Built once per cue
+  // list (and per language, because the letters follow the operator's own words
+  // for the sections), never per keystroke: the live path only ever reads it.
+  // `lang` rather than `t` as the dependency — `useT` hands back a fresh closure
+  // every render, which would rebuild this on every unrelated state change.
+  const lang = useLocale((s) => s.lang);
+  const sectionIndex = useMemo(() => {
+    const tt = (key: TKey, params?: TParams) => translate(lang, key, params);
+    return buildSectionIndex(cues, (label) => localizeSectionLabel(label, tt));
+  }, [cues, lang]);
 
   const appearanceQuery = useQuery({
     queryKey: ["outputAppearance"],
@@ -391,6 +435,50 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   useEffect(() => {
     if (!isLive) setPendingUndo(null);
   }, [isLive]);
+
+  // ── A4: section jump ──────────────────────────────────────────────────────
+  /**
+   * Put a section on air. Deliberately the *same* `go_to` dispatch the Jump
+   * modal and the Go button use: a section jump is a route to the projector
+   * like any other, so the output lock has to catch it, the undo offer has to
+   * lapse for it, and a failure has to reach the operator. Nothing here is a
+   * shortcut around `dispatch`.
+   */
+  const jumpToSection = useCallback(
+    (index: number) => {
+      dispatch({ type: "go_to", index });
+      // Stage what follows, exactly as Go does — the operator who jumped to the
+      // chorus wants the slide after it queued up next.
+      setPreviewIndex(Math.min(index + 1, Math.max(0, cues.length - 1)));
+    },
+    [cues.length, dispatch],
+  );
+
+  /** What the sequence currently points at, for the chip and for Enter. */
+  const seqMatch = useMemo(() => {
+    if (!seq) return null;
+    const at = session?.index ?? 0;
+    return matchSequence(
+      seq.buffer,
+      sectionsForCue(sectionIndex, cues, at),
+      at,
+    );
+  }, [seq, sectionIndex, cues, session?.index]);
+
+  // A sequence clears itself. A half-typed `V` left standing would make the
+  // next keystroke mean something the operator never intended — and the
+  // keystroke after a forgotten one is exactly when they are not looking.
+  useEffect(() => {
+    if (!seq) return;
+    const id = window.setTimeout(() => setSeq(null), SECTION_SEQ_IDLE_MS);
+    return () => window.clearTimeout(id);
+  }, [seq, setSeq]);
+
+  // Off air there is nothing to jump: drop the chip rather than leave it
+  // hanging over a console it no longer applies to.
+  useEffect(() => {
+    if (!isLive) setSeq(null);
+  }, [isLive, setSeq]);
 
   // ── Network share (stage.sundaysuite.app) ───────────────────────────────────
   // Forward each live frame to the web app so phones/extra screens follow, and
@@ -568,6 +656,7 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         isLive,
         browserOpen: !!browser,
         modalOpen,
+        seqActive: seqRef.current != null,
       });
       if (action === "none") return;
       if (consumesKey(action)) e.preventDefault();
@@ -611,11 +700,66 @@ export function OperatorWorkspace({ library }: { library: Library }) {
         case "shortcuts":
           setShortcutsOpen((o) => !o);
           break;
+        // ── A4: the typed section sequence ───────────────────────────────
+        case "section-seq": {
+          const ch = e.key.toLowerCase();
+          const prev = seqRef.current?.buffer ?? "";
+          // A letter after a number starts over: `V2` has already fired, so a
+          // following `R` is the next thing the operator wants, not "V2R".
+          const buffer = (/\d/.test(prev) && !/\d/.test(ch) ? "" : prev) + ch;
+          const at = sessionRef.current?.index ?? 0;
+          const match = matchSequence(
+            buffer,
+            sectionsForCue(sectionIndex, cues, at),
+            at,
+          );
+          // Fire the moment the sequence can only mean one thing — that is the
+          // whole promise of `V2`. Anything a further keystroke could still
+          // change waits, visibly, for the operator to finish.
+          if (match && !match.ambiguous) {
+            setSeq(null);
+            jumpToSection(match.index);
+          } else {
+            setSeq({ buffer, at: Date.now() });
+          }
+          break;
+        }
+        case "section-commit": {
+          const pending = seqRef.current;
+          setSeq(null);
+          if (!pending) break;
+          const at = sessionRef.current?.index ?? 0;
+          const match = matchSequence(
+            pending.buffer,
+            sectionsForCue(sectionIndex, cues, at),
+            at,
+          );
+          // A sequence that matches nothing does nothing. It does NOT fall
+          // through to Go: the operator was typing a jump, and advancing the
+          // service instead would be the projector answering a question that
+          // was never asked.
+          if (match) jumpToSection(match.index);
+          break;
+        }
+        case "section-cancel":
+          setSeq(null);
+          break;
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [modalOpen, browser, cues.length, go, dispatch, isLive, undoClear]);
+  }, [
+    modalOpen,
+    browser,
+    cues,
+    go,
+    dispatch,
+    isLive,
+    undoClear,
+    sectionIndex,
+    jumpToSection,
+    setSeq,
+  ]);
 
   // ── Command palette routing ───────────────────────────────────────────────
   const onNavigate = useCallback((route: Route) => {
@@ -981,6 +1125,16 @@ export function OperatorWorkspace({ library }: { library: Library }) {
           waits for the answer either way: resume makes it live, discard clears
           the offer. */}
       {recoverable === null && <TelemetryConsentCard isLive={isLive} />}
+
+      {/* A4 — the sequence being typed, echoed back over the console. It sits
+          above the restore offer's slot so the two never cover each other. */}
+      {seq && (
+        <SectionSeqChip
+          buffer={seq.buffer}
+          label={seqMatch?.label ?? null}
+          ambiguous={!!seqMatch?.ambiguous}
+        />
+      )}
 
       {/* The restore offer left by Clear. Rendered above the error toast slot so
           a stray dispatch error never hides the one chance to get the text

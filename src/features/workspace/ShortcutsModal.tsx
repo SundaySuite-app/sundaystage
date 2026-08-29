@@ -3,15 +3,20 @@
  * the TransportBar. Shows all global workspace shortcuts so operators can
  * learn the console without opening the manual.
  *
- * The chords are computed per platform (⌘L on a Mac, Ctrl+L on Windows): a
- * printed shortcut that is wrong on half the installs teaches the volunteer
- * that the list cannot be trusted.
+ * **Every row here is generated from `CONSOLE_SHORTCUTS` in `consoleKeys.ts`.**
+ * The previous version of this file held a hand-typed copy of the key table,
+ * and the copy was wrong: a printed shortcut that is wrong on half the installs
+ * teaches the volunteer that the whole list can be ignored. The keycaps are now
+ * formatted from the literal keystroke objects the console's own tests replay
+ * through the resolver, so a row cannot say one thing while the console does
+ * another. Platform chords (⌘L on a Mac, Ctrl+L on Windows) come out of the
+ * same formatter.
  */
 import { useEffect } from "react";
 import { Keyboard, X } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
-import { modChord, shiftChord } from "@/lib/platform";
+import { CONSOLE_SHORTCUTS, keyCap } from "./consoleKeys";
 
 interface Props {
   onClose: () => void;
@@ -28,40 +33,15 @@ export function ShortcutsModal({ onClose }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const groups: Array<{
-    heading: string;
-    rows: Array<{ keys: string[]; action: string }>;
-  }> = [
-    {
-      heading: t("kbGroupPlayback"),
-      rows: [
-        { keys: ["Space", "Enter", "G"], action: t("kbGo") },
-        { keys: ["←", "↑", "PgUp"], action: t("kbPrev") },
-        { keys: ["→", "↓", "PgDn"], action: t("kbNext") },
-        { keys: ["Home"], action: t("kbFirst") },
-        { keys: ["End"], action: t("kbLast") },
-      ],
-    },
-    {
-      heading: t("kbGroupOutput"),
-      rows: [
-        // Blackout moved off Escape deliberately — see consoleKeys.ts.
-        { keys: [shiftChord("B")], action: t("kbBlackout") },
-        { keys: ["L"], action: t("kbLogo") },
-        { keys: [modChord("L")], action: t("kbLock") },
-        { keys: [modChord("Z")], action: t("kbUndoClear") },
-      ],
-    },
-    {
-      heading: t("kbGroupWorkspace"),
-      rows: [
-        { keys: [modChord("J")], action: t("kbJump") },
-        { keys: [modChord("K")], action: t("kbPalette") },
-        { keys: [modChord("B")], action: t("kbBrowse") },
-        { keys: ["?"], action: t("kbShortcutsHelp") },
-      ],
-    },
-  ];
+  const groups = CONSOLE_SHORTCUTS.map((g) => ({
+    heading: t(g.heading),
+    rows: g.rows.map((r) => ({
+      keys: r.strokes.map((s) => keyCap(s)),
+      // Typed one after another (`V` then `2`) rather than alternatives.
+      typed: !!r.typed,
+      action: t(r.label),
+    })),
+  }));
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
@@ -108,7 +88,13 @@ export function ShortcutsModal({ onClose }: Props) {
                   {g.rows.map((row) => (
                     <tr key={row.action} className="group">
                       <td className="pb-1.5 pr-4 align-top">
-                        <div className="flex flex-wrap gap-1">
+                        <div
+                          className={
+                            row.typed
+                              ? "flex flex-wrap gap-0.5"
+                              : "flex flex-wrap gap-1"
+                          }
+                        >
                           {row.keys.map((k) => (
                             <kbd
                               key={k}

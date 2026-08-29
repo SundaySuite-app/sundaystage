@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import {
+  CONSOLE_SHORTCUTS,
   consumesKey,
+  keyCap,
   keyScope,
   resolveConsoleKey,
+  type ConsoleAction,
   type ConsoleKeyContext,
   type KeyStroke,
 } from "./consoleKeys";
@@ -68,6 +71,7 @@ function ctx(over: Partial<ConsoleKeyContext> = {}): ConsoleKeyContext {
     isLive: true,
     browserOpen: false,
     modalOpen: false,
+    seqActive: false,
     ...over,
   };
 }
@@ -193,6 +197,172 @@ describe("resolveConsoleKey — the transport is unchanged", () => {
     expect(
       resolveConsoleKey(stroke("j", { metaKey: true }), ctx({ isLive: false })),
     ).toBe("none");
+  });
+});
+
+describe("resolveConsoleKey — section sequences (A4)", () => {
+  it("a bare letter starts a sequence while live", () => {
+    expect(resolveConsoleKey(stroke("v"), ctx())).toBe("section-seq");
+    expect(resolveConsoleKey(stroke("R"), ctx())).toBe("section-seq");
+  });
+
+  it("reads the character the layout produced, not a US key position", () => {
+    // The owner runs a Norwegian keyboard: a section called «Åpning» has to be
+    // reachable by the key that actually types Å.
+    for (const key of ["æ", "ø", "å", "ü", "ł"]) {
+      expect(resolveConsoleKey(stroke(key), ctx()), key).toBe("section-seq");
+    }
+  });
+
+  it("leaves bare B alone — it is held free for blackout", () => {
+    expect(resolveConsoleKey(stroke("b"), ctx())).toBe("none");
+    expect(resolveConsoleKey(stroke("B"), ctx())).toBe("none");
+    expect(resolveConsoleKey(stroke("b"), ctx({ seqActive: true }))).toBe(
+      "none",
+    );
+  });
+
+  it("keeps the keys that already meant something", () => {
+    expect(resolveConsoleKey(stroke("g"), ctx())).toBe("go");
+    expect(resolveConsoleKey(stroke("l"), ctx())).toBe("logo");
+  });
+
+  it("a digit only ever extends a sequence — never starts one", () => {
+    expect(resolveConsoleKey(stroke("2"), ctx())).toBe("none");
+    expect(resolveConsoleKey(stroke("2"), ctx({ seqActive: true }))).toBe(
+      "section-seq",
+    );
+  });
+
+  it("does nothing off air — there is no show to jump", () => {
+    expect(resolveConsoleKey(stroke("v"), ctx({ isLive: false }))).toBe("none");
+  });
+
+  it("stays out of the docked browser and out of text fields", () => {
+    expect(resolveConsoleKey(stroke("v"), ctx({ scope: "dock" }))).toBe("none");
+    expect(resolveConsoleKey(stroke("v"), ctx({ scope: "text" }))).toBe("none");
+  });
+
+  it("Enter and Space commit the pending sequence instead of firing Go", () => {
+    expect(resolveConsoleKey(stroke("Enter"), ctx({ seqActive: true }))).toBe(
+      "section-commit",
+    );
+    expect(resolveConsoleKey(stroke(" "), ctx({ seqActive: true }))).toBe(
+      "section-commit",
+    );
+    // …and go straight back to Go the moment the sequence lapses.
+    expect(resolveConsoleKey(stroke("Enter"), ctx())).toBe("go");
+  });
+
+  it("Escape cancels the sequence before it closes anything else", () => {
+    expect(resolveConsoleKey(stroke("Escape"), ctx({ seqActive: true }))).toBe(
+      "section-cancel",
+    );
+    expect(
+      resolveConsoleKey(
+        stroke("Escape"),
+        ctx({ seqActive: true, browserOpen: true }),
+      ),
+    ).toBe("section-cancel");
+  });
+
+  it("still lets a modal own the keyboard entirely", () => {
+    expect(
+      resolveConsoleKey(stroke("v"), ctx({ modalOpen: true, seqActive: true })),
+    ).toBe("none");
+  });
+
+  it("a sequence key is swallowed so it never reaches a scroll or a find bar", () => {
+    expect(consumesKey("section-seq")).toBe(true);
+    expect(consumesKey("section-commit")).toBe(true);
+    expect(consumesKey("section-cancel")).toBe(true);
+  });
+
+  it("leaves the arrows and Home/End to the transport mid-sequence", () => {
+    expect(
+      resolveConsoleKey(stroke("ArrowRight"), ctx({ seqActive: true })),
+    ).toBe("preview-next");
+    expect(resolveConsoleKey(stroke("Home"), ctx({ seqActive: true }))).toBe(
+      "preview-first",
+    );
+  });
+});
+
+// ── The cheat sheet ─────────────────────────────────────────────────────────
+//
+// The previous cheat sheet was a hand-written copy of the key table, and it was
+// wrong. This one is data in the same module, and these tests are what make it
+// impossible for it to be wrong: every advertised keystroke is replayed through
+// the real resolver, and every action the console can take must be documented.
+
+describe("CONSOLE_SHORTCUTS is the key table, not a description of it", () => {
+  for (const group of CONSOLE_SHORTCUTS) {
+    for (const row of group.rows) {
+      for (const s of row.strokes) {
+        it(`${group.heading}: ${keyCap(s, false)} really is ${row.action}`, () => {
+          expect(resolveConsoleKey(s, ctx(row.ctx))).toBe(row.action);
+        });
+      }
+    }
+  }
+
+  it("documents every action the console can take", () => {
+    const documented = new Set<ConsoleAction>(
+      CONSOLE_SHORTCUTS.flatMap((g) => g.rows.map((r) => r.action)),
+    );
+    const all: ConsoleAction[] = [
+      "go",
+      "preview-next",
+      "preview-prev",
+      "preview-first",
+      "preview-last",
+      "blackout",
+      "logo",
+      "toggle-lock",
+      "undo-clear",
+      "jump",
+      "toggle-browser",
+      "close-browser",
+      "shortcuts",
+      "section-seq",
+      "section-commit",
+      "section-cancel",
+    ];
+    for (const action of all) {
+      expect(documented.has(action), `${action} is undocumented`).toBe(true);
+    }
+  });
+
+  it("never advertises a key the owner is holding free", () => {
+    for (const group of CONSOLE_SHORTCUTS) {
+      for (const row of group.rows) {
+        for (const s of row.strokes) {
+          const bareB =
+            s.key.toLowerCase() === "b" &&
+            !s.shiftKey &&
+            !s.metaKey &&
+            !s.ctrlKey;
+          expect(bareB, "bare B is reserved").toBe(false);
+        }
+      }
+    }
+  });
+});
+
+describe("keyCap draws the platform's own chord", () => {
+  it("prints ⌘ on Apple and Ctrl elsewhere", () => {
+    expect(keyCap(stroke("l", { metaKey: true }), true)).toBe("⌘L");
+    expect(keyCap(stroke("l", { metaKey: true }), false)).toBe("Ctrl+L");
+    expect(keyCap(stroke("b", { shiftKey: true }), true)).toBe("⇧B");
+    expect(keyCap(stroke("b", { shiftKey: true }), false)).toBe("Shift+B");
+  });
+
+  it("names the keys that have no printable character", () => {
+    expect(keyCap(stroke(" "), false)).toBe("Space");
+    expect(keyCap(stroke("ArrowLeft"), false)).toBe("←");
+    expect(keyCap(stroke("PageDown"), false)).toBe("PgDn");
+    expect(keyCap(stroke("Escape"), false)).toBe("Esc");
+    expect(keyCap(stroke("Home"), false)).toBe("Home");
   });
 });
 
