@@ -45,7 +45,7 @@
 //! | `location` | `app+0x1a2b3c` / `foreign` | `app`/`foreign` are literals; the offset is `pc − image_base`, an integer |
 //! | `task` | `main-thread` / `other-thread` / `unknown-thread` | a three-value literal set |
 //! | `at` | the pending file's mtime | a clock reading |
-//! | `appVersion` | the version that crashed | already on every record; filtered to `[0-9A-Za-z.+-]` |
+//! | `appVersion` | the version that crashed | already on every record; SHAPE-checked against a semver pattern, and replaced with the constant `unknown` if it fails — see [`version_is_wellformed`] |
 //! | `os` | closed enum | already on every record |
 //! | `backtracePresent` | `false` | we capture none |
 //!
@@ -117,7 +117,7 @@
 //! could send it. In particular a hard crash captured *before* the operator was
 //! asked is never sent: granting consent moves the watermark to "now", so
 //! everything older than the answer stays on the machine. That seam is pinned by
-//! [`tests::a_crash_captured_before_consent_is_never_sent`].
+//! [`tests::a_hard_crash_captured_before_consent_is_never_sent`].
 //!
 //! ## Worker
 //!
