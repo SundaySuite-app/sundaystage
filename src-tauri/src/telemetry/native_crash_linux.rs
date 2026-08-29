@@ -7,10 +7,20 @@
 //! entirely welcome accident.
 //!
 //! Here the callback really does run in a signal handler — `crash-handler`
-//! installs the handlers on an alternate stack (so a stack overflow is still
-//! catchable) and, on `Handled(false)`, restores the previous `sigaction` and
-//! lets the signal re-trigger. That is what keeps Rust's own
-//! `thread '…' has overflowed its stack` message and the true exit status.
+//! installs the handlers on an alternate stack and, on `Handled(false)`,
+//! restores the previous `sigaction` and lets the signal re-trigger. That is
+//! what keeps Rust's own `thread '…' has overflowed its stack` message and the
+//! true exit status.
+//!
+//! **One honest limit.** The alternate stack is installed for the thread that
+//! calls `attach`, which is the main thread. A **stack overflow on a background
+//! thread** therefore has no stack left for the handler to run on, and produces
+//! no record — the process still dies correctly, we simply learn nothing.
+//! `crash-handler` offers a fix (`crash_handler::unix`, which interposes
+//! `pthread_create` to give every thread an alternate stack) and it is
+//! deliberately NOT used: interposing thread creation across the whole process
+//! is a far larger behavioural change than this signal is worth, and every other
+//! crash on every other thread is captured without it.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
