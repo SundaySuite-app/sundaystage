@@ -20,6 +20,7 @@ pub mod output;
 pub mod search;
 pub mod service_templates;
 pub mod services;
+pub mod song_usage;
 pub mod songs;
 pub mod sync;
 pub mod telemetry;

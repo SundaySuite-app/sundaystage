@@ -382,6 +382,33 @@ describe("the output lock stops every route to the projector", () => {
     );
   });
 
+  // A7 leans on this: the song-usage log is derived from what Rust was asked
+  // to put on the output, so "a song sent while the output was locked was never
+  // used" is only true if a locked console reaches Rust with NOTHING. Both
+  // routes are asserted above one at a time; this one pins the claim itself, so
+  // a future route that slips past either guard fails here with the reason.
+  it("leaves Rust nothing to file as song usage", async () => {
+    renderWorkspace();
+    await screen.findByText("Gå live");
+    await lock();
+
+    // Everything a volunteer would try, in one go.
+    fireEvent.click(screen.getByText("Gå live"));
+    press(" ");
+    press("Enter");
+    press("ArrowRight");
+    press("g");
+
+    expect(
+      ipcMock.live.start,
+      "no session, so no cue was ever shown",
+    ).not.toHaveBeenCalled();
+    expect(
+      ipcMock.live.dispatch,
+      "and nothing was dispatched",
+    ).not.toHaveBeenCalled();
+  });
+
   it("hands the console back the moment it is unlocked", async () => {
     renderWorkspace();
     await goLive();

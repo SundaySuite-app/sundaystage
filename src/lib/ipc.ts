@@ -64,6 +64,7 @@ import type {
   SongArrangement,
   SongInput,
   SongSection,
+  SongUsageRow,
   QualityRow,
   SyncStatus,
   TelemetryConsent,
@@ -168,6 +169,29 @@ export const song = {
       libraryId,
       folderPath,
     }),
+};
+
+// ── Sangbrukslogg (A7) ───────────────────────────────────────────────────────
+
+/**
+ * The local song-usage log — the basis for TONO/CCLI reporting.
+ *
+ * Nothing here touches the network. `exportCsv` writes a file on this machine
+ * and returns its path; whether that file is ever sent to TONO or CCLI is the
+ * owner's decision, made in the owner's mail client.
+ */
+export const songUsage = {
+  /** Rows whose first showing falls in [fromMs, toMs], oldest first. */
+  list: (fromMs: number, toMs: number) =>
+    call<SongUsageRow[]>("song_usage_list", { fromMs, toMs }),
+  /** Total rows in the log — what "delete everything" is about to remove. */
+  count: () => call<number>("song_usage_count"),
+  /** Write the period's report and return the file path. */
+  exportCsv: (fromMs: number, toMs: number) =>
+    call<string>("song_usage_export_csv", { fromMs, toMs }),
+  /** Reveal the reports folder. Takes no path — Rust derives it. */
+  openFolder: () => call<void>("song_usage_open_folder"),
+  clear: () => call<number>("song_usage_clear"),
 };
 
 // ── Arrangements (Phase 3.3) ───────────────────────────────────────────────────
@@ -676,6 +700,7 @@ export const update = {
 export const ipc = {
   library,
   song,
+  songUsage,
   service,
   live,
   deck,

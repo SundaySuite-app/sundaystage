@@ -824,6 +824,31 @@ const en: Catalog = {
   bibleDlInstalling: "Installing …",
   bibleDlSizeMb: "≈{mb} MB",
   bibleDlFailed: "Download failed: {error}",
+
+  // ── Song usage log (A7) — TONO/CCLI reporting ───────────────────────────
+  suTitle: "Song usage",
+  suDesc:
+    "Which songs actually reached the congregation screen, ready for TONO and CCLI reporting. The log stays on this machine and is never sent anywhere on its own.",
+  suPresetThisYear: "This year",
+  suPresetLastYear: "Last year",
+  suPresetLastQuarter: "Last quarter",
+  suFrom: "From",
+  suTo: "To",
+  suLoading: "Loading …",
+  suSummary: "{songs} songs · {uses} uses in this period",
+  suTimes: "{n} times",
+  suMissingCcli: "No CCLI number",
+  suExport: "Create CSV file",
+  suExporting: "Writing the file …",
+  suOpenFolder: "Open folder",
+  suSavedAt: "Saved as",
+  suFailed: "Could not write the file. Try again.",
+  suRetention:
+    "{rows} rows in the log. Usage older than two years is cleared automatically.",
+  suClear: "Delete the whole log",
+  suClearTitle: "Delete the song usage log?",
+  suClearBody:
+    "Every recorded use is removed from this machine. This cannot be undone, and reports you have not created yet cannot be created afterwards.",
 };
 
 const no: Catalog = {
@@ -1619,6 +1644,31 @@ const no: Catalog = {
   bibleDlInstalling: "Installerer …",
   bibleDlSizeMb: "≈{mb} MB",
   bibleDlFailed: "Nedlasting mislyktes: {error}",
+
+  // ── Sangbrukslogg (A7) — TONO/CCLI-rapportering ─────────────────────────
+  suTitle: "Sangbruk",
+  suDesc:
+    "Hvilke sanger som faktisk sto på menighetsskjermen, klart til TONO- og CCLI-rapportering. Loggen ligger på denne maskinen og sendes aldri noe sted av seg selv.",
+  suPresetThisYear: "Hittil i år",
+  suPresetLastYear: "I fjor",
+  suPresetLastQuarter: "Siste kvartal",
+  suFrom: "Fra",
+  suTo: "Til",
+  suLoading: "Henter …",
+  suSummary: "{songs} sanger · {uses} bruk i perioden",
+  suTimes: "{n} ganger",
+  suMissingCcli: "Mangler CCLI",
+  suExport: "Lag CSV-fil",
+  suExporting: "Lager fila …",
+  suOpenFolder: "Åpne mappen",
+  suSavedAt: "Lagret som",
+  suFailed: "Klarte ikke å lage fila. Prøv igjen.",
+  suRetention:
+    "{rows} rader i loggen. Bruk eldre enn to år ryddes bort automatisk.",
+  suClear: "Slett hele loggen",
+  suClearTitle: "Slette sangbruksloggen?",
+  suClearBody:
+    "All registrert sangbruk slettes fra denne maskinen. Det kan ikke angres, og rapporter du ikke har laget ennå kan ikke lages etterpå.",
 };
 
 // sv/da/de/fr/pl: full machine translation (via Claude), pending human review
@@ -2365,6 +2415,31 @@ const sv: Catalog = {
   bibleDlInstalling: "Installerar …",
   bibleDlSizeMb: "≈{mb} MB",
   bibleDlFailed: "Nedladdningen misslyckades: {error}",
+
+  // ── Sångbrukslogg (A7) — TONO/CCLI-rapportering ─────────────────────────
+  suTitle: "Sångbruk",
+  suDesc:
+    "Vilka sånger som faktiskt visades på församlingsskärmen, redo för TONO- och CCLI-rapportering. Loggen ligger på den här datorn och skickas aldrig någonstans av sig själv.",
+  suPresetThisYear: "Hittills i år",
+  suPresetLastYear: "I fjol",
+  suPresetLastQuarter: "Senaste kvartalet",
+  suFrom: "Från",
+  suTo: "Till",
+  suLoading: "Hämtar …",
+  suSummary: "{songs} sånger · {uses} användningar i perioden",
+  suTimes: "{n} gånger",
+  suMissingCcli: "Saknar CCLI",
+  suExport: "Skapa CSV-fil",
+  suExporting: "Skapar filen …",
+  suOpenFolder: "Öppna mappen",
+  suSavedAt: "Sparad som",
+  suFailed: "Kunde inte skapa filen. Försök igen.",
+  suRetention:
+    "{rows} rader i loggen. Användning äldre än två år rensas automatiskt.",
+  suClear: "Radera hela loggen",
+  suClearTitle: "Radera sångbruksloggen?",
+  suClearBody:
+    "All registrerad användning tas bort från den här datorn. Det går inte att ångra, och rapporter du inte har skapat ännu kan inte skapas efteråt.",
 };
 const da: Catalog = {
   navLibrary: "Bibliotek",
@@ -3105,6 +3180,31 @@ const da: Catalog = {
   bibleDlInstalling: "Installerer …",
   bibleDlSizeMb: "≈{mb} MB",
   bibleDlFailed: "Download mislykkedes: {error}",
+
+  // ── Sangbrugslog (A7) — TONO/CCLI-rapportering ──────────────────────────
+  suTitle: "Sangbrug",
+  suDesc:
+    "Hvilke sange der faktisk kom på menighedsskærmen, klar til TONO- og CCLI-rapportering. Loggen bliver på denne maskine og sendes aldrig nogen steder af sig selv.",
+  suPresetThisYear: "Hidtil i år",
+  suPresetLastYear: "Sidste år",
+  suPresetLastQuarter: "Seneste kvartal",
+  suFrom: "Fra",
+  suTo: "Til",
+  suLoading: "Henter …",
+  suSummary: "{songs} sange · {uses} brug i perioden",
+  suTimes: "{n} gange",
+  suMissingCcli: "Mangler CCLI",
+  suExport: "Lav CSV-fil",
+  suExporting: "Laver filen …",
+  suOpenFolder: "Åbn mappen",
+  suSavedAt: "Gemt som",
+  suFailed: "Kunne ikke lave filen. Prøv igen.",
+  suRetention:
+    "{rows} rækker i loggen. Brug ældre end to år ryddes automatisk.",
+  suClear: "Slet hele loggen",
+  suClearTitle: "Slet sangbrugsloggen?",
+  suClearBody:
+    "Al registreret brug slettes fra denne maskine. Det kan ikke fortrydes, og rapporter du endnu ikke har lavet, kan ikke laves bagefter.",
 };
 const de: Catalog = {
   navLibrary: "Bibliothek",
@@ -3863,6 +3963,31 @@ const de: Catalog = {
   bibleDlInstalling: "Wird installiert …",
   bibleDlSizeMb: "≈{mb} MB",
   bibleDlFailed: "Download fehlgeschlagen: {error}",
+
+  // ── Liednutzungs-Protokoll (A7) — TONO/CCLI-Meldung ─────────────────────
+  suTitle: "Liednutzung",
+  suDesc:
+    "Welche Lieder tatsächlich auf der Gemeindeanzeige standen — bereit für die TONO- und CCLI-Meldung. Das Protokoll bleibt auf diesem Rechner und wird von selbst nirgendwohin gesendet.",
+  suPresetThisYear: "Dieses Jahr",
+  suPresetLastYear: "Letztes Jahr",
+  suPresetLastQuarter: "Letztes Quartal",
+  suFrom: "Von",
+  suTo: "Bis",
+  suLoading: "Wird geladen …",
+  suSummary: "{songs} Lieder · {uses} Verwendungen im Zeitraum",
+  suTimes: "{n}-mal",
+  suMissingCcli: "Keine CCLI-Nummer",
+  suExport: "CSV-Datei erstellen",
+  suExporting: "Datei wird erstellt …",
+  suOpenFolder: "Ordner öffnen",
+  suSavedAt: "Gespeichert als",
+  suFailed: "Die Datei konnte nicht erstellt werden. Bitte erneut versuchen.",
+  suRetention:
+    "{rows} Einträge im Protokoll. Nutzungen, die älter als zwei Jahre sind, werden automatisch entfernt.",
+  suClear: "Gesamtes Protokoll löschen",
+  suClearTitle: "Liednutzungs-Protokoll löschen?",
+  suClearBody:
+    "Alle erfassten Verwendungen werden von diesem Rechner entfernt. Das lässt sich nicht rückgängig machen, und noch nicht erstellte Meldungen lassen sich danach nicht mehr erstellen.",
 };
 const fr: Catalog = {
   navLibrary: "Bibliothèque",
@@ -4624,6 +4749,31 @@ const fr: Catalog = {
   bibleDlInstalling: "Installation …",
   bibleDlSizeMb: "≈{mb} Mo",
   bibleDlFailed: "Échec du téléchargement : {error}",
+
+  // ── Journal d'utilisation des chants (A7) — TONO/CCLI ───────────────────
+  suTitle: "Utilisation des chants",
+  suDesc:
+    "Les chants réellement affichés sur l'écran de l'assemblée, prêts pour la déclaration TONO et CCLI. Le journal reste sur cette machine et n'est jamais envoyé nulle part de lui-même.",
+  suPresetThisYear: "Depuis janvier",
+  suPresetLastYear: "L'an dernier",
+  suPresetLastQuarter: "Dernier trimestre",
+  suFrom: "Du",
+  suTo: "Au",
+  suLoading: "Chargement …",
+  suSummary: "{songs} chants · {uses} utilisations sur la période",
+  suTimes: "{n} fois",
+  suMissingCcli: "Pas de numéro CCLI",
+  suExport: "Créer le fichier CSV",
+  suExporting: "Création du fichier …",
+  suOpenFolder: "Ouvrir le dossier",
+  suSavedAt: "Enregistré sous",
+  suFailed: "Impossible de créer le fichier. Réessayez.",
+  suRetention:
+    "{rows} lignes dans le journal. Les utilisations de plus de deux ans sont effacées automatiquement.",
+  suClear: "Effacer tout le journal",
+  suClearTitle: "Effacer le journal d'utilisation ?",
+  suClearBody:
+    "Toutes les utilisations enregistrées seront supprimées de cette machine. C'est irréversible, et les déclarations non encore créées ne pourront plus l'être.",
 };
 const pl: Catalog = {
   navLibrary: "Biblioteka",
@@ -5367,6 +5517,31 @@ const pl: Catalog = {
   bibleDlInstalling: "Instalowanie …",
   bibleDlSizeMb: "≈{mb} MB",
   bibleDlFailed: "Pobieranie nie powiodło się: {error}",
+
+  // ── Dziennik wykorzystania pieśni (A7) — TONO/CCLI ──────────────────────
+  suTitle: "Wykorzystanie pieśni",
+  suDesc:
+    "Które pieśni naprawdę pojawiły się na ekranie zboru — gotowe do zgłoszenia do TONO i CCLI. Dziennik zostaje na tym komputerze i nigdy sam nigdzie nie trafia.",
+  suPresetThisYear: "W tym roku",
+  suPresetLastYear: "W zeszłym roku",
+  suPresetLastQuarter: "Ostatni kwartał",
+  suFrom: "Od",
+  suTo: "Do",
+  suLoading: "Wczytywanie …",
+  suSummary: "{songs} pieśni · {uses} użyć w okresie",
+  suTimes: "{n} razy",
+  suMissingCcli: "Brak numeru CCLI",
+  suExport: "Utwórz plik CSV",
+  suExporting: "Tworzenie pliku …",
+  suOpenFolder: "Otwórz folder",
+  suSavedAt: "Zapisano jako",
+  suFailed: "Nie udało się utworzyć pliku. Spróbuj ponownie.",
+  suRetention:
+    "{rows} wierszy w dzienniku. Użycia starsze niż dwa lata są usuwane automatycznie.",
+  suClear: "Usuń cały dziennik",
+  suClearTitle: "Usunąć dziennik wykorzystania pieśni?",
+  suClearBody:
+    "Wszystkie zapisane użycia zostaną usunięte z tego komputera. Nie można tego cofnąć, a raportów jeszcze nieutworzonych nie da się utworzyć później.",
 };
 
 /** The full per-language catalog. Exported for parity tests. */

@@ -174,6 +174,29 @@ impl<'a> SongRepo<'a> {
         Ok(())
     }
 
+    /// The credited people behind a song, from `song_author` → `person`.
+    ///
+    /// A7 — the "opphavsperson" column TONO/CCLI ask for. Today the importers
+    /// fold the author credit into `copyright_notice` (the SongSelect/.pro6
+    /// formats give it as one credit block), so this is usually empty and the
+    /// report says so rather than pretending. It reads the real relation, so it
+    /// starts answering the day the editor can write to it.
+    pub async fn author_names(&self, song_id: &str) -> AppResult<Vec<String>> {
+        let rows = sqlx::query_as::<_, (String,)>(
+            r#"
+            SELECT p.display_name
+            FROM song_author sa
+            JOIN person p ON p.id = sa.person_id
+            WHERE sa.song_id = ?1
+            ORDER BY sa.role, p.display_name
+            "#,
+        )
+        .bind(song_id)
+        .fetch_all(self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|(name,)| name).collect())
+    }
+
     // ── Section helpers ────────────────────────────────────────────────────
 
     pub async fn add_section(

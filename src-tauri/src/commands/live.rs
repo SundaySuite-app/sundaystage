@@ -10,8 +10,9 @@ use std::sync::atomic::Ordering;
 
 use tauri::State;
 
+use crate::db::models::SongUsageEntry;
 use crate::db::now_ms;
-use crate::db::repositories::{ServiceRepo, SongRepo};
+use crate::db::repositories::{ServiceRepo, SongRepo, SongUsageRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::companion::transport::{CompanionBroadcaster, RealtimeTransport};
 use crate::services::cue_list::{CueCompiler, CueList};
@@ -19,6 +20,9 @@ use crate::services::live_session::{
     LiveAction, LiveFrame, LiveSession, LiveSessionView, OutputState,
 };
 use crate::services::session_store::SessionStore;
+use crate::services::song_usage::{
+    item_visibility, service_date, used_songs, ItemVisibility, RETENTION_DAYS,
+};
 use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
 use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
 use crate::services::sundayrec_bridge::manifest::{build_manifest, ItemMeta, ManifestSong};
@@ -144,6 +148,109 @@ fn push_to_outputs(state: &AppState, frame: &LiveFrame) {
     }
 }
 
+// ── A7 — sangbruksloggen ────────────────────────────────────────────────────
+
+/// What an ending session put on the congregation screen, computed while the
+/// live lock is held. Small on purpose: the cue list stays where it is.
+struct EndingSession {
+    service_id: String,
+    started_at: i64,
+    items: Vec<ItemVisibility>,
+}
+
+/// Read the ending session's display record. Pure and O(log entries) — no DB,
+/// no IO, no allocation beyond the item list — so it is safe under the lock.
+///
+/// **Nothing about this runs on the live path.** The dispatcher already pushes
+/// the log entry this reads; the reading happens exactly where a session ENDS.
+fn ending_session(state: &AppState, ended_at: i64) -> Option<EndingSession> {
+    let guard = state.live.lock();
+    let session = guard.as_ref()?;
+    Some(EndingSession {
+        service_id: session.service_id.clone(),
+        started_at: session.started_at,
+        items: item_visibility(session, ended_at),
+    })
+}
+
+/// File the songs that provably held the congregation output, then apply the
+/// retention limit.
+///
+/// Best-effort in every direction: a failure here loses at most one service's
+/// worth of reporting data, and must never fail the command that ended the
+/// service. The warning carries a seam tag and **no content** — song titles are
+/// exactly what the log tail must never reach (law 2).
+async fn file_song_usage(state: &AppState, ending: Option<EndingSession>) {
+    let Some(ending) = ending else { return };
+    if ending.items.is_empty() {
+        return;
+    }
+    if let Err(()) = record_usage(state, &ending).await {
+        tracing::warn!(seam = "song_usage", "kunne ikke skrive sangbrukslogg");
+    }
+}
+
+async fn record_usage(state: &AppState, ending: &EndingSession) -> Result<(), ()> {
+    let service_repo = ServiceRepo::new(&state.db.pool);
+    let song_repo = SongRepo::new(&state.db.pool);
+    let usage_repo = SongUsageRepo::new(&state.db.pool);
+
+    let songs_by_item = service_repo
+        .get_songs_by_item(&ending.service_id)
+        .await
+        .map_err(|_| ())?;
+    let used = used_songs(&ending.items, &songs_by_item);
+    if used.is_empty() {
+        return Ok(());
+    }
+
+    // The plan's own name, as it read that day. A plan that has since been
+    // deleted still gets its songs filed — the service happened.
+    let service_name = service_repo
+        .get(&ending.service_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| "Gudstjeneste".to_string());
+    // The date the service ACTUALLY ran, not the date the plan says it should
+    // have: a plan reused from last Sunday still carries last Sunday's
+    // `starts_at`, and the report has to be about what happened.
+    let date = service_date(ending.started_at);
+
+    for song in used {
+        // Snapshot the licensing metadata now. A song deleted in February must
+        // not erase the January report.
+        let row = song_repo.get(&song.song_id).await.ok();
+        let author = song_repo
+            .author_names(&song.song_id)
+            .await
+            .unwrap_or_default();
+        let entry = SongUsageEntry {
+            service_id: ending.service_id.clone(),
+            service_name: service_name.clone(),
+            service_date: date.clone(),
+            song_id: song.song_id.clone(),
+            // The catalog title wins; the cue's title is the fallback for a
+            // song row that vanished between the service and this write.
+            title: row.as_ref().map(|s| s.title.clone()).unwrap_or(song.title),
+            author: (!author.is_empty()).then(|| author.join(", ")),
+            ccli_song_id: row.as_ref().and_then(|s| s.ccli_song_id.clone()),
+            tono_work_id: row.as_ref().and_then(|s| s.tono_work_id.clone()),
+            copyright_notice: row.as_ref().and_then(|s| s.copyright_notice.clone()),
+            first_shown_at: song.first_at,
+            last_shown_at: song.last_at,
+            visible_ms: song.visible_ms,
+            show_count: song.show_count,
+        };
+        usage_repo.record(&entry).await.map_err(|_| ())?;
+    }
+
+    // The retention limit, applied where new rows appear. Two years back from
+    // the service that just ended.
+    let cutoff = ending.started_at - RETENTION_DAYS * 24 * 60 * 60 * 1_000;
+    let _ = usage_repo.prune_before(cutoff).await;
+    Ok(())
+}
+
 /// Compile the service and start a live session (replacing any previous one).
 #[tauri::command]
 pub async fn live_start(
@@ -195,9 +302,15 @@ async fn start_session(state: &AppState, service_id: String) -> AppResult<LiveSe
     // deliberately starting another service — nothing crashed, and
     // `abnormal-end` is the code for a session the PROCESS never finished.
     if state.live.lock().is_some() {
+        let ended_at = now_ms();
+        // A7 — the rehearsal sang too. Its usage is filed against the same
+        // (service, date), so it merges with the 11:00 service rather than
+        // double-counting.
+        let ending = ending_session(state, ended_at);
         state
             .telemetry
-            .finish_session(now_ms(), SessionOutcome::Clean);
+            .finish_session(ended_at, SessionOutcome::Clean);
+        file_song_usage(state, ending).await;
     }
     // …then one atomic store and one counter increment. This is the whole cost
     // of observing a service, and it happens before the session is installed so
@@ -364,6 +477,13 @@ pub fn live_state(state: State<'_, AppState>) -> AppResult<Option<LiveSessionVie
 /// End the session and clear the recovery log (marks a clean shutdown).
 #[tauri::command]
 pub async fn live_end(state: State<'_, AppState>) -> AppResult<()> {
+    end_session(&state).await
+}
+
+/// The body of [`live_end`], over a plain `&AppState` so what the service
+/// leaves behind — its quality row and its song usage — is provable without a
+/// Tauri runtime.
+async fn end_session(state: &AppState) -> AppResult<()> {
     // Phase 12.2 — tell phones the service is over, then tear down the
     // broadcaster. Best-effort: a failed publish must not block ending.
     if let Some(broadcaster) = state.companion.lock().as_mut() {
@@ -373,22 +493,30 @@ pub async fn live_end(state: State<'_, AppState>) -> AppResult<()> {
         }
     }
     *state.companion.lock() = None;
+    let ended_at = now_ms();
+    // A7 — read the display record BEFORE the lock is cleared, for the same
+    // reason: it belongs to the service that just ended. Pure and O(log
+    // entries); the DB write happens further down, after the lock is gone.
+    let ending = ending_session(state, ended_at);
     // E3 — build the session's quality row BEFORE the lock is cleared, so the
     // numbers belong to the service that just ended. Still a pure atomic
     // read-and-reset plus one bounded `try_send`.
     state
         .telemetry
-        .finish_session(now_ms(), SessionOutcome::Clean);
+        .finish_session(ended_at, SessionOutcome::Clean);
     *state.live.lock() = None;
     state.recovery_offer.store(false, Ordering::SeqCst);
-    store(&state).clear();
+    store(state).clear();
     // The outputs stay open (the operator closes them separately) but the
     // service is over — show black, never a stale slide.
-    push_to_outputs(&state, &LiveFrame::Black);
+    push_to_outputs(state, &LiveFrame::Black);
+    // The songs the congregation actually sang, filed for the TONO/CCLI report.
+    // Never on the live path: the service is over and the projector is black.
+    file_song_usage(state, ending).await;
     // …and NOW — with `live` provably `None` — is the moment the buffered rows
     // and counters may touch a disk. The gate is inside `flush`, so this is
     // safe even if a new service goes live between these two statements.
-    let _ = crate::commands::telemetry::flush(&state).await;
+    let _ = crate::commands::telemetry::flush(state).await;
     Ok(())
 }
 
@@ -485,19 +613,24 @@ async fn discard_recovery(state: &AppState) -> AppResult<()> {
         }
     }
     *state.companion.lock() = None;
+    let ended_at = now_ms();
+    // A7 — a recovered session is still a service that reached a congregation:
+    // the crash is why nobody pressed "end", not evidence that nothing was sung.
+    let ending = ending_session(state, ended_at);
     state
         .telemetry
-        .finish_session(now_ms(), SessionOutcome::Clean);
+        .finish_session(ended_at, SessionOutcome::Clean);
     *state.live.lock() = None;
     push_to_outputs(state, &LiveFrame::Black);
+    file_song_usage(state, ending).await;
     let _ = crate::commands::telemetry::flush(state).await;
     Ok(())
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    use crate::db::models::LibraryInput;
+    use crate::db::models::{LibraryInput, SongInput};
     use crate::db::repositories::{LibraryRepo, TelemetryRepo};
     use crate::db::Database;
     use crate::services::cue_list::CueList;
@@ -509,7 +642,7 @@ mod tests {
     /// An `AppState` with a real in-memory database, a real data dir and
     /// nothing live. Everything these tests touch — the WAL, the collector, the
     /// recovery flag — is the production type, not a stand-in.
-    async fn app_state() -> (AppState, tempfile::TempDir) {
+    pub(crate) async fn app_state() -> (AppState, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("tempdir");
         let db = Database::open_in_memory().await.expect("db");
         (
@@ -690,5 +823,160 @@ mod tests {
             .expect("the service's row");
         assert_eq!(service_row.cue_count, 1, "{service_row:?}");
         assert_eq!(service_row.output_child_restarts, 0, "{service_row:?}");
+    }
+
+    // ── A7 — sangbruksloggen, gjennom de ekte kommandoene ───────────────────
+
+    /// A service with two songs on the plan. Returns (service_id, [song ids]).
+    async fn a_service_with_songs(state: &AppState, titles: &[&str]) -> (String, Vec<String>) {
+        let library = LibraryRepo::new(&state.db.pool)
+            .create(LibraryInput {
+                name: "Menighet".into(),
+                default_locale: None,
+            })
+            .await
+            .expect("library");
+        let service_repo = ServiceRepo::new(&state.db.pool);
+        let service = service_repo
+            .create(&library.id, "Gudstjeneste", 0)
+            .await
+            .expect("service");
+        let song_repo = SongRepo::new(&state.db.pool);
+        let mut ids = Vec::new();
+        for (position, title) in titles.iter().enumerate() {
+            let song = song_repo
+                .create(SongInput {
+                    library_id: library.id.clone(),
+                    title: (*title).into(),
+                    language: None,
+                    default_key: None,
+                    tempo_bpm: None,
+                    ccli_song_id: Some(format!("ccli-{position}")),
+                    tono_work_id: None,
+                    copyright_notice: Some("© 2020 Menigheten".into()),
+                })
+                .await
+                .expect("song");
+            song_repo
+                .add_section(&song.id, "verse_1", "Første linje\nAndre linje")
+                .await
+                .expect("section");
+            service_repo
+                .add_item(
+                    &service.id,
+                    position as i64,
+                    "song",
+                    Some(&song.id),
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .expect("item");
+            ids.push(song.id);
+        }
+        (service.id, ids)
+    }
+
+    fn usage(state: &AppState) -> SongUsageRepo<'_> {
+        SongUsageRepo::new(&state.db.pool)
+    }
+
+    /// The whole seam, end to end: go live, sing the first song, end the
+    /// service — and the log holds one honest row with the licensing metadata
+    /// the report needs.
+    #[tokio::test]
+    async fn en_ekte_gudstjeneste_gir_en_loggrad_med_lisensdata() {
+        let (state, _dir) = app_state().await;
+        let (service, songs) =
+            a_service_with_songs(&state, &["Åpningssang", "Slutningssang"]).await;
+
+        start_session(&state, service).await.expect("live");
+        // Backdate the start so the first cue provably held the output long
+        // enough — the wall clock in a test runs in microseconds.
+        if let Some(s) = state.live.lock().as_mut() {
+            s.started_at -= 300_000;
+        }
+        end_session(&state).await.expect("end");
+
+        let rows = usage(&state).list_between(0, i64::MAX).await.expect("list");
+        assert_eq!(rows.len(), 1, "bare sangen som sto på skjermen: {rows:?}");
+        assert_eq!(rows[0].title, "Åpningssang");
+        assert_eq!(rows[0].song_id, songs[0]);
+        assert_eq!(rows[0].ccli_song_id.as_deref(), Some("ccli-0"));
+        assert_eq!(
+            rows[0].copyright_notice.as_deref(),
+            Some("© 2020 Menigheten")
+        );
+        assert_eq!(rows[0].service_name, "Gudstjeneste");
+        assert_eq!(rows[0].show_count, 1);
+        assert!(rows[0].visible_ms >= 300_000, "{:?}", rows[0]);
+    }
+
+    /// A service nobody actually ran — go live, notice it's the wrong plan,
+    /// stop — must leave the report untouched. The threshold is what makes
+    /// "faktisk brukt" mean it.
+    #[tokio::test]
+    async fn en_okt_som_ble_avbrutt_med_en_gang_gir_ingen_rad() {
+        let (state, _dir) = app_state().await;
+        let (service, _) = a_service_with_songs(&state, &["Åpningssang"]).await;
+
+        start_session(&state, service).await.expect("live");
+        end_session(&state).await.expect("end");
+
+        assert_eq!(
+            usage(&state).count().await.expect("count"),
+            0,
+            "et sekund på skjermen er ikke bruk"
+        );
+    }
+
+    /// The 09:40 rehearsal and the 11:00 service on the same plan are ONE use.
+    /// `start_session` files the session it replaces, and the writer merges it
+    /// with the service that follows.
+    #[tokio::test]
+    async fn generalprove_og_gudstjeneste_samme_dag_blir_en_rad() {
+        let (state, _dir) = app_state().await;
+        let (service, _) = a_service_with_songs(&state, &["Åpningssang"]).await;
+
+        // 09:40 — the rehearsal, sung through.
+        start_session(&state, service.clone()).await.expect("live");
+        if let Some(s) = state.live.lock().as_mut() {
+            s.started_at -= 300_000;
+        }
+        // 11:00, without a `live_end` in between: this is what files the
+        // rehearsal.
+        start_session(&state, service).await.expect("live again");
+        if let Some(s) = state.live.lock().as_mut() {
+            s.started_at -= 300_000;
+        }
+        end_session(&state).await.expect("end");
+
+        let rows = usage(&state).list_between(0, i64::MAX).await.expect("list");
+        assert_eq!(rows.len(), 1, "én rad, ikke to: {rows:?}");
+        assert_eq!(rows[0].show_count, 2, "begge gangene er synlige");
+    }
+
+    /// A crash-recovered session that the operator discards is still a service
+    /// that reached a congregation — the crash is why nobody pressed "end".
+    #[tokio::test]
+    async fn en_gjenopprettet_okt_blir_ogsa_fort_i_loggen() {
+        let (state, _dir) = app_state().await;
+        let (service, _) = a_service_with_songs(&state, &["Åpningssang"]).await;
+
+        start_session(&state, service).await.expect("live");
+        if let Some(s) = state.live.lock().as_mut() {
+            s.started_at -= 300_000;
+        }
+        // The process "crashed": the WAL is on disk and the session is gone.
+        let crashed = state.live.lock().take().expect("live");
+        store(&state).begin(&crashed).expect("wal");
+        state.recovery_offer.store(false, Ordering::SeqCst);
+
+        recover_session(&state).expect("recover").expect("an offer");
+        discard_recovery(&state).await.expect("discard");
+
+        assert_eq!(usage(&state).count().await.expect("count"), 1);
     }
 }

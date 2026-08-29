@@ -27,15 +27,21 @@ pub struct ChapterMarker {
     pub title: String,
 }
 
-struct Point {
-    at: i64,
-    index: usize,
-    output: OutputState,
+/// One point on the session's display timeline: from `at` until the next
+/// point, the output showed cue `index` under override `output`.
+pub(crate) struct Point {
+    pub at: i64,
+    pub index: usize,
+    pub output: OutputState,
 }
 
 /// The session's display timeline: the first cue is shown from `started_at`,
 /// then each log entry records the resulting state at its timestamp.
-fn timeline(session: &LiveSession) -> Vec<Point> {
+///
+/// Shared, not copied: the SRT export, the chapter markers and the A7
+/// song-usage log all answer "what was on the congregation screen, when" and
+/// must never disagree about it.
+pub(crate) fn timeline(session: &LiveSession) -> Vec<Point> {
     let mut pts = vec![Point {
         at: session.started_at,
         index: 0,

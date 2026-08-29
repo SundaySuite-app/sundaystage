@@ -109,7 +109,26 @@ sted — den kan ikke knyttes til maskinen din, til installasjons-ID-en din elle
 til en annen rapport. Én slik rapport bærer ingenting annet: ingen tellere,
 ingen krasj, ingen kvalitetstall, ingen innstillinger.
 
-## 8. Behandlingsansvarlig
+## 8. Sangbruksloggen — lokal, og aldri en del av det som sendes
+
+SundayStage fører en logg over hvilke sanger som faktisk sto på
+menighetsskjermen, slik at menigheten kan rapportere til TONO og CCLI. Loggen
+inneholder sangtittel, opphavsopplysninger, gudstjenestens navn og dato.
+
+Den loggen **ligger på maskinen din og er ikke en del av noe som sendes**.
+Sangtitler er innhold, og innhold forlater aldri maskinen — punkt 2 gjelder også
+her: ingen teller, ingen feilmelding og ingen problemrapport bærer med seg noe
+fra denne loggen.
+
+Eksporten (Innstillinger → Avansert → Sangbruk) skriver en CSV-fil på maskinen
+din. Om den fila sendes videre til TONO eller CCLI er noe **du** gjør, i din egen
+e-post. Programmet sender den ikke.
+
+Loggen kan slettes helt, når som helst, fra det samme kortet. Bruk eldre enn
+**to år** ryddes bort automatisk: TONO- og CCLI-rapportering går i årsløp, og to
+år dekker et helt rapportløp pluss ett til.
+
+## 9. Behandlingsansvarlig
 
 SundaySuite. <!-- 👤 bekreft juridisk enhet + kontakt-e-post -->
 
@@ -224,6 +243,25 @@ it cannot be linked to your machine, to your install ID or to another report.
 Such a report carries nothing else: no counters, no crashes, no quality numbers,
 no settings.
 
-## 8. Data controller
+## 8. The song usage log — local, and never part of what is sent
+
+SundayStage keeps a log of which songs actually reached the congregation screen,
+so the church can report to TONO and CCLI. It holds the song title, credits, and
+the service's name and date.
+
+That log **stays on your machine and is not part of anything that is sent**.
+Song titles are content, and content never leaves the machine — section 2 applies
+here too: no counter, no error message and no problem report carries anything
+from this log.
+
+The export (Settings → Advanced → Song usage) writes a CSV file on your machine.
+Whether that file is then sent to TONO or CCLI is something **you** do, in your
+own mail client. The application does not send it.
+
+The log can be deleted in full, at any time, from the same card. Usage older
+than **two years** is cleared automatically: TONO and CCLI reporting runs in
+annual cycles, and two years covers a full cycle plus one.
+
+## 9. Data controller
 
 SundaySuite. <!-- 👤 confirm legal entity + contact email -->

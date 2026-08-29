@@ -41,7 +41,9 @@ Sikkerhet først; deretter billige kvalitetsløft. Rekkefølge:
 - **A5 window-state hovedvindu** (tauri-plugin MIT; KUN hovedvindu).
 - **A6 crash-handler som signalkilde** (Embark MIT — fanger segfault/abort/OOM;
   aldri minne, lov 2 intakt; minidump kan ALDRI sendes).
-- **A7 song_usage-logg** (fundament for CCLI/TONO-rapport — spor B/senere).
+- **A7 ✅ song_usage-logg** (fundament for CCLI/TONO-rapport). Levert 08-30 —
+  se etapperapporten nederst. Avledet av øktloggen, ikke av tastetrykkene:
+  live-stien er uendret.
 - **A8 OpenLyrics-EKSPORT** (skriv selv; ingen crate finnes; innlåsingsfiks).
 - **A9 operatørside over /v1/admin/summary**.
 - **A10 web: BroadcastChannel leder-fane + exponential-backoff**.
@@ -103,6 +105,7 @@ Lisens: ingen repo har LICENSE-fil; README «TBD AGPL-3.0» vs sunday-platform
 - [x] **A1** single-instance-vakt — levert 08-09 (PR #62)
 - [x] **A2 + A3** vernene rundt «klikk = live» — levert 08-29 (se rapport under)
 - [x] **A4** seksjonshopp-hurtigtaster — levert 08-29 (se rapport under)
+- [x] **A7** sangbrukslogg + TONO/CCLI-eksport — levert 08-30 (se rapport under)
 - [x] **B1** delt RTF-dekoder — 08-10 (PR #64)
 - [x] **B2** EasyWorship-import — 08-10 (PR #66)
 - [x] **B3** FreeShow .show-import — 08-10 (PR #67)
@@ -258,3 +261,142 @@ tastetabell-tester, 14 mot det ekte konsollet, 3 på jukselappen), cargo 860
 Mac og Windows; en sang med to refreng (`R` skal vente, `R2` skal treffe); en
 importert sang med menighetens egne etiketter; og `?`-lista mot det tastene
 faktisk gjør på riggen.
+
+---
+
+## Etapperapport — A7, «sangbruksloggen», 2026-08-30
+
+Menigheten må fortelle TONO hvilke sanger den har brukt, og CCLI det samme for
+det som er lisensiert der. Til nå fantes det ingen logg, så rapporten var
+umulig å gjøre riktig — noen satt i etterkant og prøvde å huske. Nå finnes
+grunnlaget, og alt annet (TONO-skjema, CCLI-skjema, «når sang vi denne sist»)
+kan bygges på det.
+
+**Loggen leser øktloggen, ikke tastetrykkene.** Det viktigste valget i etappen.
+`LiveSession` fører allerede en `log` — én rad per dispatch med tidspunkt,
+cue-indeks og utgangstilstand — og SRT-eksporten og kapittelmarkørene leser den
+gjennom `export::timeline`. A7 leser den **samme** tidslinja. Det gir tre ting
+på én gang:
+
+1. **Live-stien er urørt.** Ingen ny kanal, ingen SQLite-skriving, ingen
+   allokering i sende-veien: raden dispatcheren allerede pusher ER
+   kildematerialet. Regnestykket kjøres først når økta er over — på et tidspunkt
+   der projektoren allerede er svart. `live_dispatch` har ikke fått én ny linje.
+2. **Ingen kopi av logikken.** Tre funksjoner som svarer på «hva sto på skjermen
+   når» kan ikke bli uenige når de leser samme `timeline`. `timeline` gikk fra
+   privat til `pub(crate)` — det var hele integrasjonen.
+3. **En tapt loggrad koster ingenting.** Et krasj før økta avsluttes taper
+   loggen for den ene gudstjenesten — og gjenopprettingsstien fanger til og med
+   det, siden en gjenopprettet økt føres når den avsluttes eller forkastes.
+
+**«Faktisk brukt» — hvordan hvert tilfelle faller ut.**
+
+| Tilfelle                         | Svar       | Hvorfor                                                                                          |
+| -------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| Bare forhåndsvist                | ikke brukt | forhåndsvisning når aldri `dispatch`, så den finnes ikke i loggen                                |
+| Lå i planen, aldri sendt         | ikke brukt | ingen tidslinjepunkt peker på cuen — null synlig tid                                             |
+| Sendt mens utgangen var **låst** | ikke brukt | låsen avviser i `outputGuard` **før** `ipc.live.dispatch`, så Rust ser den aldri                 |
+| **Blackout midt i sangen**       | **brukt**  | det svarte strekket teller ikke som synlig tid, men strekkene rundt gjør det — og det er én bruk |
+| Rask gjennombla for å finne noe  | ikke brukt | under terskelen                                                                                  |
+
+Det siste er terskelen, og den er det eneste stedet et skjønn måtte tas: **en
+sang må ha holdt menighetsutgangen i minst 20 sekunder til sammen gjennom
+gudstjenesten.** Begrunnelsen er de to feilene tallet står mellom — en operatør
+som blar gjennom planen bruker under et par sekunder per sang, mens den korteste
+ekte bruken (ett refreng lagt opp som svar etter en bønn) er langt over et halvt
+minutt. Tallet er lagt nærmere gjennomblaen, fordi **under**rapportering til TONO
+er en verre feil enn overrapportering.
+
+At låsen faller ut som «ble aldri sendt» og ikke som et eget spesialtilfelle, er
+A2 sin fortjeneste: låsen er en policy på `LiveAction`, ikke på en knapp, så en
+handling som ikke kom gjennom den kom heller aldri til Rust. Det er nå pinnet
+med en egen test i `outputGuards.test.tsx` som sier akkurat det — både
+`live.start` og `live.dispatch` må være urørt etter at en volontør har prøvd
+alt — slik at en framtidig rute som sniker seg forbi enten vakt feiler _der_,
+med begrunnelsen.
+
+**Én rad per sang per gudstjeneste per dato.** Ikke per slide, og ikke per
+plan-post: to poster som peker på samme sang (åpningssang og reprise) blir én
+rad. Nøkkelen har med **datoen** fordi en gudstjenesteplan gjenbrukes fra søndag
+til søndag — `service_id` alene ville gjort to søndager til én bruk. Samtidig
+**akkumulerer** skriveren på den nøkkelen, så generalprøven 09:40 og
+gudstjenesten 11:00 på samme plan blir én bruk og ikke to.
+
+Gjentakelsen er likevel bevart: `show_count` teller sammenhengende strekk på
+minst fem sekunder, så sangen som ble tatt opp igjen etter prekenen står som én
+rad med `2`. Blackout deler ikke et strekk i to — et avbrudd i den samme bruken
+er ikke en ny bruk.
+
+**Raden er et snapshot, ikke en fremmednøkkel.** Verken `song_id` eller
+`service_id` er `REFERENCES`. Tittel, CCLI-nummer, TONO-verknummer, copyright og
+opphavsperson kopieres inn når raden skrives, slik at rapporten for januar
+fortsatt kan sendes i april selv om sangen er slettet fra biblioteket i februar.
+Det er testet: raden overlever at sangen forsvinner.
+
+**Rapporten sier hva den ikke vet.** CSV-en har en egen `Mangler`-kolonne som
+navngir de opplysningene raden ikke har («opphavsperson, CCLI-nummer»). Et tomt
+CCLI-felt kan bety «sangen er ikke CCLI-lisensiert» eller «vi vet det ikke», og
+for den som skal signere rapporten er det to helt forskjellige ting. Kortet viser
+det samme per sang før eier lager fila. UTF-8 BOM + semikolon, som er det norsk
+Excel åpner uten importveiviser; titler som begynner med `=`, `+` eller `@` får
+en apostrof foran (formelinjeksjon), mens `-` står urørt — å skrive om eierens
+sangtittel i en rapport han skal signere er verre enn risikoen.
+
+`Opphavsperson` leser den ekte `song_author`→`person`-relasjonen. Den er tom i
+praksis i dag: importørene folder forfatterkreditten inn i `copyright_notice`
+(SongSelect og .pro6 gir den som én kredittblokk), og redigereren har ikke noe
+felt for den ennå. Kolonnen er koblet til det rette stedet, og `Mangler` sier
+fra i mellomtiden — i stedet for å hente kreditten ut av copyright-feltet og
+late som det er en strukturert opplysning.
+
+**Personvern.** Loggen er lokal. Ingenting i `src-tauri/src/telemetry/` er rørt,
+ingen ny teller kjenner tabellen, og skrivefeilen logges med et sømmerke og
+**ingen** tekst — nettopp fordi loggens innhold er sangtitler og loggtaila kan
+lastes opp. Eksporten skriver en fil i appens egen rapportmappe (ikke
+Dokumenter/Nedlastinger, som macOS har trukket tilgangen til tre ganger i denne
+suiten) og eier får en knapp som åpner mappa. Eier kan slette hele loggen fra
+samme kort. **Oppbevaringsgrense: to år** — TONO- og CCLI-rapportering går i
+årsløp, rapporten for et år skrives i det neste, og en purring eller korrigering
+kan komme etter det igjen; 24 måneder dekker et helt rapportløp pluss ett til.
+Ryddingen skjer der nye rader oppstår, altså når en gudstjeneste avsluttes.
+`PRIVACY.md` har fått et eget punkt om loggen, på norsk og engelsk.
+
+**Minimal flate.** Ett kort i Innstillinger → Avansert, over personvernkortet:
+tre hurtigvalg (hittil i år / i fjor / siste kvartal), to datofelt, en liste over
+hva perioden faktisk inneholder, «Lag CSV-fil», «Åpne mappen» og «Slett hele
+loggen». Ingen layout er rørt — større UX hører til spor D og designcanvaset som
+venter på eier.
+
+**Migrasjon:** `sql/0010_song_usage.sql`. Enkle, delelige setninger — én
+`CREATE TABLE`, to indekser, én `INSERT` i `schema_migrations`. **Ingen
+triggere** (jf. suitens D1-lærdom). Ingen nye avhengigheter.
+
+**Gates:** vitest 591 → 601 (+9 på periode-regningen, +1 som pinner
+lås↔logg-koblingen), cargo 860 → 894 (+34: 20 rene på hva som er brukt og på
+CSV-en, 8 på repositoriet, 5 ende-til-ende gjennom de ekte kommandoene, 1 på
+eksportfila), Playwright 9 (uendret), clippy/fmt/prettier/eslint/tsc rene.
+
+**Utsatt, med vilje:**
+
+- **CSV-overskriftene er norske** selv om appen har sju språk. Mottakerne her er
+  TONO og CCLI Norge; en tysk menighet som rapporterer til GEMA trenger et annet
+  skjema uansett, ikke bare en oversatt overskriftsrad.
+- **Loggen vet ikke om projektoren var koblet til.** En frame som ble rendret
+  uten skjerm i andre enden teller som brukt. Det er riggens sak, ikke loggens,
+  og å gjette på det ville gjort rapporten mindre sann, ikke mer.
+- **`src/lib/usageEmitter.ts` er ikke slått på.** Den er en _sky_-bro til
+  SundaySong (`/v1/usage/log`), med transporten avslått i `OperatorWorkspace`.
+  A7 er den lokale loggen, og de to skal ikke forveksles: 👤 en beslutning om
+  skybroen hører til eier og en egen etappe.
+- **Ingen bibliotek-side «sist brukt / hvor ofte»** ennå, selv om
+  `idx_song_usage_song` finnes for den.
+
+👤 **Riggtest:** kjør en ekte gudstjeneste, avslutt den, og se at kortet viser de
+sangene som faktisk ble sunget — og ingen av dem du bare bladde forbi. Sjekk at
+CSV-fila åpner rett i norsk Excel (æøå, semikolon), at «Åpne mappen» finner fram
+på både Mac og Windows, og at en sang du _forhåndsviste_ men aldri sendte ikke
+står i lista.
+
+👤 **Åpen beslutning:** 20 sekunder er terskelen. Hvis det viser seg at korte
+bordvers og liturgiske svar faller ut i praksis, er tallet én linje i
+`services/song_usage.rs` (`MIN_VISIBLE_MS`).

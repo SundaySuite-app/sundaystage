@@ -77,6 +77,9 @@ erDiagram
   SyncMeta ||--|| Song             : "1:1 sync state"
   SyncMeta ||--|| Service          : "1:1 sync state"
   SyncMeta ||--|| MediaAsset       : "1:1 sync state"
+
+  SongUsage }o..o| Song            : "snapshots (no FK)"
+  SongUsage }o..o| Service         : "snapshots (no FK)"
 ```
 
 ## Entities
@@ -313,6 +316,37 @@ One row per syncable entity. Decoupled so the entity tables stay clean.
 | `last_synced_at` | INTEGER | last successful sync                                  |
 | `device_id`      | TEXT    | id of device that made last edit                      |
 | `conflict_state` | TEXT    | `none`, `local_diverged`, `server_diverged`, `manual` |
+
+### SongUsage (Spor A, A7)
+
+The song-usage log: one row per song that provably held the congregation output
+during one service, on one date. The basis for TONO and CCLI reporting.
+
+**Local only.** Song titles are content, and content never leaves the machine —
+nothing in `telemetry/` reads this table, and the CSV export writes a file the
+owner chooses to send on. Rows older than two years are pruned automatically.
+
+| Column                             | Type    | Notes                                                     |
+| ---------------------------------- | ------- | --------------------------------------------------------- |
+| `id`                               | TEXT    | UUIDv7                                                    |
+| `service_id`                       | TEXT    | **not** a FK — the log outlives the plan                  |
+| `service_name`                     | TEXT    | the name as it read that day                              |
+| `service_date`                     | TEXT    | local civil date, `YYYY-MM-DD`                            |
+| `song_id`                          | TEXT    | **not** a FK — the log outlives the song                  |
+| `title`, `author`, `ccli_song_id`  | TEXT    | snapshot of the licensing metadata at use time            |
+| `tono_work_id`, `copyright_notice` | TEXT    | ditto                                                     |
+| `first_shown_at`, `last_shown_at`  | INTEGER | unix ms                                                   |
+| `visible_ms`                       | INTEGER | total time it actually held the output                    |
+| `show_count`                       | INTEGER | separate stints on screen in this service (a reprise = 2) |
+
+`UNIQUE (service_id, song_id, service_date)`, and the writer accumulates on
+conflict: the 09:40 rehearsal and the 11:00 service on the same plan are one
+use, while the same plan reused next Sunday is a new one.
+
+Rows are derived from the live session's own action log at session end (see
+`services::song_usage`), never on the live path. `song.last_used_at` stays what
+it is — a denormalized "when did we last sing this" for rotation scoring; this
+table is the auditable record behind a licence report.
 
 ## Hardest queries — does the model support them?
 
