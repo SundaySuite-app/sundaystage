@@ -314,7 +314,7 @@ export function PrivacyCard() {
               disabled={setNativeCrash.isPending}
             />
             {nativeCrash.data?.enabled && !nativeCrash.data.armed && (
-              <div className="mt-1 text-xs text-[var(--color-warn, var(--color-fg-muted))]">
+              <div className="mt-1 text-xs text-[var(--color-warning)]">
                 {t("setPrivacyHardCrashesUnavailable")}
               </div>
             )}
