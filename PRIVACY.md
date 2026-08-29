@@ -25,6 +25,32 @@ feilmelding (maks 200 tegn, vasket for filstier), hvor i koden det skjedde
 (maks 120 tegn), hvilken oppgave/komponent (maks 64 tegn), og om det fantes en
 stakksporing. Maks 20 per rapport.
 
+**Harde krasj** — hvis programmet blir drept på flekken (segmentfeil, avbrudd,
+tom for minne), rekker ingenting av det over å bli skrevet. Da noteres et
+**signal**, og det består av nøyaktig fem ting:
+
+| Felt         | Eksempel                            | Hva det er                                                                                              |
+| ------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| feiltype     | `segv`, `abort`, `ill`, `fpe`, …    | ett ord fra en fast liste på åtte                                                                       |
+| feilkode     | `1`                                 | operativsystemets eget tall for feilen                                                                  |
+| pekeradresse | `null`, `low`, `nonnull`, `unknown` | **kun** en firedeling — selve adressen noteres aldri                                                    |
+| sted         | `app+0x1a2b3c` eller `foreign`      | hvor langt inne i SundayStages egen programfil det skjedde, eller bare «utenfor den» — aldri et filnavn |
+| tråd         | `main-thread`, `other-thread`       | om det var hovedtråden eller en annen                                                                   |
+
+Pluss tidspunktet, appversjonen og operativsystemet, akkurat som over.
+
+**Det tas ALDRI et minnedump.** Et minnedump er en kopi av programmets minne, og
+minnet inneholder sangteksten som sto på skjermen i det øyeblikket. Det finnes
+ingen vasking som gjør en slik fil trygg, så den skrives ikke — heller ikke
+lokalt, heller ikke usendt. Av samme grunn noteres ingen stakksporing, ingen
+registre og ingen modulnavn.
+
+Signalet skrives lokalt av selve krasjet og gjøres om til en vanlig krasjpost
+neste gang du åpner appen. Du kan slå denne fangsten av under **Innstillinger →
+Avansert → Personvern → «Fang harde krasj»**. SundayStage overtar heller ikke
+krasjet: operativsystemet får det tilbake, så maskinens egen krasjrapport blir
+skrevet som før.
+
 **Kvalitet** — én rad per gudstjeneste (live-økt): tidspunkt, varighet i
 sekunder, antall bilder som ble vist, antall omstarter av visningsprosessen,
 tilkoblingstidsavbrudd, hold-siste-bilde-hendelser, sendefeil, companion-feil,
@@ -159,6 +185,32 @@ operating system, the error message (max 200 characters, scrubbed of file
 paths), where in the code it happened (max 120 characters), which task or
 component (max 64 characters), and whether a backtrace existed. Max 20 per
 report.
+
+**Hard crashes** — if the program is killed outright (segmentation fault, abort,
+out of memory), none of the above gets a chance to be written. A **signal** is
+recorded instead, and it consists of exactly five things:
+
+| Field      | Example                             | What it is                                                                                       |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| fault type | `segv`, `abort`, `ill`, `fpe`, …    | one word from a fixed list of eight                                                              |
+| fault code | `1`                                 | the operating system's own number for the fault                                                  |
+| pointer    | `null`, `low`, `nonnull`, `unknown` | **only** a four-way classification — the address itself is never recorded                        |
+| site       | `app+0x1a2b3c` or `foreign`         | how far into SundayStage's own program file it happened, or just "outside it" — never a filename |
+| thread     | `main-thread`, `other-thread`       | whether it was the main thread or another one                                                    |
+
+Plus the timestamp, app version and operating system, exactly as above.
+
+**No memory dump is ever taken.** A memory dump is a copy of the program's
+memory, and that memory holds the lyrics that were on the screen at that moment.
+There is no scrubbing that makes such a file safe, so it is not written — not
+locally, not unsent. For the same reason no backtrace, no registers and no
+module names are recorded.
+
+The signal is written locally by the crash itself and turned into an ordinary
+crash record the next time you open the app. You can switch this capture off
+under **Settings → Advanced → Privacy → "Capture hard crashes"**. SundayStage
+also does not take the crash over: the operating system gets it back, so your
+machine's own crash report is still written as before.
 
 **Quality** — one row per service (live session): timestamp, duration in
 seconds, number of cues shown, output-process restarts, connection timeouts,

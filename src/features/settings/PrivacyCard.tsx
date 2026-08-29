@@ -112,6 +112,15 @@ export function PrivacyCard() {
     mutationFn: () => ipc.crash.clear(),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["crashCount"] }),
   });
+  const nativeCrash = useQuery({
+    queryKey: ["nativeCrashStatus"],
+    queryFn: () => ipc.crash.native.status(),
+    retry: false,
+  });
+  const setNativeCrash = useMutation({
+    mutationFn: (enabled: boolean) => ipc.crash.native.set(enabled),
+    onSuccess: (next) => qc.setQueryData(["nativeCrashStatus"], next),
+  });
 
   const status = consent.data;
   const active = status?.active ?? false;
@@ -271,25 +280,45 @@ export function PrivacyCard() {
         </CardContent>
 
         {/* ── Always-on local capture ───────────────────────────────────── */}
-        <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-4">
-          <div className="text-xs text-[var(--color-fg-muted)]">
-            <div className="text-[var(--color-fg)]">
-              {t("setPrivacyLocalCrashes")}
+        <CardFooter className="flex flex-col gap-4 border-t border-[var(--color-border)] pt-4">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-[var(--color-fg-muted)]">
+              <div className="text-[var(--color-fg)]">
+                {t("setPrivacyLocalCrashes")}
+              </div>
+              <div>{t("setPrivacyLocalCrashesDesc")}</div>
+              <div className="mt-1">
+                {t("setCrashCount", { n: crashCount.data ?? 0 })}
+              </div>
             </div>
-            <div>{t("setPrivacyLocalCrashesDesc")}</div>
-            <div className="mt-1">
-              {t("setCrashCount", { n: crashCount.data ?? 0 })}
-            </div>
+            {(crashCount.data ?? 0) > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => clearCrashes.mutate()}
+              >
+                {t("actionClear")}
+              </Button>
+            )}
           </div>
-          {(crashCount.data ?? 0) > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => clearCrashes.mutate()}
-            >
-              {t("actionClear")}
-            </Button>
-          )}
+
+          {/* A6 — the one capture switch there IS, because installing a signal
+              handler changes how the process behaves while it is dying. What it
+              captures is a signal type and an offset; never a memory dump. */}
+          <div className="w-full">
+            <ToggleRow
+              label={t("setPrivacyHardCrashes")}
+              description={t("setPrivacyHardCrashesDesc")}
+              checked={nativeCrash.data?.enabled ?? true}
+              onChange={(v) => setNativeCrash.mutate(v)}
+              disabled={setNativeCrash.isPending}
+            />
+            {nativeCrash.data?.enabled && !nativeCrash.data.armed && (
+              <div className="mt-1 text-xs text-[var(--color-warn, var(--color-fg-muted))]">
+                {t("setPrivacyHardCrashesUnavailable")}
+              </div>
+            )}
+          </div>
         </CardFooter>
       </Card>
 

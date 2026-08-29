@@ -59,4 +59,41 @@ ProPresenter 6 `.pro6` XML for the song importer (Spor B4) —
 transitively (pulled by `plist` via the Tauri macOS bundler), so it adds no new
 compiled crate; it is declared direct only to depend on it explicitly.
 
+## Hard-crash capture — Embark Studios `crash-handling`
+
+- **Used by:** the hard-crash signal source (Spor A6) —
+  `src-tauri/src/telemetry/native_crash.rs` and its three platform halves.
+- **Repository:** https://github.com/EmbarkStudios/crash-handling
+- **Crates adopted:** `crash-handler` 0.8 and `crash-context` 0.8.
+- **Licenses, verified in the crates' own files:**
+  - `crash-handler` — `license = "MIT OR Apache-2.0"` in its `Cargo.toml`, with
+    both `LICENSE-MIT` ("Copyright (c) 2019 Embark Studios") and
+    `LICENSE-APACHE` shipped in the published crate.
+  - `crash-context` — `license = "MIT"` in its `Cargo.toml`, with `LICENSE-MIT`
+    and `LICENSE-APACHE` shipped in the published crate.
+- **What is adopted:** the handler INSTALLATION and, above all, the
+  **chaining**: saving the previous `sigaction` / Mach exception ports /
+  unhandled-exception filter and handing the crash back to them when our
+  callback returns `Handled(false)`. Getting that wrong is how a home-made crash
+  handler makes crashes worse — it swallows them, and the OS's own crash
+  reporting, Rust's stack-overflow message and the true exit status all
+  disappear with it.
+- **What is deliberately NOT adopted:** the rest of that project —
+  `minidump-writer`, `minidumper`, `sadness-generator`. **SundayStage writes no
+  minidump, on any platform, ever.** A minidump is a byte image of process
+  memory, and this process's memory holds the lyrics that were on the
+  congregation's screen. See the module docs in `native_crash.rs` and §1 of
+  `PRIVACY.md`.
+
+`mach2` 0.6 (**"BSD-2-Clause OR MIT OR Apache-2.0"** in its own `Cargo.toml`,
+with `LICENSE-BSD`, `LICENSE-MIT` and `LICENSE-APACHE` shipped) is used on macOS
+only, to read the crashed thread's program counter with `thread_get_state` — the
+Mach exception message carries no register state. It is pulled in by
+`crash-handler` on that platform in any case.
+
+`windows-sys` 0.61 (**MIT OR Apache-2.0**, Microsoft) is declared direct for the
+Windows half, for `GetModuleHandleW` / `GetModuleInformation` /
+`GetCurrentThreadId`. It is already in the tree many times over transitively, so
+declaring it adds no new compiled crate.
+
 All other dependencies are declared in `src-tauri/Cargo.toml`.

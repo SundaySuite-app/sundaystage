@@ -162,6 +162,14 @@ pub fn run() {
             crate::telemetry::logfile::start(&data_dir);
             crate::telemetry::logfile::log_startup_banner();
 
+            // A6 — hard crashes (segfault / abort / OOM), which leave the panic
+            // hook nothing to run in. ORDER MATTERS: `adopt` reads the record a
+            // previous run's signal handler left behind and turns it into an
+            // ordinary ring entry, and `arm` truncates that same file before
+            // installing the handler for THIS run.
+            crate::telemetry::native_crash::adopt(&data_dir);
+            crate::telemetry::native_crash::arm(&data_dir);
+
             let db_path: PathBuf = data_dir.join("sundaystage.db");
 
             // Open the database synchronously — Tauri's setup is not async.
@@ -291,6 +299,8 @@ pub fn run() {
             commands::crash::crash_reports_count,
             commands::crash::crash_reports_clear,
             commands::crash::crash_report_frontend,
+            commands::crash::native_crash_status,
+            commands::crash::native_crash_set,
             // Local observation (E3) — nothing here sends anything anywhere
             commands::telemetry::telemetry_counters,
             commands::telemetry::telemetry_quality_recent,

@@ -19,6 +19,7 @@ use tauri::State;
 
 use crate::error::AppResult;
 use crate::telemetry::crash_ring::{self, CrashKind};
+use crate::telemetry::native_crash::{self, NativeCrashStatus};
 use crate::AppState;
 
 /// How many crash records the ring holds.
@@ -57,6 +58,34 @@ pub fn crash_report_frontend(
     // which applies the scrubbing and the caps itself.
     let _ = &state;
     crash_ring::record(kind, &message, location.as_deref(), component.as_deref());
+}
+
+/// Whether hard-crash capture (A6) is switched on, and whether a handler is
+/// actually installed right now.
+#[tauri::command]
+pub fn native_crash_status(state: State<'_, AppState>) -> NativeCrashStatus {
+    native_crash::status(&state.data_dir)
+}
+
+/// Switch hard-crash capture on or off.
+///
+/// Takes effect **immediately** — switching off drops the handler, restoring
+/// whatever was installed before it — because the reason this switch exists is
+/// that a signal handler is the one part of this system that changes how the
+/// process behaves while it is dying. An operator whose rig it upsets should not
+/// have to wait for a release, or even for a relaunch.
+///
+/// Note what this switch does NOT govern: sending. That is the consent record,
+/// asked separately and out loud, and turning capture back on does not grant it.
+#[tauri::command]
+pub fn native_crash_set(state: State<'_, AppState>, enabled: bool) -> AppResult<NativeCrashStatus> {
+    native_crash::set_capture_enabled(&state.data_dir, enabled)?;
+    if enabled {
+        native_crash::arm(&state.data_dir);
+    } else {
+        native_crash::disarm();
+    }
+    Ok(native_crash::status(&state.data_dir))
 }
 
 #[cfg(test)]

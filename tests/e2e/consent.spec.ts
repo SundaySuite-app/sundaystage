@@ -150,6 +150,46 @@ test.describe("the privacy card", () => {
     expect(set.map((c) => c.args.granted)).toEqual([true, false]);
   });
 
+  test("hard-crash capture is its own switch, and does not follow consent", async ({
+    page,
+  }) => {
+    // A6. Two switches on one card is a real risk of confusion, so the thing
+    // worth pinning is that they are genuinely independent: capture is local
+    // (a diagnostic on this machine), consent is transmission. An operator who
+    // says no to sharing must still be capturing crashes for their own support
+    // conversation, and turning capture off must not read as consent to
+    // anything.
+    await installTauriHarness(page, { consent: "denied", onboarded: true });
+    await page.goto("/");
+    await openPrivacyCard(page);
+
+    const sharing = page.getByRole("switch", { name: "Del anonyme rapporter" });
+    const capture = page.getByRole("switch", { name: "Fang harde krasj" });
+
+    // Sharing is off; capture is on anyway.
+    await expect(sharing).toHaveAttribute("aria-checked", "false");
+    await expect(capture).toHaveAttribute("aria-checked", "true");
+
+    // Turning capture off leaves consent exactly where it was…
+    await capture.click();
+    await expect(capture).toHaveAttribute("aria-checked", "false");
+    await expect(sharing).toHaveAttribute("aria-checked", "false");
+
+    // …and turning sharing ON does not switch capture back on behind the
+    // operator's back.
+    await sharing.click();
+    await expect(sharing).toHaveAttribute("aria-checked", "true");
+    await expect(capture).toHaveAttribute("aria-checked", "false");
+
+    const calls = await readCalls(page);
+    expect(
+      calls.filter((c) => c.cmd === "native_crash_set").map((c) => c.args),
+    ).toEqual([{ enabled: false }]);
+    expect(
+      calls.filter((c) => c.cmd === "telemetry_consent_set").map((c) => c.args),
+    ).toEqual([{ granted: true }]);
+  });
+
   test("shows the real builder's bytes on request", async ({ page }) => {
     await installTauriHarness(page, { consent: "granted", onboarded: true });
     await page.goto("/");

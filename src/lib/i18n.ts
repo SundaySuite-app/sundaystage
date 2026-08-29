@@ -783,6 +783,11 @@ const en: Catalog = {
   setPrivacyLocalCrashes: "Local error records",
   setPrivacyLocalCrashesDesc:
     "Always written, and never leave this machine on their own.",
+  setPrivacyHardCrashes: "Capture hard crashes",
+  setPrivacyHardCrashesDesc:
+    "If SundayStage is killed outright — a segfault or an abort — record which kind of fault it was and how far into our own program it happened. Never a memory dump: memory holds the lyrics on the screen.",
+  setPrivacyHardCrashesUnavailable:
+    "Switched on, but this machine would not let the handler start. Nothing is being recorded.",
   setPrivacyReportProblem: "Report a problem",
   reportTitle: "Report a problem",
   reportDesc:
@@ -1603,6 +1608,11 @@ const no: Catalog = {
   setPrivacyLocalCrashes: "Lokale feilspor",
   setPrivacyLocalCrashesDesc:
     "Skrives alltid, forlater aldri maskinen på egen hånd.",
+  setPrivacyHardCrashes: "Fang harde krasj",
+  setPrivacyHardCrashesDesc:
+    "Hvis SundayStage blir drept på flekken — segmentfeil eller avbrudd — noteres hvilken type feil det var og hvor langt inne i vårt eget program den skjedde. Aldri et minnedump: minnet inneholder sangteksten på skjermen.",
+  setPrivacyHardCrashesUnavailable:
+    "Slått på, men maskinen lot ikke håndtereren starte. Ingenting blir notert.",
   setPrivacyReportProblem: "Rapporter et problem",
   reportTitle: "Rapporter et problem",
   reportDesc:
@@ -2374,6 +2384,11 @@ const sv: Catalog = {
   setPrivacyLocalCrashes: "Lokala felspår",
   setPrivacyLocalCrashesDesc:
     "Skrivs alltid och lämnar aldrig maskinen på egen hand.",
+  setPrivacyHardCrashes: "Fånga hårda krascher",
+  setPrivacyHardCrashesDesc:
+    "Om SundayStage dödas på fläcken — segmenteringsfel eller avbrott — noteras vilken sorts fel det var och hur långt in i vårt eget program det hände. Aldrig en minnesdump: minnet innehåller sångtexten på skärmen.",
+  setPrivacyHardCrashesUnavailable:
+    "Påslaget, men maskinen lät inte hanteraren starta. Ingenting noteras.",
   setPrivacyReportProblem: "Rapportera ett problem",
   reportTitle: "Rapportera ett problem",
   reportDesc:
@@ -3139,6 +3154,11 @@ const da: Catalog = {
   setPrivacyLocalCrashes: "Lokale fejlspor",
   setPrivacyLocalCrashesDesc:
     "Skrives altid og forlader aldrig maskinen af sig selv.",
+  setPrivacyHardCrashes: "Fang hårde nedbrud",
+  setPrivacyHardCrashesDesc:
+    "Hvis SundayStage bliver dræbt på stedet — segmentfejl eller afbrydelse — noteres hvilken slags fejl det var, og hvor langt inde i vores eget program det skete. Aldrig et hukommelsesdump: hukommelsen indeholder sangteksten på skærmen.",
+  setPrivacyHardCrashesUnavailable:
+    "Slået til, men maskinen lod ikke håndteringen starte. Intet bliver noteret.",
   setPrivacyReportProblem: "Rapportér et problem",
   reportTitle: "Rapportér et problem",
   reportDesc:
@@ -3921,6 +3941,11 @@ const de: Catalog = {
   setPrivacyLocalCrashes: "Lokale Fehlerspuren",
   setPrivacyLocalCrashesDesc:
     "Werden immer geschrieben und verlassen das Gerät nie von selbst.",
+  setPrivacyHardCrashes: "Harte Abstürze erfassen",
+  setPrivacyHardCrashesDesc:
+    "Wenn SundayStage auf der Stelle beendet wird — Speicherzugriffsfehler oder Abbruch — wird festgehalten, um welche Art Fehler es ging und wie weit im eigenen Programm er auftrat. Nie ein Speicherabbild: im Speicher steht der Liedtext von der Leinwand.",
+  setPrivacyHardCrashesUnavailable:
+    "Eingeschaltet, aber dieses Gerät ließ die Erfassung nicht starten. Es wird nichts festgehalten.",
   setPrivacyReportProblem: "Ein Problem melden",
   reportTitle: "Ein Problem melden",
   reportDesc:
@@ -4708,6 +4733,11 @@ const fr: Catalog = {
   setPrivacyLocalCrashes: "Traces d'erreur locales",
   setPrivacyLocalCrashesDesc:
     "Toujours écrites, elles ne quittent jamais cette machine d'elles-mêmes.",
+  setPrivacyHardCrashes: "Capturer les plantages durs",
+  setPrivacyHardCrashesDesc:
+    "Si SundayStage est tué net — erreur de segmentation ou abandon — on note le type de faute et à quelle distance dans notre propre programme elle s'est produite. Jamais de vidage mémoire : la mémoire contient les paroles affichées.",
+  setPrivacyHardCrashesUnavailable:
+    "Activé, mais cette machine n'a pas laissé le gestionnaire démarrer. Rien n'est noté.",
   setPrivacyReportProblem: "Signaler un problème",
   reportTitle: "Signaler un problème",
   reportDesc:
@@ -5476,6 +5506,11 @@ const pl: Catalog = {
   setPrivacyLocalCrashes: "Lokalne ślady błędów",
   setPrivacyLocalCrashesDesc:
     "Zapisywane zawsze i nigdy samodzielnie nie opuszczają tego komputera.",
+  setPrivacyHardCrashes: "Rejestruj twarde awarie",
+  setPrivacyHardCrashesDesc:
+    "Jeśli SundayStage zostanie zabity na miejscu — błąd segmentacji lub przerwanie — zapisujemy rodzaj błędu i jak głęboko w naszym własnym programie nastąpił. Nigdy zrzutu pamięci: w pamięci są słowa pieśni z ekranu.",
+  setPrivacyHardCrashesUnavailable:
+    "Włączone, ale ten komputer nie pozwolił uruchomić obsługi. Nic nie jest zapisywane.",
   setPrivacyReportProblem: "Zgłoś problem",
   reportTitle: "Zgłoś problem",
   reportDesc:

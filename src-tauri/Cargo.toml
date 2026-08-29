@@ -98,6 +98,46 @@ quick-xml = "0.39"
 sha2 = "0.11"
 hex = "0.4"
 
+# Hard-crash capture (Spor A6). Embark's crash handler — MIT OR Apache-2.0,
+# verified in the crate's own LICENSE-MIT/LICENSE-APACHE files, credited in
+# THIRD-PARTY.md. It installs the signal handlers (Unix), the Mach exception
+# port (macOS) and the unhandled-exception filter (Windows), saves the PREVIOUS
+# handlers and chains back to them when our callback returns `Handled(false)` —
+# which is the whole reason to take a dependency rather than hand-roll
+# `sigaction`: getting the chaining, the alternate signal stack and the
+# re-trigger right is exactly where a home-made crash handler makes crashes
+# worse. We use NONE of the minidump half of that project: a minidump IS memory,
+# and memory holds the lyrics on the screen. See `telemetry::native_crash`.
+crash-handler = "0.8"
+# The crash context types (siginfo/ucontext/EXCEPTION_POINTERS/Mach exception),
+# re-exported by crash-handler. Declared direct because `native_crash` reads the
+# program counter out of them; same version crash-handler resolves, so no new
+# compiled crate.
+crash-context = "0.8"
+
+# Raw `write(2)` from the signal handler, and the main thread's id at arm time.
+# Already compiled into the tree (tokio, sqlx, tauri all pull it), so this adds
+# no new crate — the same house rule as parking_lot/quick-xml/sha2 above.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# macOS reads the crashed thread's program counter with `thread_get_state`,
+# because the Mach exception message carries no register state. Pulled in by
+# crash-handler on this platform anyway.
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2 = "0.6"
+
+# Windows needs the main module's address range (`K32GetModuleInformation`) and
+# the current thread id. `windows-sys` 0.61 is already in the tree many times
+# over, so declaring it adds no new compiled crate — only more of the same one.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+] }
+
 [dev-dependencies]
 tempfile = "3"
 # Update-direction pin (E2). `tauri-plugin-updater` compares releases with

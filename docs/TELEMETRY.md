@@ -48,6 +48,87 @@ watermarks are trimmed in LOCKSTEP with the payload, so a deferred record stays
 owed. Crash records are the one lossy trim, they go last, and they are logged
 when they go.
 
+## The crash we cannot report, and what we send instead
+
+A panic unwinds, so the panic hook runs and writes a record. A **hard crash** —
+segfault, abort, out of memory — does not: the process is gone before any Rust
+executes. That is the crash a volunteer experiences as "SundayStage just
+disappeared", and until A6 it was the one crash telemetry could not see at all.
+
+The industry answer is a minidump, and it is the one answer this app may never
+give. **A minidump IS process memory, and this process's memory holds the verse
+that was on the congregation's screen.** There is no scrubbing pass that makes
+it safe, because there is no structure to scrub. So SundayStage writes none —
+not on any platform, not even locally, not even unsent. A file that cannot be
+uploaded is still a file that can be attached to an email.
+
+What is captured instead is a **signal**: five values, every one of them either
+an integer or a word from a compile-time list.
+
+| Field    | Values                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------- |
+| `sig`    | `segv` `bus` `ill` `fpe` `abort` `trap` `stack-overflow` `other`                             |
+| `code`   | the platform's own numeric fault code                                                        |
+| `fault`  | `null` `low` `nonnull` `unknown` — a classification of the faulting address, never its value |
+| `site`   | `app+0x<offset>` or `foreign` or `unknown`                                                   |
+| `thread` | `main-thread` `other-thread` `unknown-thread`                                                |
+
+`site` is where the module name would ordinarily go, and it deliberately does
+not have one: a module basename is a filename, and a filename is the shape law 2
+is about. Instead the program counter is compared against SundayStage's own
+executable image, resolved once at startup. Inside it, the offset is reported and
+is symbolisable against the matching release binary — which is what lets two
+machines' crashes be recognised as the same crash. Outside it, the answer is the
+literal word `foreign`: we learn it was not our code, and nothing about whose it
+was.
+
+The record reaches the wire as an ordinary entry in `crashes[]` with
+`kind: other` — no new endpoint, no new transport, and no schema change, because
+the deployed Worker's `STAGE_CRASH_KINDS` is a closed set and inventing a value
+would earn a 400 that the outbox drops permanently. An aggregate groups on the
+`native crash:` prefix in the message.
+
+**Two disciplines make it safe rather than merely well-intentioned.**
+
+_The handler does almost nothing._ It runs in a compromised context — an
+async-signal-safe world on Unix, a Mach exception thread on macOS, an
+unhandled-exception filter on Windows — so it allocates nothing, takes no lock of
+ours, cannot panic, cannot loop, runs at most once, and performs exactly one
+bounded `write(2)` of ~150 bytes to a file descriptor opened at startup. If that
+file cannot be opened, no handler is installed at all: a handler with nowhere to
+write is risk without benefit. All the real work — parsing, scrubbing, writing
+the ring entry — happens on the NEXT launch, in ordinary code. A test reads the
+source between `HANDLER-SAFE` markers in all four files and fails on `format!`,
+`String`, `.lock()`, `.unwrap()`, `tracing::` and their neighbours, because none
+of those failures are visible when the same functions are called from a healthy
+thread.
+
+_The crash is handed back._ The callback always returns `Handled(false)`, which
+restores the previous handler and lets the fault re-trigger. So the OS still
+writes its own crash report, Rust still prints its stack-overflow message, and
+the process still exits with "killed by SIGSEGV" — everything an outside watcher
+relies on. Two tests fault a real child process for real and assert _both_
+halves: that the signal was captured, and that the child still died of it.
+
+Capture is local and therefore not consent-gated — same reasoning as the panic
+ring. Sending is: an adopted record is an ordinary ring entry by the time the
+drain can see it, and the crash watermark set when consent is granted means a
+hard crash captured before the operator answered stays on the machine forever.
+There is nevertheless an off switch (Settings → Advanced → Privacy → "Capture
+hard crashes", default on), because a signal handler is the one part of this
+system that changes how the process behaves while it is dying, and an operator
+whose rig it upsets should not have to wait for a release.
+
+**Not covered, and no pretence otherwise:** a kernel OOM kill (Linux `SIGKILL`,
+macOS jetsam) cannot be caught by any handler, minidump or not — the process is
+simply removed. Rust's own allocation-failure path calls `abort()`, so _that_
+kind of "out of memory" is captured. Crashes inside the webview are also out of
+scope on every platform: WebKit and WebView2 render page content in separate
+processes, which is why they do not take SundayStage down in the first place.
+The output child is out of scope on purpose too — its death is a quality signal
+(`outputChildRestarts`), not a crash, because the projector kept its last frame
+throughout.
+
 ## The shape of the client
 
 ```
@@ -105,6 +186,9 @@ Settings → Advanced → Privacy:
 
 - **the switch** — one click on, one click off, no confirmation in either
   direction;
+- **"Capture hard crashes"** — a SEPARATE switch, because it governs local
+  capture rather than sending. It is on by default and turning it off drops the
+  signal handler immediately, without a relaunch;
 - **"Show what is sent"** — the real builder's bytes, pretty-printed;
 - **the queue** — how many payloads wait, how old the oldest is, and separately
   whether a written report is still owed;
@@ -118,15 +202,16 @@ kept longer. Storage is in the EU (Cloudflare D1, Western Europe).
 
 ## Where the code is
 
-| Concern                                  | File                                 |
-| ---------------------------------------- | ------------------------------------ |
-| Consent state machine                    | `src-tauri/src/telemetry/consent.rs` |
-| Identity, deletion, drain, preview       | `src-tauri/src/telemetry/client.rs`  |
-| The payload — the only thing that leaves | `src-tauri/src/telemetry/payload.rs` |
-| Scrubbing                                | `src-tauri/src/telemetry/scrub.rs`   |
-| Outbox + backoff                         | `src-tauri/src/telemetry/outbox.rs`  |
-| Live gate + pump + one-shot reports      | `src-tauri/src/telemetry/sender.rs`  |
-| The endpoint (separate repository)       | `sunday-telemetry`                   |
+| Concern                                  | File                                      |
+| ---------------------------------------- | ----------------------------------------- |
+| Consent state machine                    | `src-tauri/src/telemetry/consent.rs`      |
+| Identity, deletion, drain, preview       | `src-tauri/src/telemetry/client.rs`       |
+| The payload — the only thing that leaves | `src-tauri/src/telemetry/payload.rs`      |
+| Scrubbing                                | `src-tauri/src/telemetry/scrub.rs`        |
+| Outbox + backoff                         | `src-tauri/src/telemetry/outbox.rs`       |
+| Live gate + pump + one-shot reports      | `src-tauri/src/telemetry/sender.rs`       |
+| Hard crashes (signal source, no dumps)   | `src-tauri/src/telemetry/native_crash.rs` |
+| The endpoint (separate repository)       | `sunday-telemetry`                        |
 
 The programme this was built under, stage by stage, is
 [`docs/TELEMETRY-PROGRAM.md`](TELEMETRY-PROGRAM.md).
