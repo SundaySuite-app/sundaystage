@@ -364,9 +364,17 @@ export function OperatorWorkspace({ library }: { library: Library }) {
   const undoClear = useCallback(() => {
     const offer = pendingUndo;
     if (!offer) return;
+    const action = restoreAction(offer.cleared);
+    // A locked output refuses the restore like any other content action — but
+    // the offer has to survive the refusal, or locking and then pressing ⌘Z
+    // would quietly eat the one chance to get the text back.
+    if (guardAction(outputLocked, action) === "blocked") {
+      refuse();
+      return;
+    }
     setPendingUndo(null);
-    dispatch(restoreAction(offer.cleared), { isRestore: true });
-  }, [pendingUndo, dispatch]);
+    dispatch(action, { isRestore: true });
+  }, [pendingUndo, outputLocked, refuse, dispatch]);
 
   // Let the offer lapse. A stale ⌘Z is worse than no ⌘Z: it would push an
   // override the operator has long stopped thinking about back onto a screen.

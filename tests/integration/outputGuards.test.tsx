@@ -476,6 +476,30 @@ describe("restore after Clear", () => {
     );
   });
 
+  it("keeps the offer alive when a locked output refuses the restore", async () => {
+    renderWorkspace();
+    await goLive();
+    await showMessage();
+    fireEvent.click(clearButton());
+    await screen.findByText("Tekstlaget ble tømt.");
+
+    await lock();
+    ipcMock.live.dispatch.mockClear();
+    press("z", { metaKey: true });
+    expect(ipcMock.live.dispatch).not.toHaveBeenCalled();
+
+    // The lock said no — it did not consume the one chance to get the text back.
+    press("l", { metaKey: true });
+    await screen.findByText("Lås");
+    press("z", { metaKey: true });
+    await waitFor(() =>
+      expect(ipcMock.live.dispatch).toHaveBeenCalledWith({
+        type: "show_message",
+        text: NURSERY,
+      }),
+    );
+  });
+
   it("names what was cleared — a logo is not a text layer", async () => {
     renderWorkspace();
     await goLive();

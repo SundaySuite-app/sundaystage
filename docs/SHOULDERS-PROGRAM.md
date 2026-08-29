@@ -162,7 +162,7 @@ kappløp: `sessionRef` ble synket i en `useEffect` (én commit for sent), så en
 Nullstill trykket rett etter en melding leste forrige økt og fant ingenting å
 tilby tilbake — nettopp tilfellet angrefunksjonen finnes for.
 
-**Gates:** vitest 430 → 501, cargo 860 (uendret), Playwright 9, clippy/fmt/
+**Gates:** vitest 430 → 502, cargo 860 (uendret), Playwright 9, clippy/fmt/
 prettier/eslint/tsc rene. Ingen nye avhengigheter.
 
 👤 **Riggtest:** ⌘L/Ctrl+L på begge plattformer, ⇧B under en ekte gudstjeneste,
