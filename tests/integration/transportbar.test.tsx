@@ -33,6 +33,9 @@ function renderTransport() {
         onExport={noop}
         onSettings={noop}
         onShortcuts={noop}
+        outputLocked={false}
+        onToggleLock={noop}
+        lockNudge={0}
       />
     </QueryClientProvider>,
   );

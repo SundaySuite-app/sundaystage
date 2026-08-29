@@ -51,15 +51,12 @@ export function PreviewLivePanel({
 
   return (
     <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3">
-      {/* PREVIEW — while on air this is the *staging* monitor, so it steps back
-          to let the LIVE pane dominate. Dimmed at rest, restored on hover/focus
-          so staging the next slide is never obscured. */}
-      <div
-        className={cn(
-          "transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100",
-          isLive && "opacity-60",
-        )}
-      >
+      {/* PREVIEW — the staging monitor. It used to dim to 60 % while on air, on
+          the theory that LIVE should dominate. That dimmed it during the exact
+          minutes it matters most: mid-service, staging the next slide, reading
+          it out of the corner of your eye. Program and Preview are equals; the
+          gold ring and the ● LIVE badge already say which one is on air. */}
+      <div>
         <div className="mb-1.5 flex items-center justify-between gap-1">
           <Subhead>{t("wsPreviewLabel")}</Subhead>
           <div className="flex items-center gap-1">

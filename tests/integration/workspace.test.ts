@@ -192,141 +192,15 @@ describe("bible search hit deep-link resolution", () => {
   });
 });
 
-// ── Keyboard shortcut key mapping (pure logic) ────────────────────────────────
-
-/**
- * The workspace maps certain keys to actions. We test the key-to-action
- * table directly without needing the DOM, by replicating the pure switch
- * logic in a helper that mirrors the real handler.
- */
-type ShortcutAction =
-  | "go"
-  | "prev"
-  | "next"
-  | "blackout"
-  | "logo"
-  | "first"
-  | "last"
-  | "jump"
-  | "shortcuts"
-  | "none";
-
-function resolveKey(
-  key: string,
-  metaKey: boolean,
-  ctrlKey: boolean,
-  isLive: boolean,
-): ShortcutAction {
-  if ((metaKey || ctrlKey) && key.toLowerCase() === "j") {
-    return isLive ? "jump" : "none";
-  }
-  if (metaKey || ctrlKey) return "none";
-  if (key === "?") return "shortcuts";
-  switch (key) {
-    case "ArrowRight":
-    case "ArrowDown":
-      return "next";
-    case "ArrowLeft":
-    case "ArrowUp":
-      return "prev";
-    case " ":
-    case "Enter":
-    case "g":
-    case "G":
-      return "go";
-    case "Escape":
-    case "b":
-    case "B":
-      return isLive ? "blackout" : "none";
-    case "l":
-    case "L":
-      return isLive ? "logo" : "none";
-    case "Home":
-      return "first";
-    case "End":
-      return "last";
-    default:
-      return "none";
-  }
-}
-
-describe("workspace keyboard shortcut resolution", () => {
-  describe("playback keys", () => {
-    it("Space → go", () => {
-      expect(resolveKey(" ", false, false, false)).toBe("go");
-    });
-    it("Enter → go", () => {
-      expect(resolveKey("Enter", false, false, false)).toBe("go");
-    });
-    it("G → go", () => {
-      expect(resolveKey("G", false, false, false)).toBe("go");
-      expect(resolveKey("g", false, false, false)).toBe("go");
-    });
-    it("ArrowRight → next", () => {
-      expect(resolveKey("ArrowRight", false, false, false)).toBe("next");
-    });
-    it("ArrowDown → next", () => {
-      expect(resolveKey("ArrowDown", false, false, false)).toBe("next");
-    });
-    it("ArrowLeft → prev", () => {
-      expect(resolveKey("ArrowLeft", false, false, false)).toBe("prev");
-    });
-    it("ArrowUp → prev", () => {
-      expect(resolveKey("ArrowUp", false, false, false)).toBe("prev");
-    });
-    it("Home → first", () => {
-      expect(resolveKey("Home", false, false, false)).toBe("first");
-    });
-    it("End → last", () => {
-      expect(resolveKey("End", false, false, false)).toBe("last");
-    });
-  });
-
-  describe("output keys (require live session)", () => {
-    it("Escape → blackout when live", () => {
-      expect(resolveKey("Escape", false, false, true)).toBe("blackout");
-    });
-    it("Escape → none when not live", () => {
-      expect(resolveKey("Escape", false, false, false)).toBe("none");
-    });
-    it("B → blackout when live", () => {
-      expect(resolveKey("B", false, false, true)).toBe("blackout");
-      expect(resolveKey("b", false, false, true)).toBe("blackout");
-    });
-    it("B → none when not live", () => {
-      expect(resolveKey("B", false, false, false)).toBe("none");
-    });
-    it("L → logo when live", () => {
-      expect(resolveKey("L", false, false, true)).toBe("logo");
-      expect(resolveKey("l", false, false, true)).toBe("logo");
-    });
-    it("L → none when not live", () => {
-      expect(resolveKey("L", false, false, false)).toBe("none");
-    });
-  });
-
-  describe("workspace keys", () => {
-    it("? → shortcuts (always, even when not live)", () => {
-      expect(resolveKey("?", false, false, false)).toBe("shortcuts");
-      expect(resolveKey("?", false, false, true)).toBe("shortcuts");
-    });
-    it("⌘J → jump when live", () => {
-      expect(resolveKey("j", true, false, true)).toBe("jump");
-      expect(resolveKey("j", false, true, true)).toBe("jump");
-    });
-    it("⌘J → none when not live", () => {
-      expect(resolveKey("j", true, false, false)).toBe("none");
-    });
-    it("⌘-anything else → none (preserve browser shortcuts)", () => {
-      expect(resolveKey("k", true, false, true)).toBe("none");
-      expect(resolveKey("z", true, false, true)).toBe("none");
-    });
-  });
-
-  describe("unrecognised keys", () => {
-    it("random printable keys → none", () => {
-      expect(resolveKey("a", false, false, false)).toBe("none");
-      expect(resolveKey("F1", false, false, false)).toBe("none");
-    });
-  });
-});
+// ── Keyboard shortcut key mapping ────────────────────────────────────────────
+//
+// This file used to carry a hand-written `resolveKey` copy of the console's key
+// table, and assert against the copy. Two layers that agree with themselves and
+// disagree with each other is exactly the seam this codebase keeps getting bitten
+// by: the mirror said "Escape → blackout" long after that was a question anyone
+// wanted to reopen, and it would have said so just as confidently the day the
+// console changed.
+//
+// The table now lives in `src/features/workspace/consoleKeys.ts`, the console
+// calls it directly, and `consoleKeys.test.ts` tests that function — the real
+// one — instead.

@@ -34,6 +34,9 @@ function roleFromLabel(label: string): Role {
 
 export function OutputView() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
+  // A5 — what the stage/confidence screens should show. Equal to `frame`
+  // except under a blackout the stage was configured not to follow.
+  const [stageFrame, setStageFrame] = useState<LiveFrame | null>(null);
   const [appearance, setAppearance] = useState<OutputAppearance>(
     DEFAULT_OUTPUT_APPEARANCE,
   );
@@ -56,7 +59,14 @@ export function OutputView() {
   useEffect(() => {
     ipc.live
       .state()
-      .then((v) => v && setFrame(v.frame))
+      .then((v) => {
+        if (!v) return;
+        setFrame(v.frame);
+        // Rust does not know about the stage-follows-blackout preference (it is
+        // an operator-UI setting), so a window that joins mid-blackout follows
+        // the main output until the operator's next render event corrects it.
+        setStageFrame(v.frame);
+      })
       .catch(() => {});
     ipc.output
       .appearance()
@@ -75,13 +85,17 @@ export function OutputView() {
 
   useEffect(() => {
     const unlisten: Array<() => void> = [];
-    void listen<{ frame: LiveFrame; seq: number }>(OUTPUT_RENDER, (e) => {
-      if (e.payload.seq < lastSeq.current) return; // drop stale renders
-      lastSeq.current = e.payload.seq;
-      lastBeat.current = Date.now();
-      setDisconnected(false);
-      setFrame(e.payload.frame);
-    }).then((u) => unlisten.push(u));
+    void listen<{ frame: LiveFrame; seq: number; stageFrame?: LiveFrame }>(
+      OUTPUT_RENDER,
+      (e) => {
+        if (e.payload.seq < lastSeq.current) return; // drop stale renders
+        lastSeq.current = e.payload.seq;
+        lastBeat.current = Date.now();
+        setDisconnected(false);
+        setFrame(e.payload.frame);
+        setStageFrame(e.payload.stageFrame ?? e.payload.frame);
+      },
+    ).then((u) => unlisten.push(u));
     void listen(OUTPUT_HEARTBEAT, () => {
       lastBeat.current = Date.now();
       setDisconnected(false);
@@ -98,11 +112,14 @@ export function OutputView() {
   }, []);
 
   const chrome = role !== "main";
+  // The congregation output always shows the main frame; only the stage and
+  // confidence screens can diverge, and only during a blackout.
+  const shown = chrome ? (stageFrame ?? frame) : frame;
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white">
       <SlideView
-        frame={frame}
+        frame={shown}
         appearance={appearance}
         forceSectionLabel={chrome}
         localizeLabel={(l) => localizeSectionLabel(l, t)}

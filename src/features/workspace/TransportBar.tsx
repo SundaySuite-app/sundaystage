@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Clapperboard,
   Keyboard,
+  Lock,
   Menu,
   MessageSquare,
   Monitor,
@@ -21,11 +22,13 @@ import {
   Settings as SettingsIcon,
   Square,
   SquareDot,
+  Unlock,
 } from "lucide-react";
 
 import { ipc } from "@/lib/ipc";
 import type { OutputState, Service, SyncStatus } from "@/lib/bindings";
 import { cn } from "@/lib/cn";
+import { modChord } from "@/lib/platform";
 import { useT, useLocale, type TKey } from "@/lib/i18n";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { OutputControls } from "@/features/live/OutputControls";
@@ -53,6 +56,15 @@ interface Props {
   onExport: () => void;
   onSettings: () => void;
   onShortcuts: () => void;
+  /** Output lock: while on, nothing new reaches the congregation screen. */
+  outputLocked: boolean;
+  onToggleLock: () => void;
+  /**
+   * Counter bumped every time the lock swallowed an action. It re-keys the lock
+   * button so the shake animation replays — a value, not an event, so the bar
+   * stays a pure function of its props.
+   */
+  lockNudge: number;
 }
 
 export function TransportBar({
@@ -75,9 +87,13 @@ export function TransportBar({
   onExport,
   onSettings,
   onShortcuts,
+  outputLocked,
+  onToggleLock,
+  lockNudge,
 }: Props) {
   const t = useT();
   const lang = useLocale((s) => s.lang);
+  const lockChord = modChord("L");
 
   return (
     <header
@@ -130,6 +146,36 @@ export function TransportBar({
 
       {/* Center: transport */}
       <div className="mx-auto flex items-center gap-1">
+        {/* The output lock sits first, ahead of the actions it governs, and is
+            never disabled — locking before you go live is the point. */}
+        <button
+          // Re-keyed on every blocked action so the shake animation replays.
+          key={`lock-${lockNudge}`}
+          type="button"
+          onClick={onToggleLock}
+          aria-pressed={outputLocked}
+          aria-label={t("lockAria")}
+          title={
+            outputLocked
+              ? t("lockTitleLocked", { key: lockChord })
+              : t("lockTitleOpen", { key: lockChord })
+          }
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors",
+            lockNudge > 0 && "ss-shake",
+            outputLocked
+              ? "bg-[var(--color-accent)] text-[var(--color-sunday-blue-900)]"
+              : "font-medium text-[var(--color-fg-muted)] hover:bg-white/5 hover:text-[var(--color-fg)]",
+          )}
+        >
+          {outputLocked ? (
+            <Lock size={14} aria-hidden />
+          ) : (
+            <Unlock size={14} aria-hidden />
+          )}
+          {outputLocked ? t("lockLocked") : t("lockOpen")}
+        </button>
+        <div className="mx-2 h-6 w-px bg-[var(--color-border)]" />
         <TransportButton
           icon={Square}
           labelKey="liveBlackout"
@@ -193,7 +239,7 @@ export function TransportBar({
       <div className="flex items-center gap-1">
         <IconButton
           icon={Search}
-          label={`${t("lpJumpTo")} (⌘J)`}
+          label={`${t("lpJumpTo")} (${modChord("J")})`}
           onClick={onJump}
           disabled={!isLive}
         />

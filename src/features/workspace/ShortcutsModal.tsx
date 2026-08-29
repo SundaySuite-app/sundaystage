@@ -2,11 +2,16 @@
  * Keyboard shortcuts reference modal — accessed via "?" or the ? button in
  * the TransportBar. Shows all global workspace shortcuts so operators can
  * learn the console without opening the manual.
+ *
+ * The chords are computed per platform (⌘L on a Mac, Ctrl+L on Windows): a
+ * printed shortcut that is wrong on half the installs teaches the volunteer
+ * that the list cannot be trusted.
  */
 import { useEffect } from "react";
 import { Keyboard, X } from "lucide-react";
 
 import { useT } from "@/lib/i18n";
+import { modChord, shiftChord } from "@/lib/platform";
 
 interface Props {
   onClose: () => void;
@@ -40,16 +45,19 @@ export function ShortcutsModal({ onClose }: Props) {
     {
       heading: t("kbGroupOutput"),
       rows: [
-        { keys: ["Esc", "B"], action: t("kbBlackout") },
+        // Blackout moved off Escape deliberately — see consoleKeys.ts.
+        { keys: [shiftChord("B")], action: t("kbBlackout") },
         { keys: ["L"], action: t("kbLogo") },
+        { keys: [modChord("L")], action: t("kbLock") },
+        { keys: [modChord("Z")], action: t("kbUndoClear") },
       ],
     },
     {
       heading: t("kbGroupWorkspace"),
       rows: [
-        { keys: ["⌘J"], action: t("kbJump") },
-        { keys: ["⌘K"], action: t("kbPalette") },
-        { keys: ["⌘B"], action: t("kbBrowse") },
+        { keys: [modChord("J")], action: t("kbJump") },
+        { keys: [modChord("K")], action: t("kbPalette") },
+        { keys: [modChord("B")], action: t("kbBrowse") },
         { keys: ["?"], action: t("kbShortcutsHelp") },
       ],
     },

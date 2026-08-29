@@ -6,12 +6,22 @@
  * and notes — each panel gated by the chosen preset. Driven by the same live
  * session as the operator console; in production this renders in a separate
  * window on its own screen (Phase 5.2), here it's a full-screen in-app view.
+ *
+ * A5: it renders `stageFrame`, not the session frame. The two differ in exactly
+ * one case — the operator blacked out the room and the stage was configured not
+ * to follow — because the band is mid-song and still needs the words. A badge
+ * then tells them the room is dark, so nobody concludes the projector died.
  */
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { EyeOff, X } from "lucide-react";
 
-import type { Cue, LiveSessionView, StageDisplayConfig } from "@/lib/bindings";
+import type {
+  Cue,
+  LiveFrame,
+  LiveSessionView,
+  StageDisplayConfig,
+} from "@/lib/bindings";
 import { useT, useLocale } from "@/lib/i18n";
 import { localizeSectionLabel } from "@/lib/sectionLabel";
 
@@ -45,6 +55,11 @@ function cueText(cue: Cue | undefined): {
 
 interface StageDisplayProps {
   session: LiveSessionView;
+  /** What this screen shows — equal to the session frame except under a
+   *  blackout the stage does not follow. */
+  stageFrame: LiveFrame;
+  /** The main output is blacked out (whether or not this screen follows). */
+  mainBlackedOut: boolean;
   cues: Cue[];
   serviceName: string;
   notes: string | null;
@@ -56,6 +71,8 @@ interface StageDisplayProps {
 
 export function StageDisplay({
   session,
+  stageFrame,
+  mainBlackedOut,
   cues,
   serviceName,
   notes,
@@ -81,16 +98,18 @@ export function StageDisplay({
   }, [onClose]);
 
   const current =
-    session.frame.kind === "slide"
+    stageFrame.kind === "slide"
       ? {
-          lines: session.frame.slide_content.text_lines,
-          translation: session.frame.slide_content.translation_lines,
-          section: session.frame.slide_content.section_label,
+          lines: stageFrame.slide_content.text_lines,
+          translation: stageFrame.slide_content.translation_lines,
+          section: stageFrame.slide_content.section_label,
         }
-      : session.frame.kind === "message"
-        ? { lines: [session.frame.text], translation: null, section: null }
+      : stageFrame.kind === "message"
+        ? { lines: [stageFrame.text], translation: null, section: null }
         : { lines: [], translation: null, section: null };
   const next = cueText(cues[session.index + 1]);
+  // The room is dark but this screen isn't: say so, quietly.
+  const roomDarkOnly = mainBlackedOut && stageFrame.kind !== "black";
 
   return (
     <div
@@ -107,6 +126,12 @@ export function StageDisplay({
         {preset.show_section_label && current.section && (
           <span className="rounded-full bg-[var(--color-accent)] px-3 py-1 text-sm font-bold text-black">
             {localizeSectionLabel(current.section, t)}
+          </span>
+        )}
+        {roomDarkOnly && (
+          <span className="flex items-center gap-1.5 rounded-full border border-white/25 px-3 py-1 text-sm text-white/60">
+            <EyeOff size={13} aria-hidden />
+            {t("sdRoomBlackedOut")}
           </span>
         )}
         <div className="flex-1" />
@@ -156,7 +181,7 @@ export function StageDisplay({
       {/* Body */}
       <div className="grid flex-1 grid-cols-[1fr_auto] overflow-hidden">
         <main className="grid place-items-center overflow-hidden p-12 text-center">
-          {session.frame.kind === "black" ? (
+          {stageFrame.kind === "black" ? (
             <p className="text-2xl text-white/30">{t("sdBlackout")}</p>
           ) : current.lines.length > 0 ? (
             <div>

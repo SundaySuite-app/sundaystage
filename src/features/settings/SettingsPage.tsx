@@ -52,6 +52,7 @@ import {
 } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { OutputSettingsPanel } from "./OutputSettingsPanel";
+import { StageScreenCard } from "./StageScreenCard";
 import { PrivacyCard } from "./PrivacyCard";
 import { BibleTranslationsCard } from "./BibleTranslationsCard";
 import { ToggleRow } from "./ToggleRow";
@@ -109,6 +110,7 @@ export function SettingsPage() {
           {tab === "output_display" && (
             <div className="space-y-6">
               <OutputSettingsPanel />
+              <StageScreenCard />
             </div>
           )}
           {tab === "ai" && <AiSettings />}
