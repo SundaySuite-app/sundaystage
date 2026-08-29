@@ -581,6 +581,14 @@ const en: Catalog = {
   kbShortcutsHelp: "Show this help",
   kbLock: "Lock / unlock the output",
   kbUndoClear: "Restore what you just cleared",
+  kbCloseBrowser: "Close the library panel",
+  kbGroupSections: "Section jump",
+  kbSectionJump: "Jump to a section — V2 = verse 2, C = chorus",
+  kbSectionCommit: "Take the jump the sequence is offering",
+  kbSectionCancel: "Cancel the sequence",
+  secJumpNoMatch: "no section here",
+  secJumpConfirm: "↵ jumps",
+  secJumpCancel: "Esc cancels",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Output lock",
@@ -1366,6 +1374,14 @@ const no: Catalog = {
   kbShortcutsHelp: "Vis denne hjelpen",
   kbLock: "Lås / lås opp utgangen",
   kbUndoClear: "Gjenopprett det du nettopp tømte",
+  kbCloseBrowser: "Lukk bibliotekpanelet",
+  kbGroupSections: "Seksjonshopp",
+  kbSectionJump: "Hopp til en seksjon — V2 = vers 2, R = refreng",
+  kbSectionCommit: "Ta hoppet sekvensen tilbyr",
+  kbSectionCancel: "Avbryt sekvensen",
+  secJumpNoMatch: "ingen seksjon her",
+  secJumpConfirm: "↵ hopper",
+  secJumpCancel: "Esc avbryter",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Output-lås",
@@ -2127,6 +2143,14 @@ const sv: Catalog = {
   kbShortcutsHelp: "Visa denna hjälp",
   kbLock: "Lås / lås upp utgången",
   kbUndoClear: "Återställ det du nyss rensade",
+  kbCloseBrowser: "Stäng bibliotekspanelen",
+  kbGroupSections: "Sektionshopp",
+  kbSectionJump: "Hoppa till en sektion — V2 = vers 2, R = refräng",
+  kbSectionCommit: "Ta hoppet som sekvensen erbjuder",
+  kbSectionCancel: "Avbryt sekvensen",
+  secJumpNoMatch: "ingen sektion här",
+  secJumpConfirm: "↵ hoppar",
+  secJumpCancel: "Esc avbryter",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Utgångslås",
@@ -2859,6 +2883,14 @@ const da: Catalog = {
   kbShortcutsHelp: "Vis denne hjælp",
   kbLock: "Lås / lås op for udgangen",
   kbUndoClear: "Gendan det, du lige ryddede",
+  kbCloseBrowser: "Luk bibliotekspanelet",
+  kbGroupSections: "Sektionsspring",
+  kbSectionJump: "Spring til en sektion — V2 = vers 2, O = omkvæd",
+  kbSectionCommit: "Tag det spring, sekvensen tilbyder",
+  kbSectionCancel: "Annullér sekvensen",
+  secJumpNoMatch: "ingen sektion her",
+  secJumpConfirm: "↵ springer",
+  secJumpCancel: "Esc annullerer",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Udgangslås",
@@ -3602,6 +3634,14 @@ const de: Catalog = {
   kbShortcutsHelp: "Diese Hilfe anzeigen",
   kbLock: "Ausgabe sperren / entsperren",
   kbUndoClear: "Zuletzt Geleertes wiederherstellen",
+  kbCloseBrowser: "Bibliotheksleiste schließen",
+  kbGroupSections: "Abschnittssprung",
+  kbSectionJump: "Zu einem Abschnitt springen — S2 = Strophe 2, R = Refrain",
+  kbSectionCommit: "Den angebotenen Sprung übernehmen",
+  kbSectionCancel: "Eingabe abbrechen",
+  secJumpNoMatch: "kein Abschnitt",
+  secJumpConfirm: "↵ springt",
+  secJumpCancel: "Esc bricht ab",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Ausgabesperre",
@@ -4353,6 +4393,14 @@ const fr: Catalog = {
   kbShortcutsHelp: "Afficher cette aide",
   kbLock: "Verrouiller / déverrouiller la sortie",
   kbUndoClear: "Restaurer ce que vous venez d'effacer",
+  kbCloseBrowser: "Fermer le panneau bibliothèque",
+  kbGroupSections: "Saut de section",
+  kbSectionJump: "Aller à une section — C2 = couplet 2, R = refrain",
+  kbSectionCommit: "Valider le saut proposé",
+  kbSectionCancel: "Annuler la séquence",
+  secJumpNoMatch: "aucune section ici",
+  secJumpConfirm: "↵ pour aller",
+  secJumpCancel: "Échap annule",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Verrou de sortie",
@@ -5093,6 +5141,14 @@ const pl: Catalog = {
   kbShortcutsHelp: "Pokaż tę pomoc",
   kbLock: "Zablokuj / odblokuj wyjście",
   kbUndoClear: "Przywróć to, co przed chwilą wyczyszczono",
+  kbCloseBrowser: "Zamknij panel biblioteki",
+  kbGroupSections: "Skok do sekcji",
+  kbSectionJump: "Skocz do sekcji — Z2 = zwrotka 2, R = refren",
+  kbSectionCommit: "Wykonaj skok proponowany przez sekwencję",
+  kbSectionCancel: "Anuluj sekwencję",
+  secJumpNoMatch: "brak takiej sekcji",
+  secJumpConfirm: "↵ skacze",
+  secJumpCancel: "Esc anuluje",
 
   // ── Output lock (Spor A) ──────────────────────────────────────────────
   lockAria: "Blokada wyjścia",
