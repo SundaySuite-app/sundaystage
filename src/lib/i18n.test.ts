@@ -222,6 +222,58 @@ describe("telemetry consent i18n parity", () => {
   });
 });
 
+// A6 — hard-crash capture. The description is the only place an operator is
+// told what a crash signal contains, and the one sentence that matters in it is
+// the promise that no memory is ever taken. A locale that lost that sentence
+// would be making a weaker promise than the English one, in the place where the
+// promise is the whole point.
+const HARD_CRASH_KEYS = [
+  "setPrivacyHardCrashes",
+  "setPrivacyHardCrashesDesc",
+  "setPrivacyHardCrashesUnavailable",
+] as const;
+
+describe("hard-crash capture i18n parity", () => {
+  for (const lang of LANGS) {
+    it(`${lang} carries every hard-crash key`, () => {
+      const cat = CATALOG[lang];
+      for (const key of HARD_CRASH_KEYS) {
+        expect(cat[key], `${lang}.${key}`).toBeTruthy();
+        expect(cat[key].trim().length, `${lang}.${key}`).toBeGreaterThan(0);
+      }
+    });
+  }
+
+  it("every locale still says a memory dump is never taken", () => {
+    // A floor, not a wording test — the sentence can be rewritten, but it
+    // cannot quietly shrink to "we collect crash data".
+    for (const lang of LANGS) {
+      expect(
+        CATALOG[lang].setPrivacyHardCrashesDesc.length,
+        lang,
+      ).toBeGreaterThan(120);
+    }
+  });
+
+  it("the label is not the same words as the sharing switch", () => {
+    // They sit on the same card and govern different things: one is local
+    // capture, the other is transmission. Two switches that read alike is the
+    // one way this card could mislead.
+    for (const lang of LANGS) {
+      // Both halves have to exist, or `not.toBe` would pass by comparing two
+      // `undefined`s that happen to differ from each other in no way at all.
+      expect(CATALOG[lang].setPrivacyShareLabel, lang).toBeTruthy();
+      expect(CATALOG[lang].setPrivacyHardCrashes, lang).toBeTruthy();
+      expect(CATALOG[lang].setPrivacyHardCrashes, lang).not.toBe(
+        CATALOG[lang].setPrivacyShareLabel,
+      );
+      expect(CATALOG[lang].setPrivacyHardCrashesDesc, lang).not.toBe(
+        CATALOG[lang].setPrivacyShareDesc,
+      );
+    }
+  });
+});
+
 // The five report outcomes are the app's only answer to "did my words reach
 // anyone". Each one has to say something DIFFERENT in every locale, or the
 // honest distinction between "sent" and "saved, but this build sends nothing"

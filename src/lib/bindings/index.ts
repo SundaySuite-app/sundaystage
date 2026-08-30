@@ -46,6 +46,7 @@ export type { LiveFrame }         from "./LiveFrame";
 export type { LiveSessionView }   from "./LiveSessionView";
 export type { LocaleInfo }        from "./LocaleInfo";
 export type { MonitorInfo }       from "./MonitorInfo";
+export type { NativeCrashStatus } from "./NativeCrashStatus";
 export type { OutputConfig }      from "./OutputConfig";
 export type { OutputAppearance }  from "./OutputAppearance";
 export type { OutputDisplayConfig } from "./OutputDisplayConfig";

@@ -71,6 +71,10 @@ export async function installTauriHarness(
         installId:
           consent === "granted" ? "11111111-2222-3333-4444-555555555555" : null,
         pendingReports: 0,
+        // A6 — hard-crash capture. A SEPARATE switch from consent, and the
+        // harness keeps it separate so a spec can prove the two do not move
+        // each other.
+        nativeCrashEnabled: true,
         calls: [] as Array<{ cmd: string; args: unknown }>,
       };
 
@@ -156,6 +160,17 @@ export async function installTauriHarness(
         telemetry_quality_recent: () => [],
         crash_reports_count: () => 0,
         crash_report_frontend: () => null,
+        native_crash_status: () => ({
+          enabled: state.nativeCrashEnabled,
+          armed: state.nativeCrashEnabled,
+        }),
+        native_crash_set: (args) => {
+          state.nativeCrashEnabled = Boolean(args.enabled);
+          return {
+            enabled: state.nativeCrashEnabled,
+            armed: state.nativeCrashEnabled,
+          };
+        },
 
         // ── Update ring (the Advanced tab renders it above the card) ───────
         update_channel_get: () => "stable",

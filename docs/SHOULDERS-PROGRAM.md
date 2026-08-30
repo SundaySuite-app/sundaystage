@@ -39,8 +39,9 @@ Sikkerhet først; deretter billige kvalitetsløft. Rekkefølge:
   fra `consoleKeys.ts`. Bygd på dagens tastetabell, ikke react-hotkeys-hook:
   fundament-byttet hører til D1.
 - **A5 window-state hovedvindu** (tauri-plugin MIT; KUN hovedvindu).
-- **A6 crash-handler som signalkilde** (Embark MIT — fanger segfault/abort/OOM;
-  aldri minne, lov 2 intakt; minidump kan ALDRI sendes).
+- **A6 ✅ crash-handler som signalkilde** (Embark MIT/Apache-2.0). Levert 08-30
+  — se etapperapporten nederst. Ingen minidump skrives, på noen plattform: en
+  minidump ER minne, og minnet er sangteksten.
 - **A7 ✅ song_usage-logg** (fundament for CCLI/TONO-rapport). Levert 08-30 —
   se etapperapporten nederst. Avledet av øktloggen, ikke av tastetrykkene:
   live-stien er uendret.
@@ -105,6 +106,7 @@ Lisens: ingen repo har LICENSE-fil; README «TBD AGPL-3.0» vs sunday-platform
 - [x] **A1** single-instance-vakt — levert 08-09 (PR #62)
 - [x] **A2 + A3** vernene rundt «klikk = live» — levert 08-29 (se rapport under)
 - [x] **A4** seksjonshopp-hurtigtaster — levert 08-29 (se rapport under)
+- [x] **A6** krasjhåndterer som signalkilde — levert 08-30 (se rapport under)
 - [x] **A7** sangbrukslogg + TONO/CCLI-eksport — levert 08-30 (se rapport under)
 - [x] **B1** delt RTF-dekoder — 08-10 (PR #64)
 - [x] **B2** EasyWorship-import — 08-10 (PR #66)
@@ -400,3 +402,176 @@ står i lista.
 👤 **Åpen beslutning:** 20 sekunder er terskelen. Hvis det viser seg at korte
 bordvers og liturgiske svar faller ut i praksis, er tallet én linje i
 `services/song_usage.rs` (`MIN_VISIBLE_MS`).
+
+---
+
+## Etapperapport — A6, «krasjhåndtereren som signalkilde», 2026-08-30
+
+En frivillig opplever at SundayStage «bare forsvant» midt i gudstjenesten. Til
+nå fikk vi aldri vite at det skjedde. Panikk-hooken ruller ut og rekker å
+skrive; et segmentfeil, et avbrudd eller tomt minne gjør ikke det — prosessen er
+borte før én linje Rust kjører. Etter output-låsen, seksjonshoppet og
+sangbruksloggen er det nettopp de harde krasjene vi ikke hadde øyne på.
+
+**Dette er ikke en krasjrapportør.** Det er den viktigste setningen i etappen.
+Bransjesvaret er en minidump, og det er det ene svaret vi aldri kan gi: **en
+minidump ER prosessens minne, og minnet inneholder verset som sto på
+menighetsskjermen.** Det finnes ingen skrubbing som gjør den trygg, for det er
+ingen struktur å skrubbe — det er et byte-bilde av alt. Så det skrives ingen
+minidump, på noen plattform, heller ikke lokalt og heller ikke usendt: en fil
+som ikke kan lastes opp er fortsatt en fil som kan legges ved en e-post. Av
+samme grunn: ingen stakksporing (den navngir hver kildefil den gikk gjennom),
+ingen registre (et register kan holde en peker inn i en streng), og ingen
+modulnavn.
+
+**De fem feltene et krasjsignal bærer, og hvorfor ingen av dem kan være
+innhold.**
+
+| Felt     | Verdi                                                            | Hvorfor det ikke kan bære innhold                                                                                                                                         |
+| -------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sig`    | `segv`/`bus`/`ill`/`fpe`/`abort`/`trap`/`stack-overflow`/`other` | ett ord fra en lukket åtte-verdis enum; verdien er en `&'static str` valgt av et `match`                                                                                  |
+| `code`   | `1`, `-2147483648`, `3221225477`                                 | operativsystemets eget heltall (`si_code` / mach-kode / `NTSTATUS`). Et tall har ingen tegn å skjule                                                                      |
+| `fault`  | `null`/`low`/`nonnull`/`unknown`                                 | en **firedeling** av feiladressen. Selve adressen forlater aldri `FaultAddress::classify` — den er ubrukelig på tvers av ASLR uansett, så den kastes framfor å diskuteres |
+| `site`   | `app+0x1a2b3c` / `foreign` / (ingenting)                         | `app` og `foreign` er literaler; offsetet er `pc − image_base`, et heltall. **Her ville modulnavnet ha stått** — se under                                                 |
+| `thread` | `main-thread`/`other-thread`/`unknown-thread`                    | en tre-verdis literalmengde                                                                                                                                               |
+
+Pluss `at`, `appVersion` og `os`, som hver eneste krasjpost allerede bærer.
+
+**Modulnavnet er bevisst ikke med.** Den opplagte utformingen tar med
+basenavnet på modulen som krasjet (`sundaystage`, `libwebkit…so`, `d3d11.dll`)
+slik at et aggregat kan si «alt ligger i grafikkdriveren». Et basenavn er et
+filnavn — og appens eget filnavn er ett en operatør kan endre, mens et plugins
+er ett vi ikke kontrollerer. Brief-regelen er at et felt vi er i tvil om ikke
+samles inn, så modulen kollapser til to literaler avgjort av én
+intervallsjekk: **inne i vår egen programfil** (og da rapporteres offsetet, som
+er symboliserbart mot akkurat den utgivelsens binærfil, og som gjør at to
+maskiners krasj kan gjenkjennes som samme krasj) eller **`foreign`** (vi lærer
+at det ikke var vår kode, og ingenting om hvem sin den var).
+
+**Signalhåndtereren gjør nesten ingenting.** Den kjører i en kompromittert
+verden — async-signal-safe på Unix, en Mach-unntakstråd på macOS, et
+unhandled-exception-filter på Windows. Derfor: ingen allokering, ingen av våre
+låser, ingen panikk (en panikk i en krasjhåndterer aborterer prosessen den
+skulle beskrive), ingen løkke som ikke er bundet, kjøres høyst én gang, og
+utfører nøyaktig **én** `write(2)` på ~150 byte til en filbeskrivelse åpnet ved
+oppstart. Lar ikke fila seg åpne, installeres **ingen håndterer i det hele
+tatt**: en håndterer uten noe sted å skrive er all risikoen og ingen gevinsten.
+Alt det vanskelige — parsing, skrubbing, ringskriving — skjer ved NESTE
+oppstart, i alminnelig kode.
+
+Disiplinen er testet mot kildekoden, ikke mot en overbevisning: en test leser
+alt mellom `HANDLER-SAFE`-markørene i alle fire filer (også de to plattformene
+CI ikke kjører tester på) og feiler på `format!`, `String`, `.lock()`,
+`.unwrap()`, `assert`, `tracing::` og naboene deres. Ingen av de feilene er
+synlige når de samme funksjonene kalles fra en frisk tråd — som er hele grunnen
+til at testen leser tekst framfor å kjøre kode.
+
+**Krasjet gis tilbake.** Tilbakekallet returnerer **alltid** `Handled(false)`,
+som gjenoppretter forrige håndterer og lar feilen utløses på nytt. Derfor
+skriver macOS fortsatt sin egen krasjrapport, Rust skriver fortsatt
+«thread … has overflowed its stack», og prosessen avslutter fortsatt med
+«drept av SIGSEGV» — alt en utenforstående vakthund er avhengig av. Det er den
+delen av briefen som er lettest å bryte og vanskeligst å oppdage: en håndterer
+som svelger krasjet ser ut til å virke.
+
+**To tester krasjer en ekte barneprosess på ordentlig** (test-binæret starter
+seg selv med en miljøvariabel, armerer, og skriver gjennom en nullpeker eller
+kaller `abort()`), og hevder **begge** halvdeler: at signalet ble fanget, og at
+barnet fortsatt døde av signalet. Den prøven fant umiddelbart to feil ingen
+enhetstest kunne funnet:
+
+1. **`EXC_SOFTWARE` er 5, ikke 4** — `EXC_EMULATION` sitter på 4. Første utkast
+   skrev mach-konstantene ut for hånd, og hvert eneste avbrudd på macOS ble
+   rapportert som `sig=other`. Konstantene kommer nå fra `mach2` selv.
+2. **`--exact` matcher hele testnavnet.** Sonden ble startet med kortnavnet, som
+   valgte null tester; barnet avsluttet med 0 og testen var grønn uten å ha
+   bevist noe. Harnesket krever nå at barnet _ikke_ avslutter rent, med en
+   feilmelding som sier hvorfor.
+
+**Sveipet fant en tredje feil, i vår egen kode.** Første utkast _filtrerte_
+tegn ut av versjonsstrengen. Testen som sveiper hver oppnåelige postkombinasjon
+mot en fast tegnklasse viste hva det betyr: `/Users/ola/Musikk/salme.mp4` blir
+`UsersolaMusikksalme.mp4` — hvert ord i en filsti, med skilletegnene fjernet, og
+et filter kan ikke se forskjell på en versjon og en setning. Versjonen
+**formsjekkes** nå (tre talltrupper, valgfri liten-bokstavs prerelease), og alt
+som ikke består blir konstanten `unknown` framfor en berget rest. Sjekken kjøres
+både når fila skrives og når den leses tilbake, fordi fila ligger på en disk
+hvem som helst kan redigere.
+
+**E3s tracing-revisjon fanget en fjerde.** `tracing::warn!("… {e}")` på en
+`crash_handler::Error` — `Io`-varianten pakker inn det OS-et sa, og en
+OS-melding kan navngi en sti. Loggen bærer nå en lukket årsakskode.
+
+**Samtykke.** Fangst er lokal og derfor ikke samtykkeportet — samme resonnement
+som panikkringen ved siden av. **Sending** er portet, og den porten er
+uendret fordi et adoptert krasj ER en alminnelig ringpost når drenen ser det:
+`drain` returnerer på første linje uten aktivt samtykke, og krasj-vannmerket som
+settes i det samtykket gis gjør at et hardt krasj fanget **før** operatøren ble
+spurt blir liggende på maskinen for alltid. Bevist gjennom den ekte
+`client::drain` i tre trinn (aldri spurt → ingenting · ja → den gamle blir
+liggende · et krasj etter svaret → køet, og payloaden inspiseres felt for felt).
+
+**Eier ser og skrur av.** Personvern-kortet har fått en egen bryter, «Fang harde
+krasj», **standard på**, som slår håndtereren av umiddelbart uten omstart. Den er
+bevisst atskilt fra delingsbryteren, og en Playwright-test pinner at de to ikke
+flytter hverandre: en operatør som sier nei til deling fanger fortsatt krasj til
+sin egen supportsamtale, og å slå av fangsten er ikke et samtykke til noe. Kortet
+sier òg fra hvis fangsten er **på** men håndtereren ikke lot seg installere —
+å melde «på» når ingenting noteres ville vært den ene løgnen kortet kan fortelle.
+i18n ×7.
+
+**Worker: ingen skjemaendring, med vilje.** `STAGE_CRASH_KINDS` er en lukket
+mengde i den deployede Workeren, og en klient som finner opp en verdi får 400 —
+som utboksen slipper permanent, uten retry (lov 3). Signalet kommer derfor inn
+som den eksisterende `other`-typen, og aggregatet grupperer på
+`native crash:`-prefikset i meldingen. En egen `native_crash`-type er en
+Worker-først-endring for en senere etappe: Worker deployet og live-verifisert,
+**deretter** en klientutgivelse.
+
+**Avhengigheter.** `crash-handler` 0.8 + `crash-context` 0.8 (Embark,
+`MIT OR Apache-2.0` / `MIT`, verifisert i kassenes egne `LICENSE-MIT`/
+`LICENSE-APACHE` og `Cargo.toml`), `mach2` 0.6 (macOS,
+`BSD-2-Clause OR MIT OR Apache-2.0`), `windows-sys` 0.61 (allerede i treet
+mange ganger — ingen ny kompilert kasse). **Minidump-halvdelen av det prosjektet
+er ikke adoptert og skal aldri bli det.** Kreditert i `THIRD-PARTY.md`.
+
+**Gates:** cargo 894 → 920 (+26: 25 nye i `native_crash`, hvorav 2 krasjer en
+ekte prosess og 2 leser kildekoden), vitest 601 → 610 (+9 i18n-paritet),
+Playwright 9 → 10 (+1: de to bryterne er uavhengige), clippy/fmt/prettier/
+eslint/tsc rene.
+
+**Utsatt, med vilje:**
+
+- **Full modulattribusjon** (`libwebkit+0x…` framfor `foreign`). Den krever en
+  modulkartlegging på tre plattformer, et navnefelt som ER et filnavn, og en
+  håndtering av moduler som lastes etter oppstart. Grovinndelingen «vår kode /
+  ikke vår kode» er den halvdelen vi kan handle på, og den er gratis å bevise
+  trygg.
+- **Egen `native_crash`-krasjtype på ledningen.** Worker-først; ingen deploy i
+  denne etappen.
+- **Kjerne-OOM** (Linux `SIGKILL`, macOS jetsam) kan ikke fanges av noen
+  håndterer — prosessen fjernes uten videre. Rusts egen allokeringsfeil kaller
+  `abort()`, så _den_ varianten av «tomt minne» fanges.
+- **Webview-krasj** er utenfor rekkevidde på alle plattformer: WebKit og WebView2
+  tegner sideinnhold i egne prosesser, som er nettopp derfor de ikke tar
+  SundayStage med seg. Renderer-feil dekkes allerede av
+  `onerror`/`unhandledrejection`.
+- **Output-barnet armerer ikke.** Et dødt output-barn er et kvalitetssignal
+  (`outputChildRestarts`), ikke et krasj — projektoren beholdt bildet sitt hele
+  veien. Å rapportere det som krasj ville rapportert at krasjisolasjonen virker
+  som om den feilet.
+
+⚠️ **Windows er kompilert, ikke atferdstestet.** CI bygger Windows, men kjører
+`cargo test` bare på Linux, og de to ekte-krasj-testene er `#[cfg(unix)]`.
+Windows-flaten er holdt liten nettopp derfor: tre lesinger ut av strukturer
+OS-et rekker oss, og ett `GetModuleInformation`-kall. Fangsten kan slås av fra
+kortet hvis en riggtest viser noe rart.
+
+👤 **Riggtest:** (1) på Mac — kjør appen, tving et hardt krasj (f.eks.
+`kill -SEGV <pid>`), start på nytt og se at krasjtelleren i Personvern-kortet
+gikk opp med én, **og** at macOS' egen «SundayStage quit unexpectedly» kom som
+før; (2) samme på Windows — det er den eneste plattformen ingen automatisk test
+dekker; (3) slå «Fang harde krasj» av, gjenta, og se at ingenting noteres mens
+OS-rapporten fortsatt kommer; (4) med samtykke på: se at signalet dukker opp i
+«Vis hva som sendes» med `app+0x…`, og at det ikke ligner noe som kunne vært
+en sangtittel.

@@ -43,6 +43,7 @@ import type {
   MediaAsset,
   MediaStatus,
   MonitorInfo,
+  NativeCrashStatus,
   OutputAppearance,
   OutputConfig,
   OutputDisplayConfig,
@@ -565,6 +566,22 @@ export const crash = {
       location: entry.location ?? null,
       component: entry.component ?? null,
     }),
+
+  /**
+   * A6 — hard-crash capture (segfault / abort / OOM).
+   *
+   * This one DOES have a `status`/`set` pair, and the difference from the ring
+   * above is worth being precise about: writing a file needs no permission, but
+   * installing a signal handler changes how the process behaves while it is
+   * dying. That is the one thing an operator might reasonably want off without
+   * waiting for a release. It still governs only CAPTURE — sending is
+   * `telemetry.consent`, and switching this on grants none of it.
+   */
+  native: {
+    status: () => call<NativeCrashStatus>("native_crash_status"),
+    set: (enabled: boolean) =>
+      call<NativeCrashStatus>("native_crash_set", { enabled }),
+  },
 };
 
 // ── Local observation (E3) + the client (E5) ───────────────────────────────────

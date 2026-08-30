@@ -15,6 +15,11 @@
 //! * [`crash_ring`] — a bounded ring of structured, scrubbed crash records
 //!   under `<app-data>/crashes/`, fed by the process panic hook and by the
 //!   renderer's `window.onerror` / `unhandledrejection` handlers.
+//! * [`native_crash`] (A6) — the one crash the panic hook cannot see: a
+//!   segfault, an abort, an out-of-memory kill. A **signal source**, never a
+//!   crash reporter — it carries a signal type, an offset inside our own image
+//!   and a thread role, and it writes no minidump, because a minidump is memory
+//!   and this process's memory holds the verse on the screen.
 //! * [`logfile`] — a size-capped rotating file log, because a shipped app has
 //!   no console, plus the `log_tail` reader that scrubs a second time.
 //! * [`counters`] — a closed set of 19 counter names, incremented atomically
@@ -59,6 +64,7 @@ pub mod counters;
 pub mod crash_ring;
 pub mod http_sender;
 pub mod logfile;
+pub mod native_crash;
 pub mod outbox;
 pub mod payload;
 pub mod quality;

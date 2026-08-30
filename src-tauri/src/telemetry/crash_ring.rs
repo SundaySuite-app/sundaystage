@@ -374,6 +374,18 @@ pub fn retire_flag_file(data_dir: &Path) -> bool {
 //   The ring
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Write an ALREADY-BUILT record into `dir`, pruning the ring as usual.
+///
+/// The route for a record whose fields cannot come from [`build_entry`] alone —
+/// today that is exactly one caller, [`crate::telemetry::native_crash`], which
+/// adopts a hard crash from a PREVIOUS run and therefore has to carry that run's
+/// `app_version` rather than this process's. It still builds the entry through
+/// [`build_entry`] first, so the scrubbing and the caps are the same ones every
+/// other record goes through; this function only puts the result on disk.
+pub fn write_record(dir: &Path, entry: &CrashEntry) -> std::io::Result<()> {
+    write_entry(dir, entry)
+}
+
 /// Write one record into `dir` and prune the ring back to [`RING_MAX`].
 ///
 /// Atomic temp+rename: a reader — the E5 payload builder, or a support person
