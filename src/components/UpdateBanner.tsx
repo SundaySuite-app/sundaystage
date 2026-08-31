@@ -38,9 +38,25 @@ export function UpdateBanner() {
             {t("updateAvailable")}
             {update.version ? ` (${update.version})` : ""}
           </p>
-          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
-            {t("updateBody")}
-          </p>
+          {/* HVA som er nytt — hentet fra manifestets `notes`, som siden
+              `docs/release-notes/<tagg>.md` er en tekst et menneske har skrevet
+              til operatøren og ikke en fast setning fra byggefila. Uten dette
+              var feltet fylt, båret hele veien til frontenden og så aldri vist:
+              v0.8.0-beta.1 flyttet blackout fra Escape til ⇧B, og banneret sa
+              «Last ned og start på nytt».
+
+              Ren tekst med bevarte linjeskift, ikke markdown — vakten i
+              `scripts/release-notes.mjs` avviser markdown i notatet nettopp
+              fordi denne boksen ikke har noen renderer å vise det med. */}
+          {update.notes?.trim() ? (
+            <p className="mt-2 max-h-48 overflow-y-auto text-xs whitespace-pre-line text-[var(--color-fg)]">
+              {update.notes.trim()}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+              {t("updateBody")}
+            </p>
+          )}
           {/* WHICH ring this build came from. An operator on beta who switches
               back to stable must be able to see that a banner still on screen
               is the beta offer — the install path refuses it, and this is the

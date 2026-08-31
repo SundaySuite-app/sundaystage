@@ -8,15 +8,19 @@ are set** — mirrors SundayRec's and SundayEdit's approach.
 
 1. Bump the version in **both** `package.json` and
    `src-tauri/tauri.conf.json` (keep them equal).
-2. Tag and push:
+2. Write `docs/release-notes/vX.Y.Z.md` — the text the operator reads in the
+   in-app update banner. CI refuses the PR without it, and `release.yml`
+   refuses the tag. See [release-notes/README.md](release-notes/README.md) for
+   why it lives in the repo and what the rules are.
+3. Tag and push:
    ```sh
    git tag vX.Y.Z && git push origin vX.Y.Z
    ```
-3. `.github/workflows/release.yml` builds on macOS + Windows, signs +
+4. `.github/workflows/release.yml` builds on macOS + Windows, signs +
    notarizes, and creates a **draft** GitHub Release containing the installers
    and the updater manifest `latest.json`.
-4. Review the draft, then **publish** it.
-5. **Promote** the build to a ring on the shared update Worker (below).
+5. Review the draft, then **publish** it.
+6. **Promote** the build to a ring on the shared update Worker (below).
    Publishing alone reaches nobody from v0.5.0 onward.
 
 ## Update rings (since v0.5.0 / E2)

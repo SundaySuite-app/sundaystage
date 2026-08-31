@@ -52,6 +52,43 @@ describe("UpdateBanner", () => {
     expect(await screen.findByText("Fra Stabil-kanalen.")).toBeInTheDocument();
   });
 
+  // ── Hva som er nytt ─────────────────────────────────────────────────────
+  // Manifestets `notes` nådde helt fram til frontenden og ble så aldri vist.
+  // v0.8.0-beta.1 flyttet blackout fra Escape til ⇧B — en vane-endring midt i
+  // en gudstjeneste — og alt operatøren fikk se var «Last ned og start på nytt».
+  it("viser hva som er nytt når manifestet bærer et notat", async () => {
+    updaterMock.checkForUpdate.mockResolvedValueOnce({
+      ...OFFER,
+      notes:
+        "Blackout har flyttet til ⇧B (Shift + B).\nEscape lukker bare biblioteket.",
+    });
+    render(<UpdateBanner />);
+
+    expect(await screen.findByText(/⇧B/)).toBeInTheDocument();
+    // …og da er den generiske setningen borte: notatet er poenget.
+    expect(
+      screen.queryByText(
+        "Last ned og start på nytt for å oppdatere SundayStage.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("faller tilbake til den generiske teksten når notatet mangler", async () => {
+    // Et gammelt manifest (alt før denne fiksen) har ingen notater å vise. Det
+    // skal se tomt ut, ikke ødelagt.
+    updaterMock.checkForUpdate.mockResolvedValueOnce({
+      ...OFFER,
+      notes: "   ",
+    });
+    render(<UpdateBanner />);
+
+    expect(
+      await screen.findByText(
+        "Last ned og start på nytt for å oppdatere SundayStage.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("stays out of the way when the ring has nothing promoted", async () => {
     updaterMock.checkForUpdate.mockResolvedValueOnce(null);
     const { container } = render(<UpdateBanner />);

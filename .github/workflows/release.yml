@@ -3,6 +3,8 @@
 #
 # Cut a release:   npm version <patch|minor|major>   (bumps package.json)
 #                  # bump src-tauri/tauri.conf.json "version" to match
+#                  # write docs/release-notes/vX.Y.Z.md — CI refuses the PR
+#                  # without it, and this workflow refuses the tag
 #                  git tag vX.Y.Z && git push origin vX.Y.Z
 #
 # The tag push triggers this workflow, which produces a DRAFT GitHub Release
@@ -90,6 +92,30 @@ jobs:
           fi
           echo "args=$args" >> "$GITHUB_OUTPUT"
 
+      # ── Releasenotatet, HENTET FRA REPOET ──────────────────────────────
+      # `releaseBody` blir `notes`-feltet i `latest.json`, og det feltet er
+      # teksten operatøren leser i oppdateringsdialogen. tauri-action skriver
+      # det ved BYGGETID, så en tekst noen skriver på GitHub etterpå når aldri
+      # manifestet — og dermed aldri brukeren. Da dette var en fast setning her
+      # i fila, fikk v0.6.0-beta.1, v0.7.0 og v0.8.0-beta.1 alle nøyaktig samme
+      # innholdsløse «See the assets below…» — inkludert den utgivelsen som
+      # flyttet blackout fra Escape til ⇧B.
+      #
+      # Notatet bor derfor i `docs/release-notes/<tagg>.md` og blir reviewet i
+      # samme PR som versjonsbumpen. Skriptet AVBRYTER jobben hvis fila mangler,
+      # er tom eller står med en plassholder: en stille tilbakefall-tekst er
+      # nøyaktig feilen vi fikser, bare vanskeligere å oppdage.
+      #
+      # Den egentlige vakten ligger i `check`-jobben i ci.yml, som stopper PR-en
+      # før noen har begynt å bygge. Dette steget er den andre låsen på samme
+      # dør — den som fortsatt holder når en tagg dyttes fra en gammel commit.
+      - name: Hent releasenotatet for taggen
+        id: notat
+        shell: bash
+        run: node scripts/release-notes.mjs --emit "$TAG" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ github.ref_name }}
+
       - name: Build, sign, and publish
         uses: tauri-apps/tauri-action@v1
         env:
@@ -119,7 +145,13 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "SundayStage ${{ github.ref_name }}"
-          releaseBody: "See the assets below to download and install. Auto-update is enabled for existing installs."
+          # Fra `docs/release-notes/<tagg>.md`, ikke fra denne fila. Se steget
+          # over for hvorfor. Vil du ha den lange versjonen med bilder og
+          # tabeller på selve utgivelsessiden, rediger utgivelsesteksten på
+          # GitHub etterpå — `latest.json` er da allerede lastet opp med
+          # notatet herfra, og promoteringsflyten sammenlikner manifestet, ikke
+          # utgivelsesteksten.
+          releaseBody: ${{ steps.notat.outputs.notes }}
           releaseDraft: true
           # A `-beta.` tag must NEVER become the GitHub "Latest" release: the
           # 0.4.0 fleet still polls `releases/latest/download/latest.json`, so a
