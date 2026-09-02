@@ -88,7 +88,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # crate — the same house rule as parking_lot/sha2/hex/semver below. It is a pure
 # pull parser, matching the read-only streaming walk in `import_propresenter`;
 # `roxmltree` would have added a brand-new crate (plus `xmlparser`) for no gain.
-quick-xml = "0.39"
+quick-xml = "0.42"
 
 # Checksum verification for the Bible corpus downloader (Spor C, C1/C2). A
 # downloaded corpus is verified against a pinned SHA-256 before it is parsed, so
