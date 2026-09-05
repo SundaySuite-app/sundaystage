@@ -942,7 +942,7 @@ packages:
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@sunday/contracts@https://codeload.github.com/richardfossland/sunday-platform/tar.gz/b6fab75d9eed17a2454dfdf86f30f550f2e72732#path:/packages/contracts':
-    resolution: {gitHosted: true, integrity: sha512-xCCjvBSDRzTMhoRl47+fpYAmunKIUheU1LCtWdMo9jwwMjTTytsKdG0YW5zVFibYirZYTOfyezJKKCdzgicTvQ==, tarball: https://codeload.github.com/richardfossland/sunday-platform/tar.gz/b6fab75d9eed17a2454dfdf86f30f550f2e72732}
+    resolution: {gitHosted: true, path: /packages/contracts, tarball: https://codeload.github.com/richardfossland/sunday-platform/tar.gz/b6fab75d9eed17a2454dfdf86f30f550f2e72732}
     version: 0.4.1
 
   '@supabase/auth-js@2.112.4':
