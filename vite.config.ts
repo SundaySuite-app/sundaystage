@@ -12,7 +12,9 @@ export default defineConfig(async () => ({
 
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      // Vite 8 laster configfiler som ESM, der `__dirname` ikke finnes.
+      // `import.meta.dirname` er ESM-ekvivalenten (Node >= 20.11; CI kjører 22).
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
 
@@ -21,8 +23,8 @@ export default defineConfig(async () => ({
   build: {
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, "index.html"),
-        output: path.resolve(__dirname, "output.html"),
+        main: path.resolve(import.meta.dirname, "index.html"),
+        output: path.resolve(import.meta.dirname, "output.html"),
       },
     },
   },
