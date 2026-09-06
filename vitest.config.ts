@@ -7,7 +7,9 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    // Vite 8 laster configfiler som ESM, der `__dirname` ikke finnes.
+    // `import.meta.dirname` er ESM-ekvivalenten (Node >= 20.11; CI kjører 22).
+    alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
   test: {
     environment: "jsdom",
