@@ -38,7 +38,9 @@ Sikkerhet først; deretter billige kvalitetsløft. Rekkefølge:
   selv). Levert 08-29 — se etapperapporten nederst. Jukselappen genereres nå
   fra `consoleKeys.ts`. Bygd på dagens tastetabell, ikke react-hotkeys-hook:
   fundament-byttet hører til D1.
-- **A5 window-state hovedvindu** (tauri-plugin MIT; KUN hovedvindu).
+- **A5 ✅ window-state hovedvindu** (tauri-plugin `Apache-2.0 OR MIT`; KUN
+  hovedvindu). Levert 09-06 — se etapperapporten nederst. Tillatelsesliste, ikke
+  sperreliste: utgangsvinduene er utenfor, og det er bevist tre steder.
 - **A6 ✅ crash-handler som signalkilde** (Embark MIT/Apache-2.0). Levert 08-30
   — se etapperapporten nederst. Ingen minidump skrives, på noen plattform: en
   minidump ER minne, og minnet er sangteksten.
@@ -46,7 +48,10 @@ Sikkerhet først; deretter billige kvalitetsløft. Rekkefølge:
   se etapperapporten nederst. Avledet av øktloggen, ikke av tastetrykkene:
   live-stien er uendret.
 - **A8 OpenLyrics-EKSPORT** (skriv selv; ingen crate finnes; innlåsingsfiks).
-- **A9 operatørside over /v1/admin/summary**.
+- **A9 ✅ operatørside over /v1/admin/summary**. Levert 09-06 i
+  `sunday-telemetry` (PR #5, `ff071de`) — `GET /v1/admin/dashboard`. Merget, men
+  **IKKE deployet**: Workeren serverer oppdateringsfeeden for hele suiten, så
+  deploy er et eget bevisst steg. Kommandoene står i PR-beskrivelsen.
 - **A10 web: BroadcastChannel leder-fane + exponential-backoff**.
 
 ## Spor B — Import-suite (byttevennlighet)
@@ -106,8 +111,11 @@ Lisens: ingen repo har LICENSE-fil; README «TBD AGPL-3.0» vs sunday-platform
 - [x] **A1** single-instance-vakt — levert 08-09 (PR #62)
 - [x] **A2 + A3** vernene rundt «klikk = live» — levert 08-29 (se rapport under)
 - [x] **A4** seksjonshopp-hurtigtaster — levert 08-29 (se rapport under)
+- [x] **A5** vindusminne for hovedvinduet — levert 09-06 (se rapport under)
 - [x] **A6** krasjhåndterer som signalkilde — levert 08-30 (se rapport under)
 - [x] **A7** sangbrukslogg + TONO/CCLI-eksport — levert 08-30 (se rapport under)
+- [x] **A9** operatørside over `/v1/admin/summary` — levert 09-06 i
+      `sunday-telemetry` PR #5 (merget, **ikke deployet**)
 - [x] **B1** delt RTF-dekoder — 08-10 (PR #64)
 - [x] **B2** EasyWorship-import — 08-10 (PR #66)
 - [x] **B3** FreeShow .show-import — 08-10 (PR #67)
@@ -117,8 +125,9 @@ Lisens: ingen repo har LICENSE-fil; README «TBD AGPL-3.0» vs sunday-platform
 - [ ] Alt annet — venter «kjør spor X etappe N»
 
 > ⚠️ Nummerering: eiers designrunde 08-29 omtalte «vernene»-etappen som
-> «A4+A5». Innholdet er **A2 + A3** i lista over. Doklistas **A4** er nå
-> levert; **A5** (window-state) er fortsatt uåpnet.
+> «A4+A5». Innholdet er **A2 + A3** i lista over. Doklistas **A4** og **A5** er
+> begge levert nå — A5 er window-state-etappen, ikke noe av det designrunden
+> kalte A5.
 
 ---
 
@@ -575,3 +584,152 @@ dekker; (3) slå «Fang harde krasj» av, gjenta, og se at ingenting noteres men
 OS-rapporten fortsatt kommer; (4) med samtykke på: se at signalet dukker opp i
 «Vis hva som sendes» med `app+0x…`, og at det ikke ligner noe som kunne vært
 en sangtittel.
+
+---
+
+## Etapperapport — A5, «vindusminne for hovedvinduet», 2026-09-06
+
+SundayStage glemte hvor vinduet sto mellom gudstjenestene. Hver søndag dro
+operatøren det tilbake på skjermen hun kjører fra, og endret størrelsen, før hun
+gjorde noe som helst annet. `tauri-plugin-window-state` (tauri-apps,
+`Apache-2.0 OR MIT`, verifisert i kassens egne `LICENSE_MIT` og
+`LICENSE_APACHE-2.0`, kreditert i `THIRD-PARTY.md`) er standardsvaret. Etappen
+handler ikke om å ta det i bruk — det er fem linjer — men om hvor smalt.
+
+### Grensa: hovedvinduet, og ingenting annet
+
+Et gjenopprettet, en uke gammelt oppsett for et UTGANGSVINDU er en søndagsfeil,
+ikke en bekvemmelighet. Riggen i en kirke endrer seg fra uke til uke — en
+projektor flyttes, en ekstra skjerm lånes til en begravelse, en maskin dokkes
+annerledes — og hele poenget med `services::display` er at appen bestemmer hvor
+en utgang havner ut fra skjermene den ser **nå**. Vindusminnet ville vært en
+annen mening om det, dannet forrige søndag, og den ville vunnet: pluginen
+gjenoppretter i `on_window_ready`, altså før `output::window::open_outputs` får
+fullskjermet noe som helst.
+
+**Derfor en tillatelsesliste, ikke en sperreliste.** `is_remembered` sier `true`
+for nøyaktig én etikett. Forskjellen er hele designet: en sperreliste
+(`with_denylist(&["output-main-0", …])`) må utvides hver gang en rolle eller en
+skjermindeks dukker opp, og prisen for å glemme er at et projektorvindu stille
+begynner å bli husket. Med et filter er et vindu ingen har tenkt på utelatt av
+seg selv, og eneste vei inn er en redigering av `window_memory.rs` som noen har
+lest.
+
+### Beviset, i tre deler — fordi «vi sendte inn et filter» er et halvt svar
+
+Lest ut av pluginens egen kilde (v2.4.1), ikke ut av dokumentasjonen:
+
+1. **`on_window_ready`.** Filteret sjekkes FØRST og returnerer tidlig. Et vindu
+   som faller ut får derfor ingen `restore_state`, ingen cache-oppføring, og —
+   den delen som er verdt å vite — **ingen `on_window_event`-lyttere i det hele
+   tatt**. Flyttingene og størrelsesendringene dets observeres ikke.
+2. **`AppHandleExt::save_window_state`**, som kjører på `RunEvent::Exit`, går
+   gjennom CACHEN og slår hver etikett opp blant de åpne vinduene. En etikett som
+   aldri kom inn i cachen kan ikke skrives til disk. Utelukkelsen holder altså på
+   lagre-sida av nøyaktig samme grunn som på gjenopprett-sida, uten en andre
+   sjekk noen må huske å vedlikeholde.
+3. **`plugin:window-state|restore_state`** — en IPC-kommando som tar en
+   **vilkårlig** etikett. Denne er **ikke** dekket av filteret, som bare kjører i
+   `on_window_ready`; og grenen der det ikke finnes lagret tilstand **setter inn**
+   etiketten i cachen, som neste avslutning så skriver til disk. Det er en ekte
+   vei fra én linje JavaScript til et husket projektorvindu, og filteret gjør
+   ingenting med den.
+
+Punkt 3 er lukket i `capabilities/default.json`, som ikke gir pluginen noen
+tillatelse og i tillegg **eksplisitt nekter alle tre kommandoene**.
+`tauri-build` validerer tillatelsesnavn — verifisert ved å skrive ett av dem feil
+med vilje og se byggingen stoppe med «Permission … not found» — så en skrivefeil
+der feiler byggingen framfor å stille gi ingenting. Og kapabilitetens
+`windows`-liste er `["main", "output-*"]`, så nektelsen når nøyaktig de vinduene
+det gjelder.
+
+Tre tester, én per punkt. Den viktigste er skrevet mot
+`output::window::output_label` — funksjonen som bygger de **ekte** etikettene —
+for hver drevet rolle × 8 skjermindekser, ikke mot en håndkopiert liste. En
+kopiert liste ville fortsatt bestått den dagen etikettformen endret seg, som er
+den ene dagen den betyr noe.
+
+### Tre av seks flagg er bevisst utelatt
+
+`SIZE | POSITION | MAXIMIZED`. Pluginens standard er `all()`, som òg bærer:
+
+- **`VISIBLE`** — et vindu lagret skjult blir gjenopprettet skjult, og
+  `restore_state` kaller bare `show()` når den lagrede tilstanden sier synlig.
+  SundayStage som starter til ingenting, fem minutter før en gudstjeneste, med
+  prosessen kjørende, er den verste feilen på lista.
+- **`FULLSCREEN`** — et fullskjerms hovedvindu adopterer skjermen det står på.
+  Gjenopprett det på en rigg der skjermene har flyttet seg, og det kan komme opp
+  over menighetens skjerm — den ene flata denne appen aldri skal ta ved et uhell.
+- **`DECORATIONS`** — operatøren endrer dem aldri, så det er ingenting å huske;
+  å gjenopprette dem er bare en måte å ende opp med et hovedvindu uten tittellinje
+  å dra i.
+
+### Et vindu lagret på en skjerm som ikke er der lenger
+
+Pluginen har ÉN garanti her, og den er verdt å si presist fordi den er smalere
+enn den høres ut: **posisjonen** gjenopprettes bare hvis en skjerm som finnes
+**nå** overlapper det lagrede rektangelet; ellers får OS-et plassere vinduet.
+Det dekker det vanlige tilfellet helt riktig — lagret på `x = 1920` på en andre
+skjerm, gjenopprettet med skjermen frakoblet, ingen skjerm overlapper, posisjonen
+droppes.
+
+Den dekker ikke **størrelsen**, som gjenopprettes ubetinget. Et vindu lagret som
+3000×2000 på en lånt 4K-skjerm og gjenopprettet på en 1440×900-maskin får den
+størrelsen på en OS-valgt posisjon, og et vindu større enn skjermen det står på
+er «utenfor synlig område» etter enhver definisjon en operatør bryr seg om.
+
+`on_screen_guard` kjører derfor rett etter gjenopprettingen og lukker begge
+halvdeler: krymper et vindu til å passe skjermen det havnet på, og flytter et
+vindu som ikke overlapper noen skjerm i det hele tatt tilbake til primærskjermen.
+Regelen er `correct`, en ren funksjon over rektangler, som er halvdelen som lar
+seg teste uten en vindussesjon — og den er testet hardt, for den levende
+halvdelen er ett kall hver til `set_size` og `set_position`.
+
+To valg i den funksjonen er verdt å nevne, fordi de begge er «ikke gjør noe»:
+
+- **Et vindu som fortsatt vises, om enn med en flis, røres ikke.** Operatøren kan
+  ha parkert det der med vilje, og et vindu som vises er et vindu hun kan dra.
+- **Null skjermer rapportert gir ingen mening i det hele tatt.** Det skjer på en
+  maskin med sovende skjerm og i et hodeløst CI-kjør, og å flytte et vindu basert
+  på et tomt svar er verre enn å la det stå.
+
+Et vindu som er maksimert eller i fullskjerm hoppes over helt: `set_size` på et
+maksimert vindu av-maksimerer det, og en gjenopprettet maksimert tilstand er
+allerede per definisjon skjermens størrelse.
+
+**Rekkefølgen på de to pluginene er bærende.** `PluginStore::window_created` går
+gjennom en `Vec` i registreringsrekkefølge, så vakten må registreres **rett
+etter** minnet. Motsatt rekkefølge kompilerer, starter og ser helt lik ut helt
+til noen kobler fra en skjerm — så den er pinnet som tekst i `lib.rs`, på samme
+måte som A1 sin. Snubletråden er mutasjonstestet: byttet rekkefølge → testen
+feiler.
+
+### Live-stien er urørt
+
+Ingenting i modulen kjører under en gudstjeneste. Filteret konsulteres én gang
+per vindu ved opprettelse; vakten kjører én gang, på operatørvinduet, ved
+oppstart. `live_dispatch` har ikke fått én linje, `output/` importeres ikke fra
+modulen, og utgangs-barneprosessen (`src/bin/output.rs`) bygger sin egen
+Tauri-app som aldri registrerer noen av de to pluginene — så den krasjisolerte
+stien er utenfor rekkevidde på et enda mer grunnleggende nivå enn filteret.
+
+**Gates:** cargo 920 → 938 (+18: 17 i `window_memory`, 1 snubletråd i `lib.rs`),
+vitest 618 (uendret — ingen frontend-endring), Playwright 10 (uendret),
+clippy/fmt/prettier/eslint/tsc rene. Én ny avhengighet, den etappen handler om.
+Ingen i18n-strenger: etappen har ingen UI-flate.
+
+👤 **Riggtest:** (1) flytt og endre størrelse på hovedvinduet, avslutt, start på
+nytt — det skal komme tilbake der du forlot det, på både Mac og Windows;
+(2) legg hovedvinduet på en ekstern skjerm, avslutt, koble fra skjermen, start —
+vinduet skal være synlig på maskinens egen skjerm, ikke borte;
+(3) samme øvelse med et vindu som er **større** enn maskinskjermen (dra det stort
+på 4K-skjermen først) — det skal krympes, ikke stikke utenfor;
+(4) åpne utgangsvinduene på en flerskjermsrigg, avslutt appen, endre
+skjermoppsettet, start på nytt og åpne utgangene igjen — de skal plasseres av
+skjermlogikken, ikke havne der de sto sist.
+
+⚠️ **Ikke testet på ekte flerskjerm i CI.** `correct` er dekket av 11 rene
+tester, men koblingen fra en levende `Window` til den funksjonen — `outer_position`,
+`inner_size`, `available_monitors`, `primary_monitor` — trenger en ekte
+vindussesjon og har ingen automatisk dekning, akkurat som `output::window`. Det er
+punkt 2 og 3 i riggtesten over.

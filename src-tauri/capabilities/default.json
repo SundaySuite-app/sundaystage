@@ -1,7 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the operator window and the Phase 5.2 output windows (output-*). No `updater:*` here on purpose: the update check moved into Rust (`commands::updater` via `UpdaterBuilder::endpoints`), so no updater IPC is ever called from JS — the Rust plugin registration in lib.rs is what supplies the pubkey and stays. `process:allow-restart` rather than `process:default` because `relaunch()` is used after an install and `exit()` never is. `opener:default` is live: the consent question opens PRIVACY.md with `openUrl`.",
+  "description": "Capability for the operator window and the Phase 5.2 output windows (output-*). No `updater:*` here on purpose: the update check moved into Rust (`commands::updater` via `UpdaterBuilder::endpoints`), so no updater IPC is ever called from JS — the Rust plugin registration in lib.rs is what supplies the pubkey and stays. `process:allow-restart` rather than `process:default` because `relaunch()` is used after an install and `exit()` never is. `opener:default` is live: the consent question opens PRIVACY.md with `openUrl`. The three `window-state:deny-*` entries are A5's IPC boundary: window memory is filtered in Rust to the `main` window, but `plugin:window-state|restore_state` takes an ARBITRARY label, bypasses that filter (it only runs in `on_window_ready`) and inserts the label into the cache the next exit writes to disk — so a single line of JS could otherwise make a projector window remember last Sunday's position. Nothing in the frontend calls this plugin; denying is what makes that a property rather than a habit. See `window_memory.rs`.",
   "windows": ["main", "output-*"],
-  "permissions": ["core:default", "opener:default", "process:allow-restart"]
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "process:allow-restart",
+    "window-state:deny-restore-state",
+    "window-state:deny-save-window-state",
+    "window-state:deny-filename"
+  ]
 }

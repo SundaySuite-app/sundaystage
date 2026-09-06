@@ -36,6 +36,12 @@ tauri-plugin-opener = "2"
 # would fight over the projector mid-service. The crate is `#![cfg(not(mobile))]`,
 # so every reference to it is `#[cfg(desktop)]`-gated. v2 matches the Tauri 2 line.
 tauri-plugin-single-instance = "2"
+# Window memory for the OPERATOR window, and for nothing else (A5). See
+# `window_memory.rs` for why the output windows are excluded and how that is
+# proven. Part of the tauri-apps plugins workspace; `MIT OR Apache-2.0`,
+# verified in the crate's own LICENSE_MIT / LICENSE_APACHE-2.0 and Cargo.toml.
+# Credited in THIRD-PARTY.md.
+tauri-plugin-window-state = "2"
 # Shared Sunday Account (SSO): read the cross-app session this app shares with
 # the rest of the suite (login happens in SundayRec). Distributed by git tag
 # (see sunday-platform README) so each app builds standalone in CI — a path dep
