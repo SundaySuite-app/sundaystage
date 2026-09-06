@@ -96,4 +96,34 @@ Windows half, for `GetModuleHandleW` / `GetModuleInformation` /
 `GetCurrentThreadId`. It is already in the tree many times over transitively, so
 declaring it adds no new compiled crate.
 
+## Window memory — `tauri-plugin-window-state`
+
+- **Used by:** A5, `src-tauri/src/window_memory.rs` — remembering where the
+  OPERATOR window was, and how big, between services.
+- **Crate:** `tauri-plugin-window-state` 2.4.1, from the tauri-apps
+  `plugins-workspace` repository.
+- **License:** `"Apache-2.0 OR MIT"` declared in the crate's own `Cargo.toml`,
+  with **both** `LICENSE_MIT` ("MIT License — Copyright (c) 2017 - Present Tauri
+  Apps Contributors") and `LICENSE_APACHE-2.0` shipped in the published crate,
+  plus a `LICENSE.spdx` declaring the same pair. Permissive; adoption allowed.
+- **What is adopted:** the whole plugin, with two deliberate narrowings.
+  - **An allowlist, not a denylist.** `with_filter` admits exactly one label,
+    `main`. The output windows (`output-<role>-<index>`, Phase 5.2) are outside
+    it, and so is any window anybody adds later without editing that predicate.
+    A restored, week-old position for a projector window is a Sunday failure:
+    the rig changes between services, and `services::display` is what decides
+    where an output goes, from the monitors it can see right now.
+  - **Three of the six state flags are left out** — `VISIBLE`, `FULLSCREEN` and
+    `DECORATIONS`. See the module header for what each of them would do on a
+    Sunday morning.
+- **What the plugin does NOT guarantee, and what we added:** it restores a saved
+  POSITION only if a currently available monitor intersects the saved rectangle,
+  which handles an unplugged second screen correctly. It restores the SIZE
+  unconditionally, which does not. `window_memory::correct` closes that: a
+  window bigger than the monitor it lands on is shrunk, and a window that
+  overlaps no monitor at all is brought back to the primary.
+- **The plugin's IPC commands are denied**, all three, in
+  `src-tauri/capabilities/default.json`. `plugin:window-state|restore_state`
+  takes an arbitrary window label and is not covered by the filter.
+
 All other dependencies are declared in `src-tauri/Cargo.toml`.

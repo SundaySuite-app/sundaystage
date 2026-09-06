@@ -15,6 +15,7 @@ pub mod error;
 pub mod output;
 pub mod services;
 pub mod telemetry;
+pub mod window_memory;
 
 use parking_lot::Mutex;
 use std::path::PathBuf;
@@ -133,6 +134,23 @@ pub fn run() {
     }
 
     builder = builder.plugin(tauri_plugin_opener::init());
+
+    // A5 — window memory for the OPERATOR window only, followed immediately by
+    // the guard that pulls it back on screen if the rig changed since last
+    // Sunday. THE ORDER OF THESE TWO IS LOAD-BEARING: plugin `on_window_ready`
+    // hooks run in registration order (`PluginStore::window_created` iterates a
+    // `Vec`), so the guard must come after the restore it exists to correct.
+    // `window_memory::plugin` is filtered to `main`, so no output window is
+    // restored, tracked or saved — see the module header for why a stale
+    // projector position is a Sunday failure, and for the third path (the
+    // plugin's own IPC commands) that `capabilities/default.json` closes.
+    // Desktop-only: there are no OS windows to remember on mobile.
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .plugin(crate::window_memory::plugin())
+            .plugin(crate::window_memory::on_screen_guard());
+    }
 
     // Auto-update + relaunch (Phase 13.2) are desktop-only.
     #[cfg(desktop)]
@@ -461,6 +479,37 @@ mod tests {
             "single-instance must be the FIRST plugin registered (found `{}` \
              first) — see the A1 note in run()",
             &after[..after.len().min(56)]
+        );
+    }
+
+    /// A5: the on-screen guard must be registered DIRECTLY AFTER the window
+    /// memory plugin.
+    ///
+    /// `PluginStore::window_created` iterates a `Vec` in registration order, so
+    /// the guard's `on_window_ready` runs after the plugin's — which is the only
+    /// reason it can see, and correct, a window restored onto a monitor that is
+    /// no longer there. Registered the other way round it would measure the
+    /// window BEFORE the restore, find nothing wrong, and leave a 3000-pixel
+    /// window on a 1440-pixel laptop. Both orders compile, both start, and the
+    /// difference is invisible until somebody unplugs a screen — so the order is
+    /// pinned as text, the same way A1's is.
+    #[test]
+    fn the_on_screen_guard_is_registered_directly_after_the_window_memory() {
+        let src = include_str!("lib.rs");
+        let memory = src
+            .find(".plugin(crate::window_memory::plugin()")
+            .expect("run() registers the window memory plugin");
+        let after = &src[memory..];
+        let next = after
+            .get(1..)
+            .and_then(|s| s.find(".plugin("))
+            .map(|i| &after[i + 1..])
+            .unwrap_or("");
+        assert!(
+            next.starts_with(".plugin(crate::window_memory::on_screen_guard()"),
+            "the on-screen guard must be the very next plugin registered \
+             (found `{}`) — see the A5 note in run()",
+            &next[..next.len().min(64)]
         );
     }
 
