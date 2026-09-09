@@ -131,7 +131,7 @@ libc = "0.2"
 # because the Mach exception message carries no register state. Pulled in by
 # crash-handler on this platform anyway.
 [target.'cfg(target_os = "macos")'.dependencies]
-mach2 = "0.6"
+mach2 = "0.7"
 
 # Windows needs the main module's address range (`K32GetModuleInformation`) and
 # the current thread id. `windows-sys` 0.61 is already in the tree many times
