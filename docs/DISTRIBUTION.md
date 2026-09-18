@@ -58,8 +58,82 @@ Tag `vX.Y.Z-beta.N`. The workflow then:
 - builds **NSIS only** on Windows — an MSI `ProductVersion` is a numeric triple
   with nowhere to put `-beta.1`, and the bundler hard-fails on it.
 
-Promote the tag to the **beta** ring only; promote to **stable** as a separate,
-deliberate step.
+Promote the tag to the **beta** ring only:
+
+```sh
+curl -sS -X POST https://telemetry.sundaysuite.app/v1/admin/promote \
+  -H "x-admin-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"app":"sundaystage","channel":"beta","tag":"vX.Y.Z-beta.N"}'
+```
+
+Promoting a `-beta.N` tag to `stable` is not something the Worker allows —
+`/v1/admin/promote` refuses it with `channel_tag_mismatch`
+(`allowedChannels: ["beta"]`). Promoting to **stable** is a separate,
+deliberate step, done from a plain tag — see below.
+
+### Stable releases (both rings since 2026-09)
+
+Tag a plain `vX.Y.Z` — no different at the tag/build level than before. What
+changed 2026-09 (`sunday-telemetry` PR #11, live in production): a plain tag
+is now valid on **either** ring, and an official release is promoted to
+**both** `stable` and `beta`, never `stable` alone. Skipping the second
+promote leaves beta testers on an older build than the fleet — exactly the
+gap this closed: Stage's own beta ring sat on `v0.8.0-beta.1` while `stable`
+had already moved to `v0.8.0`, until the owner promoted `v0.8.0` to `beta` by
+hand on 2026-09-18. (A `-beta.N` tag is unaffected by any of this — it still
+goes to `beta` only, per above.)
+
+Promote the same tag to both channels:
+
+```sh
+curl -sS -X POST https://telemetry.sundaysuite.app/v1/admin/promote \
+  -H "x-admin-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"app":"sundaystage","channel":"stable","tag":"vX.Y.Z"}'
+
+curl -sS -X POST https://telemetry.sundaysuite.app/v1/admin/promote \
+  -H "x-admin-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"app":"sundaystage","channel":"beta","tag":"vX.Y.Z"}'
+```
+
+**Read back both rings** — `GET /v1/admin/channels` covers every app now;
+Stage's rows are under `.apps[]`, not the top-level `.channels` (that key is
+frozen to SundayRec for its existing callers). Confirm `stable` **and**
+`beta` both report `vX.Y.Z` and neither is `paused`:
+
+```sh
+curl -sS https://telemetry.sundaysuite.app/v1/admin/channels \
+  -H "x-admin-key: $ADMIN_KEY" | jq '.apps[] | select(.app=="sundaystage")'
+```
+
+**Byte-verify both feeds** against the tag's own manifest — the readback
+above only proves the Worker recorded the right _tag_ on each channel, not
+that both are serving the right _bytes_:
+
+```sh
+curl -sS https://updates.sundaysuite.app/v1/update/sundaystage/stable -o /tmp/stable.json
+curl -sS https://updates.sundaysuite.app/v1/update/sundaystage/beta   -o /tmp/beta.json
+curl -sS https://github.com/SundaySuite-app/sundaystage/releases/download/vX.Y.Z/latest.json -o /tmp/tagged.json
+diff /tmp/stable.json /tmp/tagged.json && diff /tmp/beta.json /tmp/tagged.json
+```
+
+They must agree exactly — version, `pub_date`, and every platform's `url` +
+signature — since `/v1/update/:app/:channel` serves the promoted manifest
+verbatim, byte for byte, never a re-rendering of it (see the 200 case above).
+
+If a bad official release reaches both rings, both need pausing and both need
+the fix promoted back. The kill switch is the same call for either ring:
+
+```sh
+curl -sS -X POST https://telemetry.sundaysuite.app/v1/admin/channel \
+  -H "x-admin-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"app":"sundaystage","channel":"stable","paused":true}'
+```
+
+Stage has no separate rollback runbook and no `promote-release.mjs`-style
+script — this section is the whole procedure. There is no true rollback
+either way: pausing stops new installs from being offered the bad manifest,
+and the only way to move an install that already updated is a newer, good tag
+promoted the same way as above.
 
 ## Updater signing key
 
