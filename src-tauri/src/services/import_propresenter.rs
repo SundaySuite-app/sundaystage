@@ -44,6 +44,7 @@ use std::collections::HashMap;
 
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
+use quick_xml::XmlVersion;
 
 use crate::services::ai::lyric_format::FormattedSong;
 use crate::services::rtf;
@@ -66,13 +67,13 @@ pub fn extract_metadata(content: &str) -> ImportMetadata {
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
-                if e.name().as_ref() == b"RVPresentationDocument" {
+                if e.name().as_ref() == "RVPresentationDocument" {
                     return ImportMetadata {
-                        ccli_song_id: ccli_song_id(attr(&e, b"CCLISongNumber").as_deref()),
+                        ccli_song_id: ccli_song_id(attr(&e, "CCLISongNumber").as_deref()),
                         copyright_notice: compose_copyright(
-                            attr(&e, b"CCLIAuthor").as_deref(),
-                            attr(&e, b"CCLICopyrightYear").as_deref(),
-                            attr(&e, b"CCLIPublisher").as_deref(),
+                            attr(&e, "CCLIAuthor").as_deref(),
+                            attr(&e, "CCLICopyrightYear").as_deref(),
+                            attr(&e, "CCLIPublisher").as_deref(),
                         ),
                     };
                 }
@@ -130,11 +131,12 @@ enum Scope {
 }
 
 /// Read an attribute's unescaped value, or `None` if absent/unreadable.
-fn attr(e: &BytesStart, key: &[u8]) -> Option<String> {
-    e.try_get_attribute(key)
-        .ok()
-        .flatten()
-        .and_then(|a| a.unescape_value().ok().map(|v| v.into_owned()))
+fn attr(e: &BytesStart, key: &str) -> Option<String> {
+    e.try_get_attribute(key).ok().flatten().and_then(|a| {
+        a.normalized_value(XmlVersion::Implicit1_0)
+            .ok()
+            .map(|v| v.into_owned())
+    })
 }
 
 /// Walk the document once, building the intermediate model. On any XML error the
@@ -161,39 +163,39 @@ fn parse_document(content: &str) -> Pro6Document {
                 let top = stack.last().copied().unwrap_or(Scope::Other);
                 let ename = e.name();
                 let scope = match ename.as_ref() {
-                    b"RVPresentationDocument" => {
-                        title = attr(&e, b"CCLISongTitle").filter(|s| !s.trim().is_empty());
-                        selected = attr(&e, b"selectedArrangementID").unwrap_or_default();
+                    "RVPresentationDocument" => {
+                        title = attr(&e, "CCLISongTitle").filter(|s| !s.trim().is_empty());
+                        selected = attr(&e, "selectedArrangementID").unwrap_or_default();
                         Scope::Other
                     }
-                    b"array" => {
-                        if attr(&e, b"rvXMLIvarName").as_deref() == Some("groupIDs") {
+                    "array" => {
+                        if attr(&e, "rvXMLIvarName").as_deref() == Some("groupIDs") {
                             Scope::GroupIdsArray
                         } else {
                             Scope::Other
                         }
                     }
-                    b"RVSlideGrouping" => {
+                    "RVSlideGrouping" => {
                         cur_group = Some(Pro6Group {
-                            name: attr(&e, b"name").unwrap_or_default(),
-                            uuid: attr(&e, b"uuid").unwrap_or_default(),
+                            name: attr(&e, "name").unwrap_or_default(),
+                            uuid: attr(&e, "uuid").unwrap_or_default(),
                             slides: Vec::new(),
                         });
                         Scope::Grouping
                     }
-                    b"RVDisplaySlide" => {
+                    "RVDisplaySlide" => {
                         cur_slide = Some(Vec::new());
                         Scope::Slide
                     }
-                    b"RVSongArrangement" => {
+                    "RVSongArrangement" => {
                         cur_arr = Some(Pro6Arrangement {
-                            uuid: attr(&e, b"uuid").unwrap_or_default(),
+                            uuid: attr(&e, "uuid").unwrap_or_default(),
                             group_ids: Vec::new(),
                         });
                         Scope::Arrangement
                     }
-                    b"NSString" => {
-                        if attr(&e, b"rvXMLIvarName").as_deref() == Some("RTFData") {
+                    "NSString" => {
+                        if attr(&e, "rvXMLIvarName").as_deref() == Some("RTFData") {
                             text_buf.clear();
                             Scope::RtfData
                         } else if top == Scope::GroupIdsArray {
@@ -209,9 +211,7 @@ fn parse_document(content: &str) -> Pro6Document {
             }
             Ok(Event::Text(t)) => match stack.last().copied().unwrap_or(Scope::Other) {
                 Scope::RtfData | Scope::GroupId => {
-                    if let Ok(txt) = t.decode() {
-                        text_buf.push_str(&txt);
-                    }
+                    text_buf.push_str(&t);
                 }
                 _ => {}
             },
