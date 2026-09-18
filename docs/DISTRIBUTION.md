@@ -58,6 +58,11 @@ Tag `vX.Y.Z-beta.N`. The workflow then:
 - builds **NSIS only** on Windows — an MSI `ProductVersion` is a numeric triple
   with nowhere to put `-beta.1`, and the bundler hard-fails on it.
 
+`$ADMIN_KEY` below is the shared update Worker's admin key. One Worker serves every app, and on
+the owner's Mac the key lives in the Keychain item `SundayRec telemetry admin key` (the name is
+historical): `ADMIN_KEY="$(security find-generic-password -s 'SundayRec telemetry admin key' -w)"`.
+Never paste it into a file, a commit, or a chat.
+
 Promote the tag to the **beta** ring only:
 
 ```sh
