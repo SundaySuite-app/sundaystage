@@ -102,3 +102,29 @@ jobs:
       # Bundling/signing/notarization is wired up in Phase 13.2 (distribution).
       - name: Build Tauri app
         run: pnpm exec tauri build --no-bundle
+
+  # RustSec advisories for the app's Rust dependencies. Stage had no such
+  # check until 2026-09, which is how rustls 0.23.40 (RUSTSEC-2026-0285) and
+  # quick-xml 0.39 (RUSTSEC-2026-0194/-0195, reachable through the .pro6
+  # import) went unnoticed. Modelled on SundayRec's "Dependency audit" job.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@1.98.0
+
+      - name: Install cargo-audit (prebuilt binary)
+        uses: taiki-e/install-action@v2
+        with:
+          # Pinned, as in SundayRec: a new cargo-audit release must not change
+          # this job's behaviour without a deliberate bump.
+          tool: cargo-audit@0.22.2
+
+      # Runs where Cargo.lock lives, so src-tauri/.cargo/audit.toml — the
+      # unfixable-only ignore list, each entry with a removal condition — is
+      # the config cargo-audit reads.
+      - name: cargo audit
+        working-directory: src-tauri
+        run: cargo audit

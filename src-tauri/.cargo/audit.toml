@@ -1,0 +1,18 @@
+# cargo-audit configuration — read by the "Dependency audit" CI job (ci.yml),
+# which runs `cargo audit` in this directory (the one holding Cargo.lock).
+#
+# Only UNFIXABLE advisories may be ignored here, each with a justification and
+# a condition for removal. Re-check every entry when bumping dependencies.
+# Same policy as SundayRec's .cargo/audit.toml.
+
+[advisories]
+ignore = [
+  # rsa — Marvin Attack, timing side channel (RUSTSEC-2023-0071). No fixed rsa
+  # release exists. It is in Cargo.lock only because sqlx 0.8's
+  # sqlx-macros-core lists the optional MySQL driver (sqlx-mysql -> rsa); it
+  # is never compiled into Stage, which uses SQLite only:
+  # `cargo tree -i rsa --target all` is empty.
+  # REMOVE when Stage moves to sqlx 0.9, which drops the transitive rsa —
+  # SundayRec removed the same ignore that way.
+  "RUSTSEC-2023-0071",
+]
