@@ -15,6 +15,7 @@ pub mod error;
 pub mod output;
 pub mod services;
 pub mod telemetry;
+pub mod tls;
 pub mod window_memory;
 
 use parking_lot::Mutex;

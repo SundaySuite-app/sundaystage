@@ -62,6 +62,9 @@ impl HttpTelemetrySender {
     /// constructed — a TLS backend that will not initialise is a build with no
     /// sender, not a build that panics on a Sunday.
     pub fn new(endpoint: TelemetryEndpoint) -> Option<Self> {
+        // reqwest 0.13 PANICS in `build()` without a crypto provider — the
+        // `.ok()?` below cannot catch that, so install one first (crate::tls).
+        crate::tls::ensure_rustls_provider();
         let client = reqwest::Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .build()

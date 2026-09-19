@@ -53,7 +53,10 @@ impl<'a> TranslateRepo<'a> {
             "SELECT source_text, translated_text FROM translation_cache \
              WHERE target_language = ? AND source_text IN ({placeholders})"
         );
-        let mut q = sqlx::query_as::<_, (String, String)>(&sql).bind(target);
+        // Injection-safe: the only interpolation is `?,?,…` built above; the
+        // target and every source are bound. sqlx 0.9 requires that audit to be
+        // stamped explicitly.
+        let mut q = sqlx::query_as::<_, (String, String)>(sqlx::AssertSqlSafe(sql)).bind(target);
         for s in &seen {
             q = q.bind(*s);
         }

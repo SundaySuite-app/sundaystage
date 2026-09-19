@@ -72,7 +72,7 @@ serde_json = "1"
 parking_lot = "0.12"
 
 # Data layer
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono", "uuid"] }
 tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v7", "serde"] }
@@ -86,7 +86,16 @@ ts-rs = { version = "12", features = ["serde-compat", "chrono-impl", "uuid-impl"
 
 # HTTP client — the `ai` feature (Anthropic) and library publish (desktop →
 # cloud) both use it. Core (non-optional) since publish ships in the default build.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# reqwest 0.13 med `rustls-no-provider`, IKKE `rustls`. 0.13 sin `rustls`-feature
+# drar inn aws-lc (en C-avhengighet) som ANDRE kryptoleverandør ved siden av
+# `ring`, som tauri-plugin-updater allerede har kompilert inn. Med
+# `rustls-no-provider` må leverandøren installeres i prosessen før første
+# klient, ellers får reqwest panikk i `build()` — `crate::tls` gjør det, med
+# samme grep som updateren selv bruker. Røttene kommer fra OS-et
+# (rustls-platform-verifier), som i updateren.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider"] }
+# Kun for å installere ring som prosessens rustls-leverandør (se reqwest over).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 
 # ProPresenter 6 `.pro6` song import (Spor B4) — the file is XML. `quick-xml`
 # (MIT) is already compiled into the tree transitively: `plist` (pulled by the

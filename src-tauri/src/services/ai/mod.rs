@@ -180,6 +180,7 @@ impl AnthropicProvider {
 impl AiProvider for AnthropicProvider {
     async fn complete_structured(&self, req: StructuredRequest) -> AppResult<serde_json::Value> {
         let body = build_messages_body(&req);
+        crate::tls::ensure_rustls_provider();
         let client = reqwest::Client::new();
         let resp = client
             .post("https://api.anthropic.com/v1/messages")

@@ -268,10 +268,11 @@ impl<'a> DeckRepo<'a> {
         value: Option<&str>,
     ) -> AppResult<Slide> {
         // `column` is a fixed in-code identifier (never user input), so the
-        // format! is injection-safe.
+        // format! is injection-safe. sqlx 0.9 makes that audit explicit:
+        // `AssertSqlSafe` is the "reviewed" stamp it requires for dynamic SQL.
         let now = now_ms();
         let sql = format!("UPDATE slide SET {column} = ?1, updated_at = ?2 WHERE id = ?3");
-        let res = sqlx::query(&sql)
+        let res = sqlx::query(sqlx::AssertSqlSafe(sql))
             .bind(value)
             .bind(now)
             .bind(id)
