@@ -285,7 +285,9 @@ impl<'a> SongRepo<'a> {
             "SELECT * FROM song_section WHERE song_id IN ({placeholders}) \
              ORDER BY song_id, display_order"
         );
-        let mut q = sqlx::query_as::<_, SongSection>(&sql);
+        // Injection-safe: the only interpolation is `?,?,…` built above; every
+        // id is bound. sqlx 0.9 requires that audit to be stamped explicitly.
+        let mut q = sqlx::query_as::<_, SongSection>(sqlx::AssertSqlSafe(sql));
         for id in &seen {
             q = q.bind(*id);
         }

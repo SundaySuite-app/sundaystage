@@ -145,6 +145,7 @@ impl SupabaseConfig {
 }
 
 fn http_client() -> AppResult<reqwest::Client> {
+    crate::tls::ensure_rustls_provider();
     reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
