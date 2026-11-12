@@ -11,29 +11,29 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use ts_rs::TS;
 
+use crate::AppState;
 use crate::db::models::{Service, SongArrangement};
 use crate::db::repositories::SongRepo;
 use crate::error::{AppError, AppResult};
 use crate::services::ai::lyric_format::{
-    apply_formatted_song, heuristic_format, parse_format_response, system_prompt, tool_schema,
-    FormattedSong, TOOL_NAME,
+    FormattedSong, TOOL_NAME, apply_formatted_song, heuristic_format, parse_format_response,
+    system_prompt, tool_schema,
 };
 use crate::services::ai::plan::{
-    apply_plan, parse_plan_response, system_prompt as plan_system_prompt,
-    tool_schema as plan_tool_schema, LibrarySong, ServicePlan, PLAN_TOOL_NAME,
+    LibrarySong, PLAN_TOOL_NAME, ServicePlan, apply_plan, parse_plan_response,
+    system_prompt as plan_system_prompt, tool_schema as plan_tool_schema,
 };
 use crate::services::ai::translate::{
-    is_supported_target, parse_translation, system_prompt as tr_system_prompt,
-    tool_schema as tr_tool_schema, user_content as tr_user_content, TranslationResult,
-    TRANSLATE_TOOL_NAME,
+    TRANSLATE_TOOL_NAME, TranslationResult, is_supported_target, parse_translation,
+    system_prompt as tr_system_prompt, tool_schema as tr_tool_schema,
+    user_content as tr_user_content,
 };
 use crate::services::ai::{
-    claude_models, keystore, AiProvider, AiPurpose, AnthropicProvider, ClaudeModel,
-    StructuredRequest, DEFAULT_MODEL,
+    AiProvider, AiPurpose, AnthropicProvider, ClaudeModel, DEFAULT_MODEL, StructuredRequest,
+    claude_models, keystore,
 };
 use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 #[tauri::command]
 pub fn ai_models() -> Vec<ClaudeModel> {

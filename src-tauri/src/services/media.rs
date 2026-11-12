@@ -96,10 +96,10 @@ fn walk(dir: &Path, fingerprint: &str, depth: usize) -> Option<PathBuf> {
             if let Some(found) = walk(&path, fingerprint, depth + 1) {
                 return Some(found);
             }
-        } else if let Ok(fp) = content_fingerprint(&path) {
-            if fp == fingerprint {
-                return Some(path);
-            }
+        } else if let Ok(fp) = content_fingerprint(&path)
+            && fp == fingerprint
+        {
+            return Some(path);
         }
     }
     None

@@ -197,10 +197,10 @@ fn ordered_unique_sections<'a>(
     let mut out: Vec<&SongSection> = Vec::new();
     let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for label in arrangement {
-        if let Some(s) = by_label.get(label.as_str()) {
-            if seen.insert(s.label.as_str()) {
-                out.push(s);
-            }
+        if let Some(s) = by_label.get(label.as_str())
+            && seen.insert(s.label.as_str())
+        {
+            out.push(s);
         }
     }
     for s in sections {
@@ -251,7 +251,7 @@ fn xml_escape(s: &str) -> String {
 mod tests {
     use super::*;
     use crate::db::models::Song;
-    use crate::services::song_import::{parse_song, ImportFormat};
+    use crate::services::song_import::{ImportFormat, parse_song};
 
     fn song(title: &str, ccli: Option<&str>, copyright: Option<&str>) -> Song {
         Song {

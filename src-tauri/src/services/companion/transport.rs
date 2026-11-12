@@ -20,7 +20,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::services::companion::publisher::{to_broadcast, BroadcastFrame};
+use crate::services::companion::publisher::{BroadcastFrame, to_broadcast};
 use crate::services::live_session::LiveFrame;
 
 /// The Realtime channel a phone subscribes to. Scoped by `service_id` so each
@@ -359,8 +359,9 @@ mod tests {
     #[test]
     fn realtime_transport_local_only_is_noop_ok() {
         let mut t = RealtimeTransport::local_only();
-        assert!(t
-            .publish("companion:svc", &BroadcastEvent::ServiceEnd)
-            .is_ok());
+        assert!(
+            t.publish("companion:svc", &BroadcastEvent::ServiceEnd)
+                .is_ok()
+        );
     }
 }

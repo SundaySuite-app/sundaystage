@@ -39,7 +39,7 @@
 
 use std::time::Duration;
 
-use reqwest::{header::HeaderMap, StatusCode};
+use reqwest::{StatusCode, header::HeaderMap};
 
 use super::config::{TelemetryEndpoint, WRITE_KEY_HEADER};
 use super::sender::{SendFailure, SendFuture, TelemetrySender};

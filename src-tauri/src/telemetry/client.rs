@@ -26,7 +26,7 @@ use sqlx::SqlitePool;
 use crate::db::repositories::{StateKey, TelemetryRepo};
 use crate::error::AppResult;
 
-use super::consent::{evaluate, parse_record, ConsentRecord, TelemetryConsent, CONSENT_VERSION};
+use super::consent::{CONSENT_VERSION, ConsentRecord, TelemetryConsent, evaluate, parse_record};
 use super::outbox::{TelemetryEntry, TelemetryQueueStatus, TelemetryStatus};
 use super::payload::{
     self, GatherContext, ProblemReport, ReportContext, StagePayload, StoredReport,
@@ -781,11 +781,12 @@ mod tests {
         delete_my_data(&pool).await.expect("delete");
 
         assert_eq!(repo.quality_count().await.expect("count"), 0);
-        assert!(repo
-            .counter_watermarks()
-            .await
-            .expect("counters")
-            .is_empty());
+        assert!(
+            repo.counter_watermarks()
+                .await
+                .expect("counters")
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -810,10 +811,12 @@ mod tests {
         clear_pending_deletion(&pool, "id-013")
             .await
             .expect("clear");
-        assert!(!pending_deletions(&pool)
-            .await
-            .expect("parked")
-            .contains(&"id-013".to_string()));
+        assert!(
+            !pending_deletions(&pool)
+                .await
+                .expect("parked")
+                .contains(&"id-013".to_string())
+        );
     }
 
     #[tokio::test]
@@ -1036,11 +1039,12 @@ mod tests {
         assert!(!drain(&pool, dir.path(), "0.5.0").await.expect("drain"));
         assert!(repo.outbox_load().await.expect("load").is_empty());
         assert_eq!(repo.unsent_reports(true, 10).await.expect("owed").len(), 1);
-        assert!(repo
-            .unsent_reports(false, 10)
-            .await
-            .expect("owed")
-            .is_empty());
+        assert!(
+            repo.unsent_reports(false, 10)
+                .await
+                .expect("owed")
+                .is_empty()
+        );
 
         // …and an explicit denial behaves the same way as never having asked.
         consent_set(&pool, false).await.expect("deny");

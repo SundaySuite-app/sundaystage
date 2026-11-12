@@ -346,9 +346,9 @@ impl<'a> DeckRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::LibraryInput;
     use crate::db::repositories::LibraryRepo;
-    use crate::db::Database;
     use crate::services::slide_doc::SlideDoc;
 
     async fn fixture() -> (Database, String) {

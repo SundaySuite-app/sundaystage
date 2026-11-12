@@ -10,6 +10,7 @@ use std::sync::atomic::Ordering;
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::SongUsageEntry;
 use crate::db::now_ms;
 use crate::db::repositories::{ServiceRepo, SongRepo, SongUsageRepo};
@@ -21,14 +22,13 @@ use crate::services::live_session::{
 };
 use crate::services::session_store::SessionStore;
 use crate::services::song_usage::{
-    item_visibility, service_date, used_songs, ItemVisibility, RETENTION_DAYS,
+    ItemVisibility, RETENTION_DAYS, item_visibility, service_date, used_songs,
 };
-use crate::services::stage_display::{builtin_stage_presets, StageDisplayConfig};
-use crate::services::sundayrec_bridge::export::{chapter_markers, session_to_srt, ChapterMarker};
-use crate::services::sundayrec_bridge::manifest::{build_manifest, ItemMeta, ManifestSong};
+use crate::services::stage_display::{StageDisplayConfig, builtin_stage_presets};
+use crate::services::sundayrec_bridge::export::{ChapterMarker, chapter_markers, session_to_srt};
+use crate::services::sundayrec_bridge::manifest::{ItemMeta, ManifestSong, build_manifest};
 use crate::services::sundayrec_bridge::protocol::PROTOCOL_VERSION;
 use crate::telemetry::quality::{LiveSafe, SessionOutcome};
-use crate::AppState;
 
 /// Built-in stage-display presets (Phase 8).
 #[tauri::command]
@@ -486,11 +486,11 @@ pub async fn live_end(state: State<'_, AppState>) -> AppResult<()> {
 async fn end_session(state: &AppState) -> AppResult<()> {
     // Phase 12.2 — tell phones the service is over, then tear down the
     // broadcaster. Best-effort: a failed publish must not block ending.
-    if let Some(broadcaster) = state.companion.lock().as_mut() {
-        if broadcaster.on_service_end().is_err() {
-            state.telemetry.note_companion_failure();
-            tracing::warn!(seam = "service_end", "companion broadcast failed");
-        }
+    if let Some(broadcaster) = state.companion.lock().as_mut()
+        && broadcaster.on_service_end().is_err()
+    {
+        state.telemetry.note_companion_failure();
+        tracing::warn!(seam = "service_end", "companion broadcast failed");
     }
     *state.companion.lock() = None;
     let ended_at = now_ms();
@@ -606,11 +606,11 @@ async fn discard_recovery(state: &AppState) -> AppResult<()> {
         // A service the operator started is on the projector. Nothing else.
         return Ok(());
     }
-    if let Some(broadcaster) = state.companion.lock().as_mut() {
-        if broadcaster.on_service_end().is_err() {
-            state.telemetry.note_companion_failure();
-            tracing::warn!(seam = "service_end", "companion broadcast failed");
-        }
+    if let Some(broadcaster) = state.companion.lock().as_mut()
+        && broadcaster.on_service_end().is_err()
+    {
+        state.telemetry.note_companion_failure();
+        tracing::warn!(seam = "service_end", "companion broadcast failed");
     }
     *state.companion.lock() = None;
     let ended_at = now_ms();
@@ -630,14 +630,14 @@ async fn discard_recovery(state: &AppState) -> AppResult<()> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::{LibraryInput, SongInput};
     use crate::db::repositories::{LibraryRepo, TelemetryRepo};
-    use crate::db::Database;
     use crate::services::cue_list::CueList;
     use crate::telemetry::quality::QualityCollector;
     use parking_lot::Mutex;
-    use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
 
     /// An `AppState` with a real in-memory database, a real data dir and
     /// nothing live. Everything these tests touch — the WAL, the collector, the

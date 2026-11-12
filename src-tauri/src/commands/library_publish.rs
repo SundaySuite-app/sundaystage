@@ -4,11 +4,11 @@
 
 use tauri::State;
 
+use crate::AppState;
 use crate::error::AppResult;
-use crate::services::library_publish::{publish_library, PublishResult};
+use crate::services::library_publish::{PublishResult, publish_library};
 use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 #[tauri::command]
 pub async fn library_publish(

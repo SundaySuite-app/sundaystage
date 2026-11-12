@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use ts_rs::TS;
 
+use crate::AppState;
 use crate::db::repositories::{BibleRepo, SongRepo};
 use crate::error::AppResult;
-use crate::AppState;
 
 /// A single cross-type search hit. `kind` is "song" | "bible" | "service".
 #[derive(Debug, Serialize, Deserialize, TS)]

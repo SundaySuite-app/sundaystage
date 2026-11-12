@@ -27,15 +27,15 @@ use crate::db::repositories::{
 };
 use crate::error::{AppError, AppResult};
 use crate::services::ai::translate::{
-    bundled_verse_translation, is_supported_target, parse_translation,
+    TRANSLATE_TOOL_NAME, bundled_verse_translation, is_supported_target, parse_translation,
     system_prompt as tr_system_prompt, tool_schema as tr_tool_schema,
-    user_content as tr_user_content, TRANSLATE_TOOL_NAME,
+    user_content as tr_user_content,
 };
-use crate::services::ai::{keystore, AiProvider, AiPurpose, AnthropicProvider, StructuredRequest};
+use crate::services::ai::{AiProvider, AiPurpose, AnthropicProvider, StructuredRequest, keystore};
 use crate::services::scripture_break;
 use crate::services::theme::{
-    layout_for, resolve_template_id, resolve_theme_id, slide_appearance_from, tokens_for,
-    SlideAppearance, TemplateLayout, ThemeTokens,
+    SlideAppearance, TemplateLayout, ThemeTokens, layout_for, resolve_template_id,
+    resolve_theme_id, slide_appearance_from, tokens_for,
 };
 use sqlx::SqlitePool;
 
@@ -430,12 +430,12 @@ impl<'a> CueCompiler<'a> {
             // Non-interactive key resolution: env var only, never the OS
             // keychain — a keychain GUI prompt must never stall a Go-Live (or a
             // headless test). No env key → these lines stay untranslated.
-            if let Some(key) = keystore::resolve_noninteractive() {
-                if let Ok(map) = translate_via_api(&key, &still_missing, target).await {
-                    for (src, tr) in map {
-                        let _ = repo.put_cached(&src, target, &tr, "ai").await;
-                        resolved.insert(src, tr);
-                    }
+            if let Some(key) = keystore::resolve_noninteractive()
+                && let Ok(map) = translate_via_api(&key, &still_missing, target).await
+            {
+                for (src, tr) in map {
+                    let _ = repo.put_cached(&src, target, &tr, "ai").await;
+                    resolved.insert(src, tr);
                 }
             }
         }
@@ -852,17 +852,13 @@ pub(crate) fn extract_text_lines_from_content(content: &str) -> Option<Vec<Strin
     let blocks = v.get("blocks")?.as_array()?;
     let mut out: Vec<String> = Vec::new();
     for b in blocks {
-        if b.get("type")?.as_str() == Some("text") {
-            if let Some(t) = b.get("text").and_then(|t| t.as_str()) {
-                out.extend(t.lines().map(|s| s.to_string()));
-            }
+        if b.get("type")?.as_str() == Some("text")
+            && let Some(t) = b.get("text").and_then(|t| t.as_str())
+        {
+            out.extend(t.lines().map(|s| s.to_string()));
         }
     }
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
-    }
+    if out.is_empty() { None } else { Some(out) }
 }
 
 /// Collapse a run of cues into per-section slide counts, in play order. A
@@ -903,9 +899,9 @@ fn first_reference(cues: &[Cue]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::{LibraryInput, SongInput};
     use crate::db::repositories::{ArrangementRepo, LibraryRepo, ServiceRepo, SongRepo};
-    use crate::db::Database;
     use crate::db::{new_id, now_ms};
 
     async fn fixture_library_song(db: &Database) -> (String, String) {

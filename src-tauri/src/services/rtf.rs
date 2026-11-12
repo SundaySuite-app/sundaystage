@@ -258,10 +258,8 @@ fn apply_control_word(
             if let Some(p) = param {
                 // 16-bit signed value; negatives wrap into the BMP.
                 let cp = p.rem_euclid(65536) as u32;
-                if !ignore {
-                    if let Some(ch) = char::from_u32(cp) {
-                        out.push(ch);
-                    }
+                if !ignore && let Some(ch) = char::from_u32(cp) {
+                    out.push(ch);
                 }
             }
             // Skip the `\ucN` fallback representation that follows.

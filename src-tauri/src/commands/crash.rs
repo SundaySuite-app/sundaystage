@@ -17,10 +17,10 @@
 
 use tauri::State;
 
+use crate::AppState;
 use crate::error::AppResult;
 use crate::telemetry::crash_ring::{self, CrashKind};
 use crate::telemetry::native_crash::{self, NativeCrashStatus};
-use crate::AppState;
 
 /// How many crash records the ring holds.
 #[tauri::command]

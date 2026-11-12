@@ -276,11 +276,7 @@ pub(super) fn current_thread_id() -> u64 {
     let mut id: u64 = 0;
     // SAFETY: `pthread_threadid_np(NULL, &out)` reports the CALLING thread.
     let rc = unsafe { libc::pthread_threadid_np(0, &mut id) };
-    if rc == 0 {
-        id
-    } else {
-        0
-    }
+    if rc == 0 { id } else { 0 }
 }
 
 /// Resolve our own executable's `__TEXT` range.

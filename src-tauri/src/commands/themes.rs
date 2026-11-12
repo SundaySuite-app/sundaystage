@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::{Library, Slide, Template, Theme};
 use crate::db::repositories::{DeckRepo, ThemeRepo};
 use crate::error::AppResult;
@@ -11,7 +12,6 @@ use crate::services::slide_doc::SlideDoc;
 use crate::services::theme::ThemeTokens;
 use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 #[tauri::command]
 pub async fn theme_list(state: State<'_, AppState>, library_id: String) -> AppResult<Vec<Theme>> {

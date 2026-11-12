@@ -60,16 +60,16 @@
 
 use std::panic::{AssertUnwindSafe, PanicHookInfo};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::telemetry::scrub;
 use crate::telemetry::{
-    app_version, now_ms, TelemetryOs, LOCATION_MAX_CHARS, MESSAGE_MAX_CHARS, RECORD_SCHEMA,
-    TASK_MAX_CHARS,
+    LOCATION_MAX_CHARS, MESSAGE_MAX_CHARS, RECORD_SCHEMA, TASK_MAX_CHARS, TelemetryOs, app_version,
+    now_ms,
 };
 
 /// How many crash records are kept, newest first.
@@ -567,10 +567,10 @@ mod tests {
             // The hook is process-global while installed and the harness runs
             // other tests (some of which panic on purpose) in parallel threads.
             // Only keep OURS, or the assertion would be decided by scheduling.
-            if entry.message.contains("deliberate test panic") {
-                if let Ok(mut g) = sink.lock() {
-                    *g = Some(entry);
-                }
+            if entry.message.contains("deliberate test panic")
+                && let Ok(mut g) = sink.lock()
+            {
+                *g = Some(entry);
             }
         }));
         let _ = std::panic::catch_unwind(|| panic!("deliberate test panic: /Users/ola/x.wav"));

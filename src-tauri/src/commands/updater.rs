@@ -20,11 +20,11 @@ use tauri::{AppHandle, State};
 use tauri_plugin_updater::UpdaterExt;
 use ts_rs::TS;
 
+use crate::AppState;
 use crate::error::{AppError, AppResult};
 use crate::services::update_channel::{self, UpdateChannel};
 use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 /// What the operator is offered when a newer signed build exists on the ring.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -230,12 +230,12 @@ pub async fn update_install(app: AppHandle, state: State<'_, AppState>) -> AppRe
         OfferState::Nothing => {
             return Err(AppError::Validation(
                 "no update has been checked for in this session".into(),
-            ))
+            ));
         }
         OfferState::WrongRing => {
             return Err(AppError::Validation(
                 "this update came from a ring the install no longer follows".into(),
-            ))
+            ));
         }
     };
     update

@@ -197,11 +197,11 @@ pub fn heuristic_format(raw: &str) -> FormattedSong {
     for block in &blocks {
         let mut lines: Vec<&str> = block.iter().map(|s| s.as_str()).collect();
         let mut header: Option<String> = None;
-        if let Some(first) = lines.first() {
-            if let Some(label) = detect_header(first) {
-                header = Some(label);
-                lines.remove(0);
-            }
+        if let Some(first) = lines.first()
+            && let Some(label) = detect_header(first)
+        {
+            header = Some(label);
+            lines.remove(0);
         }
         let kept: Vec<String> = lines
             .into_iter()
@@ -750,9 +750,9 @@ mod tests {
     // ── apply_formatted_song ───────────────────────────────────────────────────
     #[tokio::test]
     async fn apply_creates_sections_and_arrangement_with_repeats() {
+        use crate::db::Database;
         use crate::db::models::{LibraryInput, SongInput};
         use crate::db::repositories::{LibraryRepo, SongRepo};
-        use crate::db::Database;
 
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)

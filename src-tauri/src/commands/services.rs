@@ -4,13 +4,13 @@ use std::collections::HashMap;
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::{Service, ServiceItem, ServiceItemSong};
 use crate::db::repositories::{DeckRepo, ServiceRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::cue_list::{CueCompiler, CueSummary};
 use crate::services::sundayplan::{self, PlanImportResult};
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 #[tauri::command]
 pub async fn service_create(
@@ -100,12 +100,12 @@ pub async fn service_set_secondary_language(
     let lang = language
         .map(|l| l.trim().to_string())
         .filter(|l| !l.is_empty());
-    if let Some(ref l) = lang {
-        if !crate::services::ai::translate::is_supported_target(l) {
-            return Err(AppError::Validation(format!(
-                "Språk '{l}' støttes ikke for oversettelse."
-            )));
-        }
+    if let Some(ref l) = lang
+        && !crate::services::ai::translate::is_supported_target(l)
+    {
+        return Err(AppError::Validation(format!(
+            "Språk '{l}' støttes ikke for oversettelse."
+        )));
     }
     ServiceRepo::new(&state.db.pool)
         .set_secondary_language(&id, lang.as_deref())

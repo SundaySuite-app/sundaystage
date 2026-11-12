@@ -24,8 +24,8 @@
 //! reimplemented from the format spec, not copied from its Java. Attribution is
 //! recorded in `THIRD-PARTY.md`.
 
-use crate::services::ai::lyric_format::{detect_header, FormattedSong};
-use crate::services::song_import::{finalize, Block, ImportMetadata};
+use crate::services::ai::lyric_format::{FormattedSong, detect_header};
+use crate::services::song_import::{Block, ImportMetadata, finalize};
 
 /// Keys recognised inside a `.usr` `[S …]` section (lower-cased match). Anything
 /// else on its own line is treated as a continuation of the previous value —
@@ -281,7 +281,7 @@ fn credit(author: &str, copyright: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::song_import::{import_song, ImportFormat};
+    use crate::services::song_import::{ImportFormat, import_song};
 
     fn labels(song: &FormattedSong) -> Vec<&str> {
         song.sections.iter().map(|s| s.label.as_str()).collect()
@@ -345,11 +345,12 @@ mod tests {
 
         let meta = extract_metadata(src);
         assert_eq!(meta.ccli_song_id.as_deref(), Some("7161097"));
-        assert!(meta
-            .copyright_notice
-            .as_deref()
-            .unwrap()
-            .contains("© 1923 Hope Publishing"));
+        assert!(
+            meta.copyright_notice
+                .as_deref()
+                .unwrap()
+                .contains("© 1923 Hope Publishing")
+        );
     }
 
     #[test]

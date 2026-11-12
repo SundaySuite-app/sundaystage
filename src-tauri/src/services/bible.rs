@@ -290,10 +290,10 @@ pub fn render_reference(r: &ParsedBibleRef) -> String {
 /// canonical name for anything not in the canon (and for non-Norwegian locales,
 /// which display the canonical English name).
 pub fn book_display(canonical: &str, lang: &str) -> String {
-    if lang == "no" {
-        if let Some(b) = lookup(canonical) {
-            return b.no.to_string();
-        }
+    if lang == "no"
+        && let Some(b) = lookup(canonical)
+    {
+        return b.no.to_string();
     }
     canonical.to_string()
 }
@@ -337,7 +337,7 @@ pub fn bundled_translations() -> &'static [SeedTranslation] {
 }
 
 macro_rules! v {
-    ($book:expr, $order:expr, $ch:expr, $vs:expr, $text:expr) => {
+    ($book:expr_2021, $order:expr_2021, $ch:expr_2021, $vs:expr_2021, $text:expr_2021) => {
         SeedVerse {
             book: $book,
             book_order: $order,
@@ -349,38 +349,206 @@ macro_rules! v {
 }
 
 const KJV: &[SeedVerse] = &[
-    v!("John", 43, 1, 1, "In the beginning was the Word, and the Word was with God, and the Word was God."),
+    v!(
+        "John",
+        43,
+        1,
+        1,
+        "In the beginning was the Word, and the Word was with God, and the Word was God."
+    ),
     v!("John", 43, 1, 2, "The same was in the beginning with God."),
-    v!("John", 43, 1, 3, "All things were made by him; and without him was not any thing made that was made."),
-    v!("John", 43, 1, 4, "In him was life; and the life was the light of men."),
-    v!("John", 43, 1, 5, "And the light shineth in darkness; and the darkness comprehended it not."),
-    v!("John", 43, 3, 16, "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life."),
-    v!("Psalms", 19, 23, 1, "The LORD is my shepherd; I shall not want."),
-    v!("Psalms", 19, 23, 2, "He maketh me to lie down in green pastures: he leadeth me beside the still waters."),
-    v!("Psalms", 19, 23, 3, "He restoreth my soul: he leadeth me in the paths of righteousness for his name's sake."),
-    v!("Psalms", 19, 23, 4, "Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me."),
-    v!("Psalms", 19, 23, 5, "Thou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over."),
-    v!("Psalms", 19, 23, 6, "Surely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the LORD for ever."),
-    v!("1 Corinthians", 46, 13, 4, "Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up,"),
-    v!("1 Corinthians", 46, 13, 5, "Doth not behave itself unseemly, seeketh not her own, is not easily provoked, thinketh no evil;"),
-    v!("1 Corinthians", 46, 13, 6, "Rejoiceth not in iniquity, but rejoiceth in the truth;"),
-    v!("1 Corinthians", 46, 13, 7, "Beareth all things, believeth all things, hopeth all things, endureth all things."),
-    v!("Philippians", 50, 4, 6, "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God."),
-    v!("Philippians", 50, 4, 7, "And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus."),
-    v!("Romans", 45, 8, 28, "And we know that all things work together for good to them that love God, to them who are the called according to his purpose."),
-    v!("Matthew", 40, 11, 28, "Come unto me, all ye that labour and are heavy laden, and I will give you rest."),
-    v!("Isaiah", 23, 41, 10, "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness."),
+    v!(
+        "John",
+        43,
+        1,
+        3,
+        "All things were made by him; and without him was not any thing made that was made."
+    ),
+    v!(
+        "John",
+        43,
+        1,
+        4,
+        "In him was life; and the life was the light of men."
+    ),
+    v!(
+        "John",
+        43,
+        1,
+        5,
+        "And the light shineth in darkness; and the darkness comprehended it not."
+    ),
+    v!(
+        "John",
+        43,
+        3,
+        16,
+        "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        1,
+        "The LORD is my shepherd; I shall not want."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        2,
+        "He maketh me to lie down in green pastures: he leadeth me beside the still waters."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        3,
+        "He restoreth my soul: he leadeth me in the paths of righteousness for his name's sake."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        4,
+        "Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        5,
+        "Thou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        6,
+        "Surely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the LORD for ever."
+    ),
+    v!(
+        "1 Corinthians",
+        46,
+        13,
+        4,
+        "Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up,"
+    ),
+    v!(
+        "1 Corinthians",
+        46,
+        13,
+        5,
+        "Doth not behave itself unseemly, seeketh not her own, is not easily provoked, thinketh no evil;"
+    ),
+    v!(
+        "1 Corinthians",
+        46,
+        13,
+        6,
+        "Rejoiceth not in iniquity, but rejoiceth in the truth;"
+    ),
+    v!(
+        "1 Corinthians",
+        46,
+        13,
+        7,
+        "Beareth all things, believeth all things, hopeth all things, endureth all things."
+    ),
+    v!(
+        "Philippians",
+        50,
+        4,
+        6,
+        "Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God."
+    ),
+    v!(
+        "Philippians",
+        50,
+        4,
+        7,
+        "And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus."
+    ),
+    v!(
+        "Romans",
+        45,
+        8,
+        28,
+        "And we know that all things work together for good to them that love God, to them who are the called according to his purpose."
+    ),
+    v!(
+        "Matthew",
+        40,
+        11,
+        28,
+        "Come unto me, all ye that labour and are heavy laden, and I will give you rest."
+    ),
+    v!(
+        "Isaiah",
+        23,
+        41,
+        10,
+        "Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness."
+    ),
 ];
 
 const NB1930: &[SeedVerse] = &[
-    v!("John", 43, 3, 16, "For så har Gud elsket verden at han gav sin Sønn, den enbårne, forat hver den som tror på ham, ikke skal fortapes, men ha evig liv."),
-    v!("Psalms", 19, 23, 1, "Herren er min hyrde, mig fattes intet."),
-    v!("Psalms", 19, 23, 2, "Han lar mig ligge i grønne enger, han leder mig til hvilens vann."),
-    v!("Psalms", 19, 23, 3, "Han vederkveger min sjel, han fører mig på rettferdighets stier for sitt navns skyld."),
-    v!("Psalms", 19, 23, 4, "Om jeg enn skulde vandre i dødsskyggens dal, frykter jeg ikke for ondt; for du er med mig, din kjepp og din stav de trøster mig."),
-    v!("Psalms", 19, 23, 5, "Du dekker bord for mig like for mine fienders øine, du salver mitt hode med olje; mitt beger flyter over."),
-    v!("Psalms", 19, 23, 6, "Bare godhet og miskunnhet skal efterjage mig alle mitt livs dager, og jeg skal bo i Herrens hus gjennem lange tider."),
-    v!("Matthew", 40, 11, 28, "Kom til mig, alle I som strever og har tungt å bære, og jeg vil gi eder hvile!"),
+    v!(
+        "John",
+        43,
+        3,
+        16,
+        "For så har Gud elsket verden at han gav sin Sønn, den enbårne, forat hver den som tror på ham, ikke skal fortapes, men ha evig liv."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        1,
+        "Herren er min hyrde, mig fattes intet."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        2,
+        "Han lar mig ligge i grønne enger, han leder mig til hvilens vann."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        3,
+        "Han vederkveger min sjel, han fører mig på rettferdighets stier for sitt navns skyld."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        4,
+        "Om jeg enn skulde vandre i dødsskyggens dal, frykter jeg ikke for ondt; for du er med mig, din kjepp og din stav de trøster mig."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        5,
+        "Du dekker bord for mig like for mine fienders øine, du salver mitt hode med olje; mitt beger flyter over."
+    ),
+    v!(
+        "Psalms",
+        19,
+        23,
+        6,
+        "Bare godhet og miskunnhet skal efterjage mig alle mitt livs dager, og jeg skal bo i Herrens hus gjennem lange tider."
+    ),
+    v!(
+        "Matthew",
+        40,
+        11,
+        28,
+        "Kom til mig, alle I som strever og har tungt å bære, og jeg vil gi eder hvile!"
+    ),
 ];
 
 #[cfg(test)]

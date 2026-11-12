@@ -1016,9 +1016,9 @@ pub async fn build_to(
 mod tests {
     use super::*;
     use crate::db::Database;
+    use crate::telemetry::RECORD_SCHEMA;
     use crate::telemetry::crash_ring::CrashEntry;
     use crate::telemetry::quality::{QualityReason, QualityVerdict};
-    use crate::telemetry::RECORD_SCHEMA;
 
     fn ctx<'a>(dir: &'a Path, now: i64) -> GatherContext<'a> {
         GatherContext {
@@ -1413,17 +1413,21 @@ mod tests {
         assert_eq!(p.quality[0].verdict, QualityVerdict::Warn);
         assert_eq!(p.crashes.len(), 1);
         assert_eq!(p.crashes[0].at, 9_000);
-        assert!(p.crashes[0]
-            .message
-            .starts_with("called `Option::unwrap()`"));
+        assert!(
+            p.crashes[0]
+                .message
+                .starts_with("called `Option::unwrap()`")
+        );
         assert!(!p.is_empty());
 
         // The marks describe exactly what was drained.
         assert_eq!(marks.crash_at, 9_000);
         assert_eq!(marks.quality_ids, vec!["q1".to_string()]);
-        assert!(marks
-            .counters
-            .contains(&(CounterName::LiveCueDispatched, 40)));
+        assert!(
+            marks
+                .counters
+                .contains(&(CounterName::LiveCueDispatched, 40))
+        );
 
         // …and the quality projection drops the LOCAL bookkeeping.
         let json = serde_json::to_string(&p.quality[0]).expect("serialises");

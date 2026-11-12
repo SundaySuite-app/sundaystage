@@ -36,6 +36,7 @@
 
 use tauri::{AppHandle, State};
 
+use crate::AppState;
 use crate::db::repositories::TelemetryRepo;
 use crate::error::AppResult;
 use crate::telemetry::client::{self, TelemetryPreview};
@@ -46,7 +47,6 @@ use crate::telemetry::outbox::TelemetryQueueStatus;
 use crate::telemetry::payload::{ProblemReport, ReportContext};
 use crate::telemetry::quality::{DrainReport, LiveSafe, QualityRow};
 use crate::telemetry::sender;
-use crate::AppState;
 
 /// Default number of log lines handed back when the caller names none.
 const DEFAULT_TAIL_LINES: usize = 200;
@@ -385,7 +385,7 @@ impl From<DrainReport> for TelemetryFlush {
 mod tests {
     use super::*;
     use crate::db::Database;
-    use crate::telemetry::counters::{CounterName, ALL_COUNTERS};
+    use crate::telemetry::counters::{ALL_COUNTERS, CounterName};
     use crate::telemetry::quality::{LiveSafe, QualityCollector, SessionOutcome};
 
     #[test]

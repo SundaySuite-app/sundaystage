@@ -882,9 +882,11 @@ mod tests {
     #[test]
     fn default_ids_exist_among_builtins() {
         assert!(builtin_themes().iter().any(|t| t.id == DEFAULT_THEME_ID));
-        assert!(builtin_templates()
-            .iter()
-            .any(|t| t.id == DEFAULT_TEMPLATE_ID));
+        assert!(
+            builtin_templates()
+                .iter()
+                .any(|t| t.id == DEFAULT_TEMPLATE_ID)
+        );
     }
 
     // ── Per-cue appearance derivation ────────────────────────────────────────
@@ -897,7 +899,7 @@ mod tests {
         assert_eq!(a.bg.as_deref(), Some("#000000"));
         assert_eq!(a.text_color.as_deref(), Some("#ffffff"));
         assert_eq!(a.h_align, Some(HAlign::Left)); // lower-third lyrics slot
-                                                   // body_size 64 / 64 × slot scale 0.85.
+        // body_size 64 / 64 × slot scale 0.85.
         assert!((a.text_scale.unwrap() - 0.85).abs() < 1e-4);
         assert!(a.font_family.is_some());
     }
