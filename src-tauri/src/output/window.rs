@@ -179,12 +179,16 @@ mod tests {
     fn label_slugs_match_the_renderer_role_substrings() {
         // OutputView.tsx's roleFromLabel keys off these exact substrings to pick
         // stage/confidence chrome; main is the fallback. Keep them in lockstep.
-        assert!(output_label(DisplayRole::StageDisplay, 7)
-            .unwrap()
-            .contains("-stage-"));
-        assert!(output_label(DisplayRole::ConfidenceMonitor, 7)
-            .unwrap()
-            .contains("-confidence-"));
+        assert!(
+            output_label(DisplayRole::StageDisplay, 7)
+                .unwrap()
+                .contains("-stage-")
+        );
+        assert!(
+            output_label(DisplayRole::ConfidenceMonitor, 7)
+                .unwrap()
+                .contains("-confidence-")
+        );
         // Main carries neither stage nor confidence → renderer falls back to main.
         let main = output_label(DisplayRole::MainOutput, 7).unwrap();
         assert!(!main.contains("-stage-") && !main.contains("-confidence-"));

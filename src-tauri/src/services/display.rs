@@ -260,12 +260,11 @@ pub fn reconcile(saved: &[DisplayAssignment], monitors: &[MonitorInfo]) -> Vec<D
     }
 
     // If nothing drives the main output, promote the first external screen.
-    if !seen_main {
-        if let Some(target) = monitors.iter().find(|m| !m.is_primary).map(|m| m.index) {
-            if let Some(a) = out.iter_mut().find(|a| a.monitor_index == target) {
-                a.role = DisplayRole::MainOutput;
-            }
-        }
+    if !seen_main
+        && let Some(target) = monitors.iter().find(|m| !m.is_primary).map(|m| m.index)
+        && let Some(a) = out.iter_mut().find(|a| a.monitor_index == target)
+    {
+        a.role = DisplayRole::MainOutput;
     }
 
     out

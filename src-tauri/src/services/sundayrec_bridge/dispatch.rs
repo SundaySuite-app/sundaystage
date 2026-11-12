@@ -6,7 +6,7 @@
 //! transport will call per inbound request. The query verbs are outbound-from-
 //! Stage, so receiving them is reported as unsupported.
 
-use super::protocol::{this_app_pong, BridgeRequest, BridgeResponse};
+use super::protocol::{BridgeRequest, BridgeResponse, this_app_pong};
 
 /// What SundayStage knows about the peer's current state, updated as
 /// notifications arrive. The TONO flag (Phase 10.2) reads `streaming`.

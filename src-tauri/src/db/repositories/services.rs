@@ -411,9 +411,9 @@ impl<'a> ServiceRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::LibraryInput;
     use crate::db::repositories::LibraryRepo;
-    use crate::db::Database;
 
     #[tokio::test]
     async fn create_and_list_upcoming() {
@@ -549,10 +549,11 @@ mod tests {
 
         // The FK still guards against dangling deck ids.
         let pos = repo.next_position(&svc.id).await.unwrap();
-        assert!(repo
-            .add_deck_item(&svc.id, pos, "no-such-deck")
-            .await
-            .is_err());
+        assert!(
+            repo.add_deck_item(&svc.id, pos, "no-such-deck")
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

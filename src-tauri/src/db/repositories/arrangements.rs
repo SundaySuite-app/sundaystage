@@ -267,9 +267,9 @@ impl<'a> ArrangementRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::{LibraryInput, SongInput};
     use crate::db::repositories::{LibraryRepo, SongRepo};
-    use crate::db::Database;
 
     async fn fixture() -> (Database, String, Vec<String>) {
         let db = Database::open_in_memory().await.unwrap();

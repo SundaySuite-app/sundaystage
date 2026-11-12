@@ -131,11 +131,12 @@ pub fn session_to_srt(session: &LiveSession, ended_at: i64) -> String {
             _ => continue,
         };
         // Coalesce with the previous segment if it's the same text and touching.
-        if let Some(last) = segs.last_mut() {
-            if last.2 == lines && last.1 == start {
-                last.1 = end;
-                continue;
-            }
+        if let Some(last) = segs.last_mut()
+            && last.2 == lines
+            && last.1 == start
+        {
+            last.1 = end;
+            continue;
         }
         segs.push((start, end, lines));
     }

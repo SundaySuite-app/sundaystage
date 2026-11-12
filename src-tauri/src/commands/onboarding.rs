@@ -2,9 +2,9 @@
 
 use tauri::State;
 
-use crate::error::AppResult;
-use crate::services::demo::{seed_demo_content, supported_locales, DemoSummary, LocaleInfo};
 use crate::AppState;
+use crate::error::AppResult;
+use crate::services::demo::{DemoSummary, LocaleInfo, seed_demo_content, supported_locales};
 
 /// The UI languages the app offers.
 #[tauri::command]

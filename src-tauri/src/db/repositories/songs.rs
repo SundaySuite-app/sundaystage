@@ -408,9 +408,9 @@ impl<'a> SongRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::LibraryInput;
     use crate::db::repositories::LibraryRepo;
-    use crate::db::Database;
 
     async fn fixture() -> (Database, String) {
         let db = Database::open_in_memory().await.unwrap();

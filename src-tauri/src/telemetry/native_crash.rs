@@ -129,8 +129,8 @@
 //! later stage: Worker deployed and live-verified, THEN a client release.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 use serde::{Deserialize, Serialize};
 

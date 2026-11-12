@@ -21,8 +21,8 @@
 //! two full-screen windows on the same projector.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 // Poison-free locks: a panic anywhere in the supervisor must never wedge the
@@ -32,8 +32,8 @@ use parking_lot::Mutex;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
-use crate::output::ipc::{endpoint_path, safe_tag, IpcListener};
-use crate::output::{OutputAck, OutputMessage, DEFAULT_TIMEOUT_MS};
+use crate::output::ipc::{IpcListener, endpoint_path, safe_tag};
+use crate::output::{DEFAULT_TIMEOUT_MS, OutputAck, OutputMessage};
 use crate::services::live_session::LiveFrame;
 use crate::telemetry::quality::{LiveSafe, QualityCollector};
 use crate::telemetry::scrub;
@@ -1219,8 +1219,10 @@ mod tests {
     fn binary_override_requires_existing_file() {
         // A bogus override must not be returned (the caller falls back to the
         // in-process windows instead of spawning nothing).
-        std::env::set_var("SUNDAYSTAGE_OUTPUT_BIN", "/definitely/not/here");
+        // SAFETY: test-only; this env var is read by no other test, so no concurrent env access.
+        unsafe { std::env::set_var("SUNDAYSTAGE_OUTPUT_BIN", "/definitely/not/here") };
         assert!(output_binary_path().is_none());
-        std::env::remove_var("SUNDAYSTAGE_OUTPUT_BIN");
+        // SAFETY: test-only; this env var is read by no other test, so no concurrent env access.
+        unsafe { std::env::remove_var("SUNDAYSTAGE_OUTPUT_BIN") };
     }
 }

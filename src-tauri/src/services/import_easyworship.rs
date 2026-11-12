@@ -62,7 +62,7 @@ use std::path::{Path, PathBuf};
 use sqlx::{ConnectOptions, Connection, Row, SqliteConnection};
 
 use crate::error::{AppError, AppResult};
-use crate::services::ai::lyric_format::{heuristic_format, FormattedSong};
+use crate::services::ai::lyric_format::{FormattedSong, heuristic_format};
 use crate::services::rtf;
 
 /// One EasyWorship `song` row joined with its lyrics RTF from `word`.

@@ -113,10 +113,10 @@ fn fits(laid: &LaidOut, bx: &FitBox) -> bool {
     if laid.height > bx.height + EPS {
         return false;
     }
-    if let Some(max) = bx.max_lines {
-        if laid.lines.len() > max {
-            return false;
-        }
+    if let Some(max) = bx.max_lines
+        && laid.lines.len() > max
+    {
+        return false;
     }
     true
 }

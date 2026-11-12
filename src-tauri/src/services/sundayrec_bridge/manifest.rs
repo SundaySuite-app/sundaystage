@@ -31,8 +31,8 @@ use std::collections::HashMap;
 // names this module historically exported so `commands::live` and the tests
 // keep compiling unchanged.
 pub use sunday_contracts::{
-    StageManifest, StageManifestItem as ManifestItem, StageManifestSong as ManifestSong,
-    STAGE_MANIFEST_SOURCE,
+    STAGE_MANIFEST_SOURCE, StageManifest, StageManifestItem as ManifestItem,
+    StageManifestSong as ManifestSong,
 };
 
 use crate::services::cue_list::Cue;

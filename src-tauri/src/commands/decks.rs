@@ -5,11 +5,11 @@
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::{CustomDeck, Slide};
 use crate::db::repositories::DeckRepo;
 use crate::error::AppResult;
 use crate::services::slide_doc::SlideDoc;
-use crate::AppState;
 
 #[tauri::command]
 pub async fn deck_create(

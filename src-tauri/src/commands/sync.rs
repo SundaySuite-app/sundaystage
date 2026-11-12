@@ -7,9 +7,9 @@
 
 use tauri::State;
 
-use crate::error::AppResult;
-use crate::services::sync::{compute_status, SyncStatus};
 use crate::AppState;
+use crate::error::AppResult;
+use crate::services::sync::{SyncStatus, compute_status};
 
 /// Whether a cloud backend is configured. Wired to real config when Phase 9's
 /// Supabase transport lands.

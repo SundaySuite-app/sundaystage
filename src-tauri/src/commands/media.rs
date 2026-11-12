@@ -9,11 +9,11 @@ use std::path::{Path, PathBuf};
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::MediaAsset;
 use crate::db::repositories::MediaRepo;
 use crate::error::{AppError, AppResult};
-use crate::services::media::{content_fingerprint, detect_kind, find_by_fingerprint, MediaStatus};
-use crate::AppState;
+use crate::services::media::{MediaStatus, content_fingerprint, detect_kind, find_by_fingerprint};
 
 #[tauri::command]
 pub async fn media_import(

@@ -2,10 +2,10 @@
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::{Library, LibraryInput};
 use crate::db::repositories::LibraryRepo;
 use crate::error::AppResult;
-use crate::AppState;
 
 #[tauri::command]
 pub async fn library_create(state: State<'_, AppState>, input: LibraryInput) -> AppResult<Library> {

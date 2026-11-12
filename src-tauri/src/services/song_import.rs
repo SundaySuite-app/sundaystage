@@ -33,8 +33,8 @@ use serde_json::Value;
 use ts_rs::TS;
 
 use crate::services::ai::lyric_format::{
-    detect_header, detect_language, heuristic_format, normalize_label, unique_label,
-    FormattedSection, FormattedSong,
+    FormattedSection, FormattedSong, detect_header, detect_language, heuristic_format,
+    normalize_label, unique_label,
 };
 
 /// The file formats the importer recognises.
@@ -180,10 +180,10 @@ pub(crate) fn finalize(title: Option<String>, raw_text: &str, blocks: Vec<Block>
                     format!("verse_{verse_n}")
                 } else {
                     // Keep explicit numbering in sync so later auto-verses don't collide.
-                    if let Some(rest) = norm.strip_prefix("verse_") {
-                        if let Ok(k) = rest.parse::<usize>() {
-                            verse_n = verse_n.max(k);
-                        }
+                    if let Some(rest) = norm.strip_prefix("verse_")
+                        && let Ok(k) = rest.parse::<usize>()
+                    {
+                        verse_n = verse_n.max(k);
                     }
                     norm
                 }
@@ -398,15 +398,15 @@ fn parse_opensong(content: &str) -> FormattedSong {
             continue;
         }
         // Section marker: [V1], [C], [Bridge] …
-        if trimmed.starts_with('[') {
-            if let Some(end) = trimmed.find(']') {
-                if !current_lines.is_empty() {
-                    blocks.push((current_label.clone(), std::mem::take(&mut current_lines)));
-                }
-                let tag = &trimmed[1..end];
-                current_label = Some(code_to_label(tag));
-                continue;
+        if trimmed.starts_with('[')
+            && let Some(end) = trimmed.find(']')
+        {
+            if !current_lines.is_empty() {
+                blocks.push((current_label.clone(), std::mem::take(&mut current_lines)));
             }
+            let tag = &trimmed[1..end];
+            current_label = Some(code_to_label(tag));
+            continue;
         }
         // Chord line / comment line.
         if trimmed.starts_with('.') || trimmed.starts_with(';') {
@@ -414,10 +414,10 @@ fn parse_opensong(content: &str) -> FormattedSong {
         }
         // Lyric line: drop a single leading space, note verse-group digits.
         let mut text = line.strip_prefix(' ').unwrap_or(line).to_string();
-        if let Some(rest) = text.strip_prefix(|c: char| c.is_ascii_digit()) {
-            if rest.starts_with(' ') {
-                saw_group_digits = true;
-            }
+        if let Some(rest) = text.strip_prefix(|c: char| c.is_ascii_digit())
+            && rest.starts_with(' ')
+        {
+            saw_group_digits = true;
         }
         text = text.trim_end().to_string();
         if text.trim().is_empty() {
@@ -776,10 +776,10 @@ fn attr_value(open_tag: &str, attr: &str) -> Option<String> {
 
 fn unwrap_cdata(s: &str) -> String {
     let t = s.trim();
-    if let Some(rest) = t.strip_prefix("<![CDATA[") {
-        if let Some(inner) = rest.strip_suffix("]]>") {
-            return inner.to_string();
-        }
+    if let Some(rest) = t.strip_prefix("<![CDATA[")
+        && let Some(inner) = rest.strip_suffix("]]>")
+    {
+        return inner.to_string();
     }
     s.to_string()
 }

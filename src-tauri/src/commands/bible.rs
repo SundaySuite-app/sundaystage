@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use ts_rs::TS;
 
+use crate::AppState;
 use crate::db::models::{BibleTranslation, BibleVerse, ServiceItem};
 use crate::db::repositories::{BibleRepo, ServiceRepo};
 use crate::error::{AppError, AppResult};
 use crate::services::bible::{book_display, parse_reference, render_reference};
 use crate::services::bible_download::{self, AvailableTranslation};
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 /// A book in a translation, with its localized display name.
 #[derive(Debug, Serialize, Deserialize, TS)]

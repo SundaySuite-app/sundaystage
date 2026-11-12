@@ -16,8 +16,8 @@ use crate::db::{new_id, now_ms};
 use crate::error::{AppError, AppResult};
 use crate::services::slide_doc::SlideDoc;
 use crate::services::theme::{
-    builtin_templates, builtin_themes, layout_for, render_slide, tokens_for, TemplateLayout,
-    ThemeTokens,
+    TemplateLayout, ThemeTokens, builtin_templates, builtin_themes, layout_for, render_slide,
+    tokens_for,
 };
 
 pub struct ThemeRepo<'a> {
@@ -293,9 +293,9 @@ impl<'a> ThemeRepo<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::Database;
     use crate::db::models::LibraryInput;
     use crate::db::repositories::LibraryRepo;
-    use crate::db::Database;
     use crate::services::theme::DEFAULT_THEME_ID;
 
     async fn fixture() -> (Database, String) {
@@ -324,9 +324,11 @@ mod tests {
             .unwrap();
         let after = repo.list_themes(&lib).await.unwrap();
         assert_eq!(after.len(), builtin_count + 1);
-        assert!(after
-            .iter()
-            .any(|t| t.name == "Min stil" && t.is_builtin == 0));
+        assert!(
+            after
+                .iter()
+                .any(|t| t.name == "Min stil" && t.is_builtin == 0)
+        );
     }
 
     #[tokio::test]

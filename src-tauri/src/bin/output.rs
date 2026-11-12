@@ -43,7 +43,7 @@ mod render {
     use sundaystage_lib::services::display::OutputAppearance;
     use sundaystage_lib::services::live_session::LiveFrame;
     use sundaystage_lib::services::slide_doc::HAlign;
-    use sundaystage_lib::services::text_fit::{fit_text, FitBox, FitParams};
+    use sundaystage_lib::services::text_fit::{FitBox, FitParams, fit_text};
 
     /// The virtual stage the fit is computed against (matches `slide_doc` docs
     /// and the editor's `STAGE_HEIGHT`/`STAGE_ASPECT`). The lyric block occupies
@@ -202,13 +202,13 @@ mod render {
                     .map(|f| format!("font-family:{};", esc(&f)))
                     .unwrap_or_default();
                 let mut body = String::new();
-                if appearance.show_section_label {
-                    if let Some(label) = &slide_content.section_label {
-                        body.push_str(&format!(
-                            r#"<div class="section-label">{}</div>"#,
-                            esc(label)
-                        ));
-                    }
+                if appearance.show_section_label
+                    && let Some(label) = &slide_content.section_label
+                {
+                    body.push_str(&format!(
+                        r#"<div class="section-label">{}</div>"#,
+                        esc(label)
+                    ));
                 }
                 let transform = if appearance.uppercase {
                     "uppercase"
@@ -391,10 +391,10 @@ fn display_index_from(args: &[String]) -> u32 {
         if let Some(v) = a.strip_prefix("--display-index=") {
             return v.parse().unwrap_or(0);
         }
-        if a == "--display-index" {
-            if let Some(v) = it.next() {
-                return v.parse().unwrap_or(0);
-            }
+        if a == "--display-index"
+            && let Some(v) = it.next()
+        {
+            return v.parse().unwrap_or(0);
         }
     }
     0
@@ -551,10 +551,10 @@ async fn ipc_client_loop(socket: &std::path::Path, sink: Sink) -> bool {
             OutputMessage::Shutdown => {}
         }
         let step = h.handle(msg, now);
-        if let Some(ack) = step.ack {
-            if writer.write(&ack).await.is_err() {
-                return false;
-            }
+        if let Some(ack) = step.ack
+            && writer.write(&ack).await.is_err()
+        {
+            return false;
         }
         if step.shutdown {
             return true;
@@ -781,7 +781,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::handler::{parse_line, Handler};
+    use super::handler::{Handler, parse_line};
     use super::{display_index_from, render::frame_to_html};
     use sundaystage_lib::output::{OutputAck, OutputMessage};
     use sundaystage_lib::services::cue_list::SlideContent;
@@ -1111,7 +1111,7 @@ mod tests {
             0,
         );
         assert!(h.tick(5_000)); // went dead
-                                // A new render revives it and repaints.
+        // A new render revives it and repaints.
         let step = h.handle(
             OutputMessage::Render {
                 frame: slide(&["New"]),

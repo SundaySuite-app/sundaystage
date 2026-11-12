@@ -709,7 +709,9 @@ mod tests {
         let csv = to_csv(&[a, b]);
         let lines: Vec<&str> = csv.trim_end().split("\r\n").collect();
         assert_eq!(lines.len(), 3, "overskrift + to rader: {lines:?}");
-        assert!(lines[1].ends_with(";2;\"opphavsperson, CCLI-nummer, TONO-verknummer, copyright\""));
+        assert!(
+            lines[1].ends_with(";2;\"opphavsperson, CCLI-nummer, TONO-verknummer, copyright\"")
+        );
         assert!(lines[2].contains(";1;"));
     }
 

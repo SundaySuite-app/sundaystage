@@ -42,13 +42,13 @@
 
 use std::collections::HashMap;
 
+use quick_xml::XmlVersion;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::reader::Reader;
-use quick_xml::XmlVersion;
 
 use crate::services::ai::lyric_format::FormattedSong;
 use crate::services::rtf;
-use crate::services::song_import::{finalize, Block, ImportMetadata};
+use crate::services::song_import::{Block, ImportMetadata, finalize};
 
 /// Parse a `.pro6` XML document into a [`FormattedSong`]: slides become sections
 /// (named groups joined into one labelled section, unnamed groups split so each
@@ -233,21 +233,20 @@ fn parse_document(content: &str) -> Pro6Document {
                     }
                 }
                 Some(Scope::RtfData) => {
-                    if let Some(text) = rtf::rtf_base64_to_text(&text_buf) {
-                        if !text.trim().is_empty() {
-                            if let Some(s) = cur_slide.as_mut() {
-                                s.push(text);
-                            }
-                        }
+                    if let Some(text) = rtf::rtf_base64_to_text(&text_buf)
+                        && !text.trim().is_empty()
+                        && let Some(s) = cur_slide.as_mut()
+                    {
+                        s.push(text);
                     }
                     text_buf.clear();
                 }
                 Some(Scope::GroupId) => {
                     let id = text_buf.trim();
-                    if !id.is_empty() {
-                        if let Some(a) = cur_arr.as_mut() {
-                            a.group_ids.push(id.to_string());
-                        }
+                    if !id.is_empty()
+                        && let Some(a) = cur_arr.as_mut()
+                    {
+                        a.group_ids.push(id.to_string());
                     }
                     text_buf.clear();
                 }
@@ -273,22 +272,21 @@ fn parse_document(content: &str) -> Pro6Document {
 /// Resolve the group play order: the selected arrangement's group sequence when
 /// it names a known arrangement with resolvable groups, else document order.
 fn resolve_order(doc: &Pro6Document) -> Vec<&Pro6Group> {
-    if !doc.selected_arrangement_id.trim().is_empty() {
-        if let Some(arr) = doc
+    if !doc.selected_arrangement_id.trim().is_empty()
+        && let Some(arr) = doc
             .arrangements
             .iter()
             .find(|a| a.uuid == doc.selected_arrangement_id)
-        {
-            let by_uuid: HashMap<&str, &Pro6Group> =
-                doc.groups.iter().map(|g| (g.uuid.as_str(), g)).collect();
-            let ordered: Vec<&Pro6Group> = arr
-                .group_ids
-                .iter()
-                .filter_map(|id| by_uuid.get(id.as_str()).copied())
-                .collect();
-            if !ordered.is_empty() {
-                return ordered;
-            }
+    {
+        let by_uuid: HashMap<&str, &Pro6Group> =
+            doc.groups.iter().map(|g| (g.uuid.as_str(), g)).collect();
+        let ordered: Vec<&Pro6Group> = arr
+            .group_ids
+            .iter()
+            .filter_map(|id| by_uuid.get(id.as_str()).copied())
+            .collect();
+        if !ordered.is_empty() {
+            return ordered;
         }
     }
     doc.groups.iter().collect()
@@ -386,7 +384,7 @@ fn ccli_song_id(number: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::song_import::{detect_format, ImportFormat};
+    use crate::services::song_import::{ImportFormat, detect_format};
 
     // ── fixture builders ─────────────────────────────────────────────────────
 
@@ -630,8 +628,7 @@ mod tests {
     fn empty_and_missing_rtfdata_slides_are_dropped() {
         // Group with: a real slide, a slide with empty RTFData, and a slide with
         // no RVTextElement at all — only the real one survives.
-        let empty_rtf_slide =
-            "<RVDisplaySlide><array rvXMLIvarName=\"displayElements\"><RVTextElement>\
+        let empty_rtf_slide = "<RVDisplaySlide><array rvXMLIvarName=\"displayElements\"><RVTextElement>\
              <NSString rvXMLIvarName=\"RTFData\"></NSString></RVTextElement></array></RVDisplaySlide>";
         let no_text_slide =
             "<RVDisplaySlide><array rvXMLIvarName=\"displayElements\"></array></RVDisplaySlide>";

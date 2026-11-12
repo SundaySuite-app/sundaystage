@@ -7,11 +7,11 @@
 
 use tauri::State;
 
+use crate::AppState;
 use crate::db::models::{ServiceItem, ServiceTemplate, ServiceTemplateInput};
 use crate::db::repositories::{ServiceRepo, ServiceTemplateRepo};
 use crate::error::{AppError, AppResult};
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 

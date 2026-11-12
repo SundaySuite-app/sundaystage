@@ -215,28 +215,28 @@ pub async fn apply_plan(
 
     for (position, item) in plan.items.iter().enumerate() {
         let pos = position as i64;
-        if item.kind == "song" {
-            if let Some(song_id) = &item.song_id {
-                let arrangement = arr_repo
-                    .list(song_id)
-                    .await?
-                    .into_iter()
-                    .find(|a| a.is_default == 1)
-                    .map(|a| a.id);
-                svc_repo
-                    .add_item(
-                        &service.id,
-                        pos,
-                        "song",
-                        Some(song_id),
-                        arrangement.as_deref(),
-                        item.key.as_deref(),
-                        None,
-                        None,
-                    )
-                    .await?;
-                continue;
-            }
+        if item.kind == "song"
+            && let Some(song_id) = &item.song_id
+        {
+            let arrangement = arr_repo
+                .list(song_id)
+                .await?
+                .into_iter()
+                .find(|a| a.is_default == 1)
+                .map(|a| a.id);
+            svc_repo
+                .add_item(
+                    &service.id,
+                    pos,
+                    "song",
+                    Some(song_id),
+                    arrangement.as_deref(),
+                    item.key.as_deref(),
+                    None,
+                    None,
+                )
+                .await?;
+            continue;
         }
         // scripture / note → announcement carrying the text.
         let notes = item
@@ -329,9 +329,9 @@ mod tests {
 
     #[tokio::test]
     async fn apply_creates_service_with_song_and_note_items() {
+        use crate::db::Database;
         use crate::db::models::{LibraryInput, SongInput};
         use crate::db::repositories::{ArrangementRepo, LibraryRepo, ServiceRepo, SongRepo};
-        use crate::db::Database;
 
         let db = Database::open_in_memory().await.unwrap();
         let lib = LibraryRepo::new(&db.pool)

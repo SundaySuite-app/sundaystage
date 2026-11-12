@@ -8,6 +8,7 @@
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
 
+use crate::AppState;
 use crate::error::{AppError, AppResult};
 use crate::output::{process, window};
 use crate::services::display::{
@@ -15,7 +16,6 @@ use crate::services::display::{
 };
 use crate::telemetry::counters::CounterName;
 use crate::telemetry::quality::LiveSafe;
-use crate::AppState;
 
 /// The saved role assignments. Named so [`saved_config`] and [`config_path`]
 /// cannot drift apart.

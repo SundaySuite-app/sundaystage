@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use sundaystage_lib::output::ipc::{endpoint_path, IpcListener};
+use sundaystage_lib::output::ipc::{IpcListener, endpoint_path};
 use sundaystage_lib::output::process::{OutputSpec, OutputSupervisor};
 use sundaystage_lib::output::{OutputAck, OutputMessage};
 use sundaystage_lib::services::cue_list::SlideContent;
@@ -272,11 +272,13 @@ async fn supervisor_restarts_crashed_child_and_resends_current_frame() {
         Some(pid),
         "the pidfile names the running child: {recorded}"
     );
-    assert!(std::process::Command::new("kill")
-        .args(["-9", &pid.to_string()])
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
 
     // The supervisor must detect the death, restart, and resend the CURRENT
     // frame on reconnect — the new child acks the latest seq without any new

@@ -34,8 +34,8 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use parking_lot::Mutex;
@@ -46,8 +46,8 @@ use tokio::task::JoinHandle;
 use super::config::TelemetryEndpoint;
 use super::http_sender::HttpTelemetrySender;
 use super::outbox::{self, PumpDecision};
-use crate::error::AppResult;
 use crate::AppState;
+use crate::error::AppResult;
 
 /// Why a send did not succeed — and, crucially, whether trying again could ever
 /// help.
@@ -740,16 +740,16 @@ pub async fn shutdown() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::repositories::TelemetryRepo;
     use crate::db::Database;
+    use crate::db::repositories::TelemetryRepo;
     use crate::services::cue_list::CueList;
     use crate::services::live_session::LiveSession;
     use crate::telemetry::client;
     use crate::telemetry::counters::CounterName;
-    use crate::telemetry::outbox::{TelemetryEntry, TelemetryStatus, BACKOFF_STEPS_MS};
+    use crate::telemetry::outbox::{BACKOFF_STEPS_MS, TelemetryEntry, TelemetryStatus};
     use crate::telemetry::quality::QualityCollector;
-    use std::sync::atomic::AtomicUsize;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
 
     /// A sender that must never be called. Panicking (rather than recording a
     /// flag) is deliberate: a flag can be asserted on and forgotten, a panic
@@ -912,10 +912,12 @@ mod tests {
         assert_eq!(repo.outbox_load().await.expect("load").len(), 1);
         assert_eq!(repo.outbox_load().await.expect("load")[0].attempts, 0);
         assert_eq!(repo.quality_count().await.expect("count"), 0);
-        assert!(!client::pending_deletions(&state.db.pool)
-            .await
-            .expect("parked")
-            .is_empty());
+        assert!(
+            !client::pending_deletions(&state.db.pool)
+                .await
+                .expect("parked")
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -1081,10 +1083,12 @@ mod tests {
         let sender = CountingSender::default();
         assert_eq!(drain_deletions(pool, &sender).await, 1);
         assert_eq!(sender.deletes.load(Ordering::SeqCst), 1);
-        assert!(client::pending_deletions(pool)
-            .await
-            .expect("parked")
-            .is_empty());
+        assert!(
+            client::pending_deletions(pool)
+                .await
+                .expect("parked")
+                .is_empty()
+        );
         assert!(
             !should_run(pool).await,
             "with the deletion carried out there is nothing left to run for"
@@ -1149,10 +1153,12 @@ mod tests {
             vec![second]
         );
         assert_eq!(drain_deletions(pool, &up).await, 1);
-        assert!(client::pending_deletions(pool)
-            .await
-            .expect("parked")
-            .is_empty());
+        assert!(
+            client::pending_deletions(pool)
+                .await
+                .expect("parked")
+                .is_empty()
+        );
         // Nothing left to do is not an error.
         assert_eq!(drain_deletions(pool, &up).await, 0);
     }
@@ -1168,10 +1174,12 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(drain_deletions(pool, &refusing).await, 1);
-        assert!(client::pending_deletions(pool)
-            .await
-            .expect("parked")
-            .is_empty());
+        assert!(
+            client::pending_deletions(pool)
+                .await
+                .expect("parked")
+                .is_empty()
+        );
     }
 
     // ── E6: the one-shot report path ─────────────────────────────────────────

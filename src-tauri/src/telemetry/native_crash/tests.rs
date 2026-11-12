@@ -468,9 +468,11 @@ fn a_faulting_address_survives_only_as_four_values() {
     assert_eq!(FaultAddress::classify(u64::MAX), FaultAddress::NonNull);
     // The value itself never appears in the wire spelling — the whole point.
     for addr in [0u64, 1, 4095, 4096, 0x7fff_1234_5678, u64::MAX] {
-        assert!(!FaultAddress::classify(addr)
-            .as_str()
-            .contains(char::is_numeric));
+        assert!(
+            !FaultAddress::classify(addr)
+                .as_str()
+                .contains(char::is_numeric)
+        );
     }
 }
 
@@ -579,8 +581,8 @@ fn hard_crash_capture_is_on_unless_the_operator_turned_it_off() {
 
 #[tokio::test]
 async fn a_hard_crash_captured_before_consent_is_never_sent() {
-    use crate::db::repositories::TelemetryRepo;
     use crate::db::Database;
+    use crate::db::repositories::TelemetryRepo;
     use crate::telemetry::client;
 
     let db = Database::open_in_memory().await.expect("db");
@@ -670,8 +672,8 @@ async fn a_hard_crash_captured_before_consent_is_never_sent() {
 
 #[tokio::test]
 async fn revoking_consent_stops_a_hard_crash_from_travelling() {
-    use crate::db::repositories::TelemetryRepo;
     use crate::db::Database;
+    use crate::db::repositories::TelemetryRepo;
     use crate::telemetry::client;
 
     let db = Database::open_in_memory().await.expect("db");

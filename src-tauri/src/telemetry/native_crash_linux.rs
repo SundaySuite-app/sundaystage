@@ -94,11 +94,7 @@ fn program_counter(cc: &crash_context::CrashContext) -> Option<u64> {
 pub(super) fn current_thread_id() -> u64 {
     // SAFETY: `gettid` takes no arguments and cannot fail.
     let tid = unsafe { libc::syscall(libc::SYS_gettid) };
-    if tid > 0 {
-        tid as u64
-    } else {
-        0
-    }
+    if tid > 0 { tid as u64 } else { 0 }
 }
 
 /// Resolve our own executable's executable-segment range with `dl_iterate_phdr`.

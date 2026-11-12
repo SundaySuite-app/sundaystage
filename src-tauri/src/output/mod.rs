@@ -109,7 +109,7 @@ mod tests {
         assert!(wd.is_alive(1_500)); // within window
         assert!(wd.is_alive(3_000)); // exactly at timeout boundary
         assert!(!wd.is_alive(3_001)); // past it → dead
-                                      // A fresh beat revives it.
+        // A fresh beat revives it.
         wd.beat(3_001);
         assert!(wd.is_alive(4_000));
     }

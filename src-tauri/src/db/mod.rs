@@ -15,8 +15,8 @@ pub mod repositories;
 pub mod validation;
 
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
     SqlitePool,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use std::path::Path;
 use std::str::FromStr;
@@ -34,10 +34,10 @@ impl Database {
     /// runs all migrations from the `sql/` directory.
     pub async fn open<P: AsRef<Path>>(path: P) -> AppResult<Self> {
         let path = path.as_ref();
-        if let Some(parent) = path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent)?;
-            }
+        if let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent)?;
         }
 
         let url = format!("sqlite:{}", path.to_string_lossy());

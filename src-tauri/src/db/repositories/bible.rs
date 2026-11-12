@@ -480,11 +480,12 @@ mod tests {
         // No duplicate rows — the old verses were replaced, not appended.
         assert_eq!(repo.verse_count_by_code("ASV").await.unwrap(), 2);
         // FTS is consistent: the stale token is gone, the fresh one is found.
-        assert!(repo
-            .search("distinctive_oldtoken", None, 20)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            repo.search("distinctive_oldtoken", None, 20)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(
             repo.search("distinctive_newtoken", None, 20)
                 .await

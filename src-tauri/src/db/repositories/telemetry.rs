@@ -18,7 +18,7 @@ use sqlx::SqlitePool;
 
 use crate::db::{new_id, now_ms};
 use crate::error::AppResult;
-use crate::telemetry::counters::{CounterName, CounterTotal, ALL_COUNTERS};
+use crate::telemetry::counters::{ALL_COUNTERS, CounterName, CounterTotal};
 use crate::telemetry::outbox::{TelemetryEntry, TelemetryStatus};
 use crate::telemetry::payload::{DrainMarks, ProblemReport, ReportContext, StoredReport};
 use crate::telemetry::quality::{QualityReason, QualityRow, QualityStore, QualityVerdict};
@@ -800,10 +800,11 @@ mod tests {
         // must not add a second "abnormal end" row for the same service.
         let db = Database::open_in_memory().await.expect("db");
         let repo = TelemetryRepo::new(&db.pool);
-        assert!(repo
-            .insert_quality(&row(1_000, Some("abnormal:1000:3")))
-            .await
-            .expect("first"));
+        assert!(
+            repo.insert_quality(&row(1_000, Some("abnormal:1000:3")))
+                .await
+                .expect("first")
+        );
         assert!(
             !repo
                 .insert_quality(&row(2_000, Some("abnormal:1000:3")))
@@ -813,10 +814,11 @@ mod tests {
         );
         assert_eq!(repo.quality_count().await.expect("count"), 1);
         // A different session still gets its own row.
-        assert!(repo
-            .insert_quality(&row(3_000, Some("abnormal:9000:1")))
-            .await
-            .expect("third"));
+        assert!(
+            repo.insert_quality(&row(3_000, Some("abnormal:9000:1")))
+                .await
+                .expect("third")
+        );
         assert_eq!(repo.quality_count().await.expect("count"), 2);
         // …and rows WITHOUT a dedupe key are never collapsed together.
         assert!(repo.insert_quality(&row(4_000, None)).await.expect("a"));
@@ -848,12 +850,13 @@ mod tests {
             .expect("counters");
         repo.clear().await.expect("clear");
         assert_eq!(repo.quality_count().await.expect("count"), 0);
-        assert!(repo
-            .counter_totals()
-            .await
-            .expect("totals")
-            .iter()
-            .all(|t| t.value == 0));
+        assert!(
+            repo.counter_totals()
+                .await
+                .expect("totals")
+                .iter()
+                .all(|t| t.value == 0)
+        );
     }
 
     #[tokio::test]
@@ -1052,10 +1055,11 @@ mod tests {
         let repo = TelemetryRepo::new(&db.pool);
 
         for i in 0..QUEUE_MAX + 3 {
-            assert!(repo
-                .outbox_insert_capped(&outbox_entry(&format!("id-{i:03}"), i as i64))
-                .await
-                .expect("insert"));
+            assert!(
+                repo.outbox_insert_capped(&outbox_entry(&format!("id-{i:03}"), i as i64))
+                    .await
+                    .expect("insert")
+            );
         }
         let queue = repo.outbox_load().await.expect("load");
         assert_eq!(queue.len(), QUEUE_MAX);

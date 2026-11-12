@@ -9,7 +9,7 @@
 //!
 //! Run with `cargo test --test lyric_eval -- --nocapture`.
 
-use sundaystage_lib::services::ai::lyric_format::{heuristic_format, FormattedSong};
+use sundaystage_lib::services::ai::lyric_format::{FormattedSong, heuristic_format};
 
 struct Case {
     name: &'static str,
